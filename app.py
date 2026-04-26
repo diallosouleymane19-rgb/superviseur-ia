@@ -39,21 +39,24 @@ def init_db():
     conn.close()
 
 def sauvegarder_facture(infos: dict):
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("""
-        INSERT INTO factures (date_analyse, num_facture, fournisseur, montant_ht, tva, montant_ttc, compte_suggere)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        datetime.now().strftime("%Y-%m-%d %H:%M"),
-        infos.get("num_facture", ""),
-        infos.get("fournisseur", ""),
-        parse_montant(infos.get("montant_ht", 0)),
-        parse_montant(infos.get("tva", 0)),
-        parse_montant(infos.get("montant_ttc", 0)),
-        infos.get("compte_suggere", ""),
-    ))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("""
+            INSERT INTO factures (date_analyse, num_facture, fournisseur, montant_ht, tva, montant_ttc, compte_suggere)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            datetime.now().strftime("%Y-%m-%d %H:%M"),
+            str(infos.get("num_facture", "")),
+            str(infos.get("fournisseur", "")),
+            float(infos.get("montant_ht", 0.0)),
+            float(infos.get("tva", 0.0)),
+            float(infos.get("montant_ttc", 0.0)),
+            str(infos.get("compte_suggere", "606300")),
+        ))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        st.warning(f"⚠️ Sauvegarde en base impossible : {e}")
 
 def charger_historique():
     conn = sqlite3.connect(DB_PATH)
@@ -297,7 +300,13 @@ Montant TTC: 45.50 €"""
                     st.metric("TVA",         f"{tva:.2f} €")
                     st.metric("Montant TTC", f"{ttc:.2f} €")
 
-                compte = infos.get("compte_suggere", "606300")
+                # 🔧 CORRECTION : compte_suggere robuste
+                compte_raw = infos.get("compte_suggere", "606300")
+                if isinstance(compte_raw, dict):
+                    compte_raw = compte_raw.get("compte", compte_raw.get("suggestion", "606300"))
+                if not isinstance(compte_raw, str) or not re.match(r"^\d{6}$", str(compte_raw)):
+                    compte_raw = "606300"
+                compte = str(compte_raw)
                 st.info(f"📝 Compte comptable suggéré : **{compte}**")
 
                 fec = generer_fec(infos)
