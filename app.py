@@ -3,8 +3,6 @@ import requests
 import json
 import base64
 from datetime import datetime
-import io
-from PIL import Image
 
 st.set_page_config(page_title="Superviseur IA", page_icon="🤖", layout="centered")
 
@@ -15,7 +13,7 @@ st.divider()
 API_KEY = "WGJJsSrYZxx1Ue5gHrUxRnIBKwYVBB9N"
 
 # Mode de saisie
-mode = st.radio("Mode de saisie", ["📝 Texte manuel", "📎 Upload Image (JPG/PNG)"])
+mode = st.radio("Mode de saisie", ["📝 Texte manuel", "📎 Upload PDF/Image"])
 
 st.subheader("📄 Saisie de la facture")
 
@@ -29,21 +27,22 @@ Montant TTC: 45.50 €"""
     texte_facture = st.text_area("Collez le texte de la facture :", value=exemple, height=150)
 
 else:  # Mode Upload
-    st.info("⚠️ Pour les PDF, utilisez d'abord un convertisseur en ligne (PDF → JPG) ou le mode texte.")
-    fichier = st.file_uploader("Choisissez une image (JPG, PNG)", type=["jpg", "jpeg", "png"])
+    fichier = st.file_uploader("Choisissez un fichier (PDF, JPG, PNG)", type=["pdf", "jpg", "jpeg", "png"])
     
     if fichier is not None:
         st.success(f"✅ Fichier chargé : {fichier.name}")
         
-        # Afficher l'image uploadée
-        image = Image.open(fichier)
-        st.image(image, caption="Facture uploadée", width=300)
-        
-        # Convertir en base64
-        bytes_data = fichier.getvalue()
+        # Lire le fichier en base64
+        bytes_data = fichier.read()
         base64_data = base64.b64encode(bytes_data).decode()
         
-        with st.spinner("🔍 Extraction du texte par IA..."):
+        # Déterminer le type MIME
+        if fichier.type == "application/pdf":
+            mime_type = "application/pdf"
+        else:
+            mime_type = "image/jpeg"
+        
+        with st.spinner("🔍 Extraction du texte par IA (OCR)..."):
             url = "https://api.mistral.ai/v1/chat/completions"
             headers = {
                 "Content-Type": "application/json",
@@ -58,11 +57,11 @@ else:  # Mode Upload
                         "content": [
                             {
                                 "type": "text",
-                                "text": "Extrais TOUT le texte de cette facture. Retourne UNIQUEMENT le texte, sans commentaires."
+                                "text": "Extrais TOUT le texte de cette facture. Retourne UNIQUEMENT le texte brut."
                             },
                             {
                                 "type": "image_url",
-                                "image_url": f"data:image/jpeg;base64,{base64_data}"
+                                "image_url": f"data:{mime_type};base64,{base64_data}"
                             }
                         ]
                     }
@@ -79,10 +78,10 @@ else:  # Mode Upload
                     with st.expander("Voir le texte extrait"):
                         st.text(texte_facture[:500] + "..." if len(texte_facture) > 500 else texte_facture)
                 else:
-                    st.error(f"Réponse inattendue: {result}")
+                    st.error("Format de réponse inattendu")
                     
             except Exception as e:
-                st.error(f"Erreur extraction: {str(e)}")
+                st.error(f"Erreur OCR: {str(e)}")
 
 if st.button("🔍 Analyser", type="primary"):
     if not texte_facture.strip():
