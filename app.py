@@ -94,9 +94,24 @@ Montant TTC: 45.50 €"""
                     url = "https://api.mistral.ai/v1/chat/completions"
                     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
                     data = {
-                        "model": "mistral-small-latest",
-                        "messages": [{"role": "system", "content": "Extrais au format JSON: num_facture, date, fournisseur, montant_ht, tva, montant_ttc"}, {"role": "user", "content": texte_a_analyser[:4000]}],
-                        "response_format": {"type": "json_object"}
+    "model": "mistral-small-latest",
+    "messages": [
+        {"role": "system", "content": """Tu es un expert-comptable. Extrais au format JSON: num_facture, date, fournisseur, montant_ht, tva, montant_ttc, compte_suggere.
+
+Règles d'imputation (plan comptable DUNOD 2025):
+- MARCHANDISES (revente à l'identique) → COMPTE 601000
+- FOURNITURES ADMINISTRATIVES (papeterie, logiciels, petits équipements) → COMPTE 606300
+- PRESTATIONS DE SERVICE (SaaS, conseil, formation) → COMPTE 604000
+- TÉLÉCOM (mobile, internet, fixe) → COMPTE 626000
+
+Si le libellé contient 'marchandise', 'revente', 'stock' → 601000.
+Par défaut → 606300.
+
+Retourne UNIQUEMENT un JSON valide."""},
+        {"role": "user", "content": texte_a_analyser[:4000]}
+    ],
+    "response_format": {"type": "json_object"}
+}
                     }
                     response = requests.post(url, headers=headers, json=data)
                     infos = json.loads(response.json()["choices"][0]["message"]["content"])
