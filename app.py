@@ -13,7 +13,7 @@ st.divider()
 API_KEY = "WGJJsSrYZxx1Ue5gHrUxRnIBKwYVBB9N"
 
 # Mode de saisie
-mode = st.radio("Mode de saisie", ["📝 Texte manuel", "📎 Upload PDF/Image"])
+mode = st.radio("Mode de saisie", ["📝 Texte manuel", "📎 Upload Image (JPG, PNG)", "📄 PDF - Copier le texte"])
 
 st.subheader("📄 Saisie de la facture")
 
@@ -26,23 +26,21 @@ Date: 25/04/2026
 Montant TTC: 45.50 €"""
     texte_facture = st.text_area("Collez le texte de la facture :", value=exemple, height=150)
 
-else:  # Mode Upload
-    fichier = st.file_uploader("Choisissez un fichier (PDF, JPG, PNG)", type=["pdf", "jpg", "jpeg", "png"])
+elif mode == "📄 PDF - Copier le texte":
+    st.info("ℹ️ Pour les PDF : ouvrez le fichier, copiez le texte (Ctrl+A, Ctrl+C) et collez-le ci-dessous.")
+    texte_facture = st.text_area("Collez le texte extrait du PDF :", height=150)
+
+else:  # Mode Upload Image
+    fichier = st.file_uploader("Choisissez une image (JPG, PNG)", type=["jpg", "jpeg", "png"])
     
     if fichier is not None:
         st.success(f"✅ Fichier chargé : {fichier.name}")
         
-        # Lire le fichier en base64
+        # Lire l'image en base64
         bytes_data = fichier.read()
         base64_data = base64.b64encode(bytes_data).decode()
         
-        # Déterminer le type MIME
-        if fichier.type == "application/pdf":
-            mime_type = "application/pdf"
-        else:
-            mime_type = "image/jpeg"
-        
-        with st.spinner("🔍 Extraction du texte par IA (OCR)..."):
+        with st.spinner("🔍 OCR en cours..."):
             url = "https://api.mistral.ai/v1/chat/completions"
             headers = {
                 "Content-Type": "application/json",
@@ -57,11 +55,11 @@ else:  # Mode Upload
                         "content": [
                             {
                                 "type": "text",
-                                "text": "Extrais TOUT le texte de cette facture. Retourne UNIQUEMENT le texte brut."
+                                "text": "Extrais le texte de cette facture. Retourne UNIQUEMENT le texte brut."
                             },
                             {
                                 "type": "image_url",
-                                "image_url": f"data:{mime_type};base64,{base64_data}"
+                                "image_url": f"data:image/jpeg;base64,{base64_data}"
                             }
                         ]
                     }
@@ -74,18 +72,17 @@ else:  # Mode Upload
                 
                 if "choices" in result and len(result["choices"]) > 0:
                     texte_facture = result["choices"][0]["message"]["content"]
-                    st.success("📄 Texte extrait avec succès !")
+                    st.success("📄 Texte extrait !")
                     with st.expander("Voir le texte extrait"):
-                        st.text(texte_facture[:500] + "..." if len(texte_facture) > 500 else texte_facture)
+                        st.text(texte_facture[:500])
                 else:
-                    st.error("Format de réponse inattendu")
-                    
+                    st.error("Erreur OCR")
             except Exception as e:
-                st.error(f"Erreur OCR: {str(e)}")
+                st.error(f"Erreur: {str(e)}")
 
 if st.button("🔍 Analyser", type="primary"):
     if not texte_facture.strip():
-        st.error("Veuillez entrer ou uploader une facture")
+        st.error("Veuillez entrer le texte de la facture")
     else:
         with st.spinner("Analyse en cours..."):
             try:
@@ -97,7 +94,7 @@ if st.button("🔍 Analyser", type="primary"):
                 data = {
                     "model": "mistral-small-latest",
                     "messages": [
-                        {"role": "system", "content": "Extrais au format JSON: num_facture, date, fournisseur, montant_ht, tva, montant_ttc. Si seul le TTC est donné, calcule HT = TTC/1.2 et TVA = TTC - HT."},
+                        {"role": "system", "content": "Extrais au format JSON: num_facture, date, fournisseur, montant_ht, tva, montant_ttc. Si seul TTC donné, calcule HT = TTC/1.2."},
                         {"role": "user", "content": texte_facture[:4000]}
                     ],
                     "response_format": {"type": "json_object"}
@@ -106,13 +103,13 @@ if st.button("🔍 Analyser", type="primary"):
                 result = response.json()
                 infos = json.loads(result["choices"][0]["message"]["content"])
                 
-                st.success("✅ Facture analysée !")
+                st.success("✅ Analyse terminée")
                 col1, col2 = st.columns(2)
                 with col1:
                     st.metric("Fournisseur", infos.get("fournisseur", "?"))
                     st.metric("Date", infos.get("date", "?"))
                 with col2:
-                    st.metric("Montant HT", f"{float(infos.get('montant_ht', 0)):.2f} €")
+                    st.metric("HT", f"{float(infos.get('montant_ht', 0)):.2f} €")
                     st.metric("TTC", f"{float(infos.get('montant_ttc', 0)):.2f} €")
                 
                 fec = f"""Journal;Compte;Libellé;Débit;Crédit;Date
