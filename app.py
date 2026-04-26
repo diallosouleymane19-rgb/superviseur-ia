@@ -125,7 +125,8 @@ def appel_mistral(messages: list, json_mode: bool = False, timeout: int = 30) ->
         st.error("🌐 Impossible de joindre l'API Mistral. Vérifiez votre connexion.")
         st.stop()
 
-def generer_fec(infos: dict) -> str:
+def generer_fec(infos: dict) -> tuple[str, str]:
+    """Retourne (contenu_csv, nom_fichier) conforme au format FEC"""
     date_raw = infos.get("date", datetime.now().strftime("%d/%m/%Y"))
     try:
         for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
@@ -143,30 +144,34 @@ def generer_fec(infos: dict) -> str:
     fournisseur = infos.get("fournisseur", "FOURNISSEUR")
     num_facture = infos.get("num_facture", "FAC000")
     compte = infos.get("compte_suggere", "606300")
-    ht  = parse_montant(infos.get("montant_ht", 0))
+    ht = parse_montant(infos.get("montant_ht", 0))
     tva = parse_montant(infos.get("tva", 0))
     ttc = parse_montant(infos.get("montant_ttc", 0))
 
     colonnes = (
-        "JournalCode|JournalLib|EcritureNum|EcritureDate|CompteNum|CompteLib|"
-        "CompAuxNum|CompAuxLib|PieceRef|PieceDate|EcritureLib|Debit|Credit|"
-        "EcritureLet|DateLet|ValidDate|Montantdevise|Idevise"
+        "JournalCode;JournalLib;EcritureNum;EcritureDate;"
+        "CompteNum;CompteLib;CompAuxNum;CompAuxLib;PieceRef;PieceDate;"
+        "EcritureLib;Debit;Credit;EcritureLet;DateLet;ValidDate;Montantdevise;Idevise"
     )
 
     def ligne(ecriture_num, compte_num, compte_lib, debit, credit):
         return (
-            f"ACH|Achats|{ecriture_num}|{date_fec}|{compte_num}|{compte_lib}|"
-            f"||{num_facture}|{date_fec}|{fournisseur}|"
-            f"{debit:.2f}|{credit:.2f}|||||"
+            f"ACH;Achats;{ecriture_num};{date_fec};"
+            f"{compte_num};{compte_lib};;;{num_facture};{date_fec};"
+            f"{fournisseur};{debit:.2f};{credit:.2f};;;;;"
         )
 
+    libelle_compte = "Achat marchandise" if compte == "601000" else "Achat"
     lignes = [
         colonnes,
-        ligne("1", compte,   "Achat",          ht,  0),
+        ligne("1", compte, libelle_compte, ht, 0),
         ligne("2", "445660", "TVA déductible", tva, 0),
-        ligne("3", "401000", "Fournisseur",     0, ttc),
+        ligne("3", "401000", "Fournisseur", 0, ttc),
     ]
-    return "\n".join(lignes)
+
+    contenu_csv = "\n".join(lignes).encode("utf-8-sig").decode("utf-8")
+    nom_fichier = f"FEC_{num_facture}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return contenu_csv, nom_fichier
 
 # ==================== MENU ====================
 menu = st.sidebar.selectbox("Menu", ["📄 Factures", "📰 Veille fiscale", "🗂️ Historique"])
@@ -257,7 +262,12 @@ Montant TTC: 45.50 €"""
                                 "Tu es un expert-comptable français. "
                                 "Extrais les informations de la facture et retourne UNIQUEMENT un objet JSON valide avec ces clés : "
                                 "num_facture, date (format DD/MM/YYYY), fournisseur, montant_ht (nombre), tva (nombre), montant_ttc (nombre), compte_suggere. "
-                                "Règles de ventilation : marchandises→601000, fournitures bureau→606300, services→604000, télécom→626000, transport→624000. "
+                                "Règles de ventilation : "
+                                "marchandise, réassort, produit à revendre, magasin, stock → COMPTE 601000 ; "
+                                "fourniture bureau, papeterie, petit équipement → COMPTE 606300 ; "
+                                "service, SaaS, abonnement → COMPTE 604000 ; "
+                                "télécom, mobile, internet → COMPTE 626000 ; "
+                                "transport, livraison → COMPTE 624000. "
                                 "Si un montant est absent, calcule-le (TTC = HT + TVA). "
                                 "Retourne uniquement le JSON, sans texte autour."
                             )
@@ -309,12 +319,12 @@ Montant TTC: 45.50 €"""
                 compte = str(compte_raw)
                 st.info(f"📝 Compte comptable suggéré : **{compte}**")
 
-                fec = generer_fec(infos)
+                fec, fec_nom = generer_fec(infos)
                 st.download_button(
                     "📥 Télécharger le fichier FEC",
                     fec,
-                    f"FEC_{infos.get('num_facture', 'facture')}_{datetime.now().strftime('%Y%m%d')}.txt",
-                    mime="text/plain"
+                    fec_nom,
+                    mime="text/csv"
                 )
 
                 sauvegarder_facture(infos)
