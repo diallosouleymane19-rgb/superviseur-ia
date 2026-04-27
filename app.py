@@ -620,106 +620,405 @@ elif menu == "📄 Analyse factures":
                     </div>
                     """, unsafe_allow_html=True)
 
-# ==================== DÉTECTION ANOMALIES ====================
+# ==================== DÉTECTION ANOMALIES (3 MODULES) ====================
 elif menu == "🔍 Détection anomalies":
     st.title("🔍 Détection d'anomalies")
-    st.markdown("<div style='color:#8b949e; margin-bottom:1.5rem;'>Analyse IA sur vos données comptables · Doublons · Écarts · Alertes</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color:#8b949e; margin-bottom:1.5rem;'>Module 1 : Historique SQLite · Module 2 : Upload CSV/Excel · Module 3 : Temps réel</div>", unsafe_allow_html=True)
 
-    st.markdown("### Coller vos données à analyser")
-    st.markdown("<div style='color:#8b949e; font-size:0.85rem; margin-bottom:0.5rem;'>Export Excel, CSV, ou texte brut de votre logiciel comptable</div>", unsafe_allow_html=True)
+    # ── Fonctions utilitaires partagées ──────────────────────────────────────
 
-    donnees = st.text_area("Données comptables :", height=200, placeholder="Collez ici un export de votre journal, grand livre, balance ou relevé bancaire...")
+    def afficher_resultats_analyse(analyse: dict):
+        score = analyse.get("score_fiabilite", 0)
+        couleur_score = "#3fb950" if score >= 80 else "#f0883e" if score >= 60 else "#f85149"
+        resume = analyse.get("résumé", analyse.get("resume", ""))
+        st.markdown(f"""
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-size:0.75rem; color:#8b949e; text-transform:uppercase; letter-spacing:0.05em;">Score de fiabilité</div>
+                    <div style="font-size:2.5rem; font-weight:700; color:{couleur_score}; font-family:'IBM Plex Mono',monospace;">{score}/100</div>
+                </div>
+                <div style="flex:1; margin-left:2rem; color:#c9d1d9;">{resume}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        type_analyse = st.selectbox("Type d'analyse", [
-            "Détection complète (recommandé)",
-            "Doublons de factures",
-            "Écarts TVA",
-            "Comptes mal imputés",
-            "Anomalies de montants",
-            "Rapprochement bancaire"
-        ])
-    with col2:
-        seuil = st.number_input("Seuil d'alerte (€)", min_value=0, value=5000, step=500)
-
-    if st.button("🔍 Lancer la détection", type="primary"):
-        if not donnees.strip():
-            st.error("⚠️ Veuillez coller des données à analyser.")
-        else:
-            with st.spinner("Analyse IA des anomalies..."):
-                result = appel_mistral(
-                    messages=[
-                        {"role": "system", "content": (
-                            f"Tu es un expert-comptable et auditeur. Analyse les données comptables fournies et détecte toutes les anomalies. "
-                            f"Type d'analyse demandé : {type_analyse}. Seuil d'alerte : {seuil} €. "
-                            f"Retourne un JSON avec : "
-                            f"résumé (string), "
-                            f"anomalies (liste d'objets avec type, description, montant, niveau_risque parmi 'faible'/'moyen'/'élevé'/'critique'), "
-                            f"recommandations (liste de strings), "
-                            f"score_fiabilite (integer 0-100)."
-                        )},
-                        {"role": "user", "content": donnees[:6000]}
-                    ],
-                    json_mode=True
-                )
-                try:
-                    analyse = json.loads(extraire_contenu_mistral(result))
-                except:
-                    st.error("❌ Erreur d'analyse.")
-                    st.stop()
-
-                score = analyse.get("score_fiabilite", 0)
-                couleur_score = "#3fb950" if score >= 80 else "#f0883e" if score >= 60 else "#f85149"
-
+        anomalies = analyse.get("anomalies", [])
+        if anomalies:
+            st.markdown(f"#### {len(anomalies)} anomalie(s) détectée(s)")
+            for a in anomalies:
+                niveau = a.get("niveau_risque", "moyen")
+                couleur_carte = {"critique": "card-danger", "élevé": "card-danger", "moyen": "card-warning", "faible": "card-accent"}.get(niveau, "card-accent")
+                badge_couleur = {"critique": "badge-red", "élevé": "badge-red", "moyen": "badge-orange", "faible": "badge-blue"}.get(niveau, "badge-blue")
+                montant = a.get("montant", 0)
                 st.markdown(f"""
-                <div class="card">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <div style="font-size:0.75rem; color:#8b949e; text-transform:uppercase; letter-spacing:0.05em;">Score de fiabilité</div>
-                            <div style="font-size:2.5rem; font-weight:700; color:{couleur_score}; font-family:'IBM Plex Mono',monospace;">{score}/100</div>
+                <div class="card {couleur_carte}">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div style="flex:1;">
+                            <span class="badge {badge_couleur}">{niveau.upper()}</span>
+                            <span style="margin-left:0.7rem; font-weight:600; color:#e8e8e8;">{a.get('type','')}</span>
+                            <div style="margin-top:0.5rem; color:#8b949e; font-size:0.9rem;">{a.get('description','')}</div>
                         </div>
-                        <div style="flex:1; margin-left:2rem; color:#c9d1d9;">
-                            {analyse.get('résumé', analyse.get('resume', ''))}
-                        </div>
+                        {f'<div style="font-family:IBM Plex Mono,monospace;color:#f0883e;white-space:nowrap;">{float(montant):.2f} €</div>' if montant else ''}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+                sauvegarder_anomalie(a.get("type",""), a.get("description",""), float(montant) if montant else 0.0)
+        else:
+            st.markdown('<div class="card card-success">✅ Aucune anomalie détectée.</div>', unsafe_allow_html=True)
 
-                anomalies = analyse.get("anomalies", [])
-                if anomalies:
-                    st.markdown(f"### {len(anomalies)} anomalie(s) détectée(s)")
-                    for a in anomalies:
-                        niveau = a.get("niveau_risque", "moyen")
-                        couleur_carte = {"critique": "card-danger", "élevé": "card-danger", "moyen": "card-warning", "faible": "card-accent"}.get(niveau, "card-accent")
-                        badge_couleur = {"critique": "badge-red", "élevé": "badge-red", "moyen": "badge-orange", "faible": "badge-blue"}.get(niveau, "badge-blue")
-                        montant = a.get("montant", 0)
+        recommandations = analyse.get("recommandations", [])
+        if recommandations:
+            st.markdown("#### Recommandations superviseur")
+            for i, r in enumerate(recommandations, 1):
+                st.markdown(f"""
+                <div class="card" style="padding:0.8rem 1.2rem;">
+                    <span style="color:#58a6ff;font-family:'IBM Plex Mono',monospace;font-size:0.8rem;">#{i:02d}</span>
+                    <span style="margin-left:0.7rem;color:#c9d1d9;">{r}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+    def lancer_analyse_ia(donnees_texte: str, type_analyse: str, seuil: float) -> dict | None:
+        result = appel_mistral(
+            messages=[
+                {"role": "system", "content": (
+                    "Tu es un expert-comptable et auditeur français. "
+                    f"Type d'analyse : {type_analyse}. Seuil d'alerte : {seuil} €. "
+                    "Retourne UNIQUEMENT un JSON valide avec : "
+                    "résumé (string), "
+                    "anomalies (liste d'objets : type, description, montant, niveau_risque parmi faible/moyen/élevé/critique), "
+                    "recommandations (liste de strings), "
+                    "score_fiabilite (integer 0-100)."
+                )},
+                {"role": "user", "content": donnees_texte[:7000]}
+            ],
+            json_mode=True
+        )
+        try:
+            return json.loads(extraire_contenu_mistral(result))
+        except:
+            st.error("❌ Erreur d'analyse IA.")
+            return None
+
+    def verifier_doublon(fournisseur: str, montant_ttc: float, num_facture: str) -> list:
+        """Cherche des doublons potentiels dans l'historique SQLite."""
+        conn = sqlite3.connect(DB_PATH)
+        rows = conn.execute("""
+            SELECT num_facture, fournisseur, montant_ttc, date_analyse
+            FROM factures
+            WHERE fournisseur = ? AND ABS(montant_ttc - ?) < 0.10 AND num_facture != ?
+            ORDER BY id DESC LIMIT 5
+        """, (fournisseur, montant_ttc, num_facture)).fetchall()
+        conn.close()
+        return rows
+
+    # ── Onglets des 3 modules ─────────────────────────────────────────────────
+    tab1, tab2, tab3 = st.tabs([
+        "🗄️ Module 1 — Historique SQLite",
+        "📂 Module 2 — Upload CSV/Excel",
+        "⚡ Module 3 — Temps réel (nouvelle facture)"
+    ])
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE 1 — Analyse automatique de l'historique SQLite
+    # ═══════════════════════════════════════════════════════════════
+    with tab1:
+        st.markdown("### Analyse de l'historique enregistré")
+        st.markdown("<div style='color:#8b949e; font-size:0.85rem; margin-bottom:1rem;'>L'agent analyse toutes les factures déjà sauvegardées en base et détecte les anomalies automatiquement — sans rien coller.</div>", unsafe_allow_html=True)
+
+        # Charger et afficher un aperçu de la base
+        rows = charger_historique()
+        nb = len(rows)
+
+        if nb == 0:
+            st.markdown('<div class="card card-accent">ℹ️ Aucune facture en base. Analysez d\'abord des factures dans le menu <strong>📄 Analyse factures</strong>.</div>', unsafe_allow_html=True)
+        else:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Factures en base", nb)
+            col2.metric("Total HT", f"{sum(r[4] or 0 for r in rows):,.2f} €")
+            col3.metric("Total TTC", f"{sum(r[6] or 0 for r in rows):,.2f} €")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            col_opt1, col_opt2 = st.columns(2)
+            with col_opt1:
+                type_analyse_sql = st.selectbox("Type d'analyse", [
+                    "Détection complète (recommandé)",
+                    "Doublons de factures",
+                    "Écarts TVA suspects",
+                    "Comptes PCG mal imputés",
+                    "Montants aberrants",
+                ], key="type_sql")
+            with col_opt2:
+                seuil_sql = st.number_input("Seuil d'alerte (€)", min_value=0, value=5000, step=500, key="seuil_sql")
+
+            if st.button("🔍 Analyser l'historique", type="primary", key="btn_sql"):
+                # Construire un texte structuré depuis la base
+                lignes = ["ID | Date | N°Facture | Fournisseur | HT | TVA | TTC | Compte"]
+                for r in rows:
+                    lignes.append(f"{r[0]} | {r[1]} | {r[2]} | {r[3]} | {r[4]:.2f} | {r[5]:.2f} | {r[6]:.2f} | {r[7]}")
+
+                # Détection de doublons algorithmique (sans IA)
+                doublons_detectes = []
+                vus = {}
+                for r in rows:
+                    cle = (str(r[3]).lower().strip(), round(float(r[6] or 0), 2))
+                    if cle in vus:
+                        doublons_detectes.append((r, vus[cle]))
+                    else:
+                        vus[cle] = r
+
+                if doublons_detectes:
+                    st.markdown(f"""
+                    <div class="card card-danger">
+                        <strong>🔴 {len(doublons_detectes)} doublon(s) détecté(s) algorithmiquement</strong>
+                        <div style="font-size:0.85rem; color:#8b949e; margin-top:0.3rem;">Même fournisseur + même montant TTC</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    for d1, d2 in doublons_detectes:
                         st.markdown(f"""
-                        <div class="card {couleur_carte}">
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                                <div style="flex:1;">
-                                    <span class="badge {badge_couleur}">{niveau.upper()}</span>
-                                    <span style="margin-left:0.7rem; font-weight:600; color:#e8e8e8;">{a.get('type', '')}</span>
-                                    <div style="margin-top:0.5rem; color:#8b949e; font-size:0.9rem;">{a.get('description', '')}</div>
-                                </div>
-                                {f'<div style="font-family:IBM Plex Mono,monospace; color:#f0883e;">{float(montant):.2f} €</div>' if montant else ''}
+                        <div class="card card-warning" style="padding:0.8rem 1.2rem;">
+                            <span class="badge badge-red">DOUBLON</span>
+                            <span style="margin-left:0.7rem; color:#e8e8e8;">{d1[3]}</span>
+                            <span style="color:#484f58; margin:0 0.5rem;">·</span>
+                            <span style="font-family:'IBM Plex Mono',monospace; color:#f0883e;">{d1[6]:.2f} €</span>
+                            <div style="font-size:0.8rem; color:#484f58; margin-top:0.3rem;">
+                                Facture #{d1[0]} ({d1[1]}) ↔ Facture #{d2[0]} ({d2[1]})
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
-                        sauvegarder_anomalie(a.get("type", ""), a.get("description", ""), float(montant) if montant else 0.0)
-                else:
-                    st.markdown('<div class="card card-success">✅ Aucune anomalie détectée dans les données analysées.</div>', unsafe_allow_html=True)
+                        sauvegarder_anomalie("Doublon", f"Fournisseur {d1[3]} — {d1[6]:.2f} € en double (#{d1[0]} et #{d2[0]})", d1[6])
 
-                recommandations = analyse.get("recommandations", [])
-                if recommandations:
-                    st.markdown("### Recommandations du superviseur")
-                    for i, r in enumerate(recommandations, 1):
+                # Analyse IA complémentaire
+                with st.spinner("Analyse IA approfondie de l'historique..."):
+                    analyse = lancer_analyse_ia("\n".join(lignes), type_analyse_sql, seuil_sql)
+                    if analyse:
+                        afficher_resultats_analyse(analyse)
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE 2 — Upload fichier CSV / Excel
+    # ═══════════════════════════════════════════════════════════════
+    with tab2:
+        st.markdown("### Analyse d'un fichier export")
+        st.markdown("<div style='color:#8b949e; font-size:0.85rem; margin-bottom:1rem;'>Exportez votre journal depuis Sage, Cegid, Pennylane ou EBP et uploadez le fichier directement.</div>", unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="card card-accent" style="padding:0.8rem 1.2rem; margin-bottom:1rem;">
+            <div style="font-size:0.8rem; color:#8b949e;">Formats acceptés :</div>
+            <div style="margin-top:0.3rem; color:#c9d1d9;">
+                <span class="badge badge-blue">CSV</span>
+                <span class="badge badge-blue" style="margin-left:0.5rem;">XLS / XLSX</span>
+                <span class="badge badge-blue" style="margin-left:0.5rem;">TXT</span>
+                <span class="badge badge-blue" style="margin-left:0.5rem;">FEC</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        fichier_upload = st.file_uploader(
+            "Choisissez votre export comptable",
+            type=["csv", "txt", "xls", "xlsx"],
+            key="upload_anomalie"
+        )
+
+        col1, col2 = st.columns(2)
+        with col1:
+            type_analyse_up = st.selectbox("Type d'analyse", [
+                "Détection complète (recommandé)",
+                "Doublons de factures",
+                "Écarts TVA suspects",
+                "Comptes PCG mal imputés",
+                "Rapprochement bancaire",
+                "Anomalies de montants",
+            ], key="type_up")
+        with col2:
+            seuil_up = st.number_input("Seuil d'alerte (€)", min_value=0, value=5000, step=500, key="seuil_up")
+
+        if fichier_upload:
+            ext = fichier_upload.name.split(".")[-1].lower()
+            contenu_texte = ""
+
+            try:
+                if ext in ["csv", "txt"]:
+                    # Détecter l'encodage
+                    raw = fichier_upload.read()
+                    for enc in ["utf-8-sig", "utf-8", "latin-1", "cp1252"]:
+                        try:
+                            contenu_texte = raw.decode(enc)
+                            break
+                        except:
+                            continue
+
+                elif ext in ["xls", "xlsx"]:
+                    try:
+                        import pandas as pd
+                        df = pd.read_excel(fichier_upload, nrows=500)
+                        contenu_texte = df.to_csv(index=False, sep=";")
                         st.markdown(f"""
-                        <div class="card" style="padding: 0.8rem 1.2rem;">
-                            <span style="color:#58a6ff; font-family:'IBM Plex Mono',monospace; font-size:0.8rem;">#{i:02d}</span>
-                            <span style="margin-left:0.7rem; color:#c9d1d9;">{r}</span>
+                        <div class="card card-success" style="padding:0.8rem 1.2rem; margin-bottom:0.5rem;">
+                            ✅ Fichier Excel chargé — {len(df)} lignes · {len(df.columns)} colonnes
                         </div>
                         """, unsafe_allow_html=True)
+                        with st.expander("Aperçu des données (10 premières lignes)"):
+                            st.dataframe(df.head(10), use_container_width=True)
+                    except ImportError:
+                        st.error("❌ pandas non installé. Lancez : pip install pandas openpyxl")
+                        st.stop()
+
+            except Exception as e:
+                st.error(f"❌ Erreur de lecture : {e}")
+                st.stop()
+
+            if contenu_texte:
+                nb_lignes = len(contenu_texte.splitlines())
+                st.markdown(f"<div style='color:#8b949e; font-size:0.85rem; margin-bottom:1rem;'>📄 {fichier_upload.name} · {nb_lignes} lignes chargées</div>", unsafe_allow_html=True)
+
+                if st.button("🔍 Lancer la détection sur le fichier", type="primary", key="btn_upload"):
+                    with st.spinner("Analyse IA du fichier..."):
+                        analyse = lancer_analyse_ia(contenu_texte, type_analyse_up, seuil_up)
+                        if analyse:
+                            afficher_resultats_analyse(analyse)
+        else:
+            st.markdown("""
+            <div class="card" style="text-align:center; padding:2rem; border-style:dashed;">
+                <div style="font-size:2rem; margin-bottom:0.5rem;">📂</div>
+                <div style="color:#8b949e;">Glissez-déposez votre fichier export ou cliquez pour parcourir</div>
+                <div style="font-size:0.75rem; color:#484f58; margin-top:0.5rem;">Sage · Cegid · Pennylane · EBP · Export FEC DGFiP</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # ═══════════════════════════════════════════════════════════════
+    # MODULE 3 — Détection temps réel (vérification avant sauvegarde)
+    # ═══════════════════════════════════════════════════════════════
+    with tab3:
+        st.markdown("### Vérification en temps réel")
+        st.markdown("<div style='color:#8b949e; font-size:0.85rem; margin-bottom:1rem;'>Saisissez les informations d'une nouvelle facture avant de l'enregistrer. L'agent vérifie instantanément les doublons, la cohérence TVA et l'imputation PCG.</div>", unsafe_allow_html=True)
+
+        with st.form("form_temps_reel"):
+            col1, col2 = st.columns(2)
+            with col1:
+                tr_fournisseur = st.text_input("Fournisseur", placeholder="ORANGE SA")
+                tr_num = st.text_input("N° facture", placeholder="FAC-2026-001")
+                tr_date = st.text_input("Date (DD/MM/YYYY)", placeholder="27/04/2026")
+            with col2:
+                tr_ht = st.number_input("Montant HT (€)", min_value=0.0, step=0.01, format="%.2f")
+                tr_tva = st.number_input("TVA (€)", min_value=0.0, step=0.01, format="%.2f")
+                tr_compte = st.text_input("Compte PCG suggéré", placeholder="626000")
+
+            tr_ttc = round(tr_ht + tr_tva, 2)
+            st.markdown(f"<div style='color:#58a6ff; font-family:IBM Plex Mono,monospace;'>TTC calculé : <strong>{tr_ttc:.2f} €</strong></div>", unsafe_allow_html=True)
+
+            submitted = st.form_submit_button("⚡ Vérifier maintenant", type="primary")
+
+        if submitted and tr_fournisseur and tr_ht > 0:
+            alertes = []
+
+            # ── Vérification 1 : Doublon algorithmique ──
+            doublons = verifier_doublon(tr_fournisseur, tr_ttc, tr_num)
+            if doublons:
+                for d in doublons:
+                    alertes.append({
+                        "niveau": "critique",
+                        "titre": "Doublon potentiel détecté",
+                        "detail": f"Facture #{d[0]} du {d[3]} — même fournisseur ({d[1]}) — même montant TTC ({d[2]:.2f} €)",
+                        "badge": "badge-red",
+                        "card": "card-danger"
+                    })
+
+            # ── Vérification 2 : Cohérence TVA ──
+            if tr_ht > 0 and tr_tva > 0:
+                taux_tva = round((tr_tva / tr_ht) * 100, 1)
+                taux_attendus = [20.0, 10.0, 5.5, 2.1]
+                taux_ok = any(abs(taux_tva - t) < 0.5 for t in taux_attendus)
+                if not taux_ok:
+                    alertes.append({
+                        "niveau": "élevé",
+                        "titre": f"Taux TVA inhabituel : {taux_tva}%",
+                        "detail": f"Taux calculé : {taux_tva}% — Taux légaux FR : 20%, 10%, 5.5%, 2.1%. Vérifiez la facture.",
+                        "badge": "badge-red",
+                        "card": "card-danger"
+                    })
+                else:
+                    alertes.append({
+                        "niveau": "ok",
+                        "titre": f"TVA cohérente : {taux_tva}%",
+                        "detail": "Taux conforme aux taux légaux français.",
+                        "badge": "badge-green",
+                        "card": "card-success"
+                    })
+
+            # ── Vérification 3 : Montant élevé ──
+            if tr_ttc > 10000:
+                alertes.append({
+                    "niveau": "moyen",
+                    "titre": "Montant élevé",
+                    "detail": f"TTC de {tr_ttc:.2f} € — Vérification superviseur recommandée au-delà de 10 000 €.",
+                    "badge": "badge-orange",
+                    "card": "card-warning"
+                })
+
+            # ── Vérification 4 : Compte PCG via IA ──
+            if tr_compte and tr_fournisseur:
+                with st.spinner("Vérification du compte PCG..."):
+                    result_pcg = appel_mistral([
+                        {"role": "system", "content": (
+                            "Tu es expert-comptable PCG. "
+                            "Retourne UNIQUEMENT un JSON avec : "
+                            "compte_correct (boolean), "
+                            "compte_recommande (string 6 chiffres), "
+                            "explication (string courte)."
+                        )},
+                        {"role": "user", "content": f"Fournisseur : {tr_fournisseur}. Compte saisi : {tr_compte}. HT : {tr_ht}€. Est-ce correct selon le PCG ?"}
+                    ], json_mode=True)
+                    try:
+                        pcg_check = json.loads(extraire_contenu_mistral(result_pcg))
+                        if not pcg_check.get("compte_correct", True):
+                            alertes.append({
+                                "niveau": "moyen",
+                                "titre": f"Compte PCG à vérifier — Recommandé : {pcg_check.get('compte_recommande', '?')}",
+                                "detail": pcg_check.get("explication", ""),
+                                "badge": "badge-orange",
+                                "card": "card-warning"
+                            })
+                        else:
+                            alertes.append({
+                                "niveau": "ok",
+                                "titre": f"Compte PCG validé : {tr_compte}",
+                                "detail": pcg_check.get("explication", ""),
+                                "badge": "badge-green",
+                                "card": "card-success"
+                            })
+                    except:
+                        pass
+
+            # ── Affichage des alertes ──
+            st.markdown("<br>", unsafe_allow_html=True)
+            nb_alertes = sum(1 for a in alertes if a["niveau"] not in ["ok"])
+
+            if nb_alertes == 0:
+                st.markdown('<div class="card card-success">✅ <strong>Aucune anomalie détectée.</strong> Facture conforme — vous pouvez l\'enregistrer.</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="card card-warning">
+                    ⚠️ <strong>{nb_alertes} point(s) à vérifier</strong> avant enregistrement
+                </div>
+                """, unsafe_allow_html=True)
+
+            for a in alertes:
+                st.markdown(f"""
+                <div class="card {a['card']}" style="padding:0.8rem 1.2rem;">
+                    <span class="badge {a['badge']}">{a['niveau'].upper()}</span>
+                    <span style="margin-left:0.7rem; font-weight:600; color:#e8e8e8;">{a['titre']}</span>
+                    <div style="margin-top:0.4rem; color:#8b949e; font-size:0.85rem;">{a['detail']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # Sauvegarder les anomalies critiques
+            for a in alertes:
+                if a["niveau"] in ["critique", "élevé"]:
+                    sauvegarder_anomalie(a["titre"], a["detail"], tr_ttc)
+
+        elif submitted:
+            st.error("⚠️ Veuillez renseigner au minimum le fournisseur et le montant HT.")
 
 # ==================== VEILLE FISCALE ====================
 elif menu == "📰 Veille fiscale":
