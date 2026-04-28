@@ -58,32 +58,32 @@ def extraire_compte_valide(valeur) -> str:
     return "606300"
 
 def sauvegarder_facture(infos: dict):
-    for _ in range(3):
+    for tentative in range(3):
         try:
             conn = sqlite3.connect(DB_PATH, timeout=5)
-            conn.execute("""
-                INSERT INTO factures (date_analyse, num_facture, fournisseur, montant_ht, tva, montant_ttc, compte_suggere)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                datetime.now().strftime("%Y-%m-%d %H:%M"),
-                str(infos.get("num_facture", "")),
-                str(infos.get("fournisseur", "")),
-                float(infos.get("montant_ht", 0.0)),
-                float(infos.get("tva", 0.0)),
-                float(infos.get("montant_ttc", 0.0)),
-                extraire_compte_valide(infos.get("compte_suggere", "606300")),
-            ))
-            conn.commit()
-            conn.close()
+            with conn:
+                conn.execute("""
+                    INSERT INTO factures (date_analyse, num_facture, fournisseur, montant_ht, tva, montant_ttc, compte_suggere)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    str(infos.get("num_facture", "")),
+                    str(infos.get("fournisseur", "")),
+                    float(infos.get("montant_ht", 0.0)),
+                    float(infos.get("tva", 0.0)),
+                    float(infos.get("montant_ttc", 0.0)),
+                    extraire_compte_valide(infos.get("compte_suggere", "606300")),
+                ))
             return
         except sqlite3.OperationalError as e:
-            if "locked" in str(e) and _ < 2:
+            if "locked" in str(e) and tentative < 2:
                 time.sleep(0.5)
                 continue
             else:
                 st.warning(f"⚠️ Sauvegarde impossible : {e}")
                 return
 
+@st.cache_data
 def charger_historique():
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute("SELECT * FROM factures ORDER BY id DESC LIMIT 50").fetchall()
@@ -150,14 +150,17 @@ def generer_fec(infos: dict) -> tuple[str, str]:
     """
     # Date d'écriture (format AAAAMMJJ)
     date_raw = infos.get("date", datetime.now().strftime("%d/%m/%Y"))
-    try:
-        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+    date_fec = None
+
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+        try:
             date_obj = datetime.strptime(date_raw, fmt)
             date_fec = date_obj.strftime("%Y%m%d")
             break
-        else:
-            date_fec = datetime.now().strftime("%Y%m%d")
-    except Exception:
+        except ValueError:
+            continue
+
+    if not date_fec:
         date_fec = datetime.now().strftime("%Y%m%d")
 
     fournisseur = infos.get("fournisseur", "FOURNISSEUR")[:35]
@@ -170,10 +173,13 @@ def generer_fec(infos: dict) -> tuple[str, str]:
 
     def ligne(ecriture_num, compte_num, compte_lib, debit, credit):
         libelle_tronc = (compte_lib[:35] + '..') if len(compte_lib) > 35 else compte_lib
+        # Montantdevise et Idevise remplis avec valeurs neutres
+        montantdevise = "0"
+        idevise = ""
         return (
             f"ACH;Achats;{ecriture_num};{date_fec};"
             f"{compte_num};{libelle_tronc};;;{num_facture};{date_fec};"
-            f"{fournisseur};{debit:.2f};{credit:.2f};;{date_fec};{date_fec};;"
+            f"{fournisseur};{debit:.2f};{credit:.2f};;{date_fec};{date_fec};{montantdevise};{idevise}"
         )
 
     colonnes = (
@@ -235,7 +241,15 @@ Montant TTC: 45.50 €"""
             base64_data = base64.b64encode(bytes_data).decode()
             with st.spinner("OCR..."):
                 try:
-                    result = appel_mistral([{"role": "user", "content": [{"type": "text", "text": "Extrais le texte."}, {"type": "image_url", "image_url": f"data:{mime};base64,{base64_data}"}]}])
+                    result = appel_mistral([
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "Extrais le texte."},
+                                {"type": "input_image", "image_url": f"data:{mime};base64,{base64_data}"}
+                            ]
+                        }
+                    ])
                     texte_extrait = extraire_contenu_mistral(result).strip()
                     if not texte_extrait:
                         st.error("❌ L'image n'a pas pu être lue. Vérifiez sa qualité (contraste, netteté).")
@@ -274,7 +288,13 @@ Montant TTC: 45.50 €"""
                     ],
                     json_mode=True
                 )
-                infos = json.loads(extraire_contenu_mistral(result))
+
+                contenu = extraire_contenu_mistral(result)
+                try:
+                    infos = json.loads(contenu)
+                except json.JSONDecodeError:
+                    st.error("❌ L'IA n'a pas renvoyé un JSON valide. Réessayez ou ajustez le texte de la facture.")
+                    st.stop()
 
             ht = parse_montant(infos.get("montant_ht", 0))
             tva = parse_montant(infos.get("tva", 0))
