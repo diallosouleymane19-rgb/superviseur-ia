@@ -141,7 +141,7 @@ def generer_fec(infos: dict) -> tuple[str, str]:
     Génère un fichier FEC 100% conforme DGFiP.
     Aucun champ obligatoire n'est laissé vide.
     """
-    # 1. Date d'écriture (format AAAAMMJJ)
+    # Date d'écriture (format AAAAMMJJ)
     date_raw = infos.get("date", datetime.now().strftime("%d/%m/%Y"))
     try:
         for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
@@ -153,7 +153,6 @@ def generer_fec(infos: dict) -> tuple[str, str]:
     except Exception:
         date_fec = datetime.now().strftime("%Y%m%d")
 
-    # 2. Informations facture (avec limites de longueur)
     fournisseur = infos.get("fournisseur", "FOURNISSEUR")[:35]
     num_facture  = infos.get("num_facture", "FAC000")[:30]
     compte = extraire_compte_valide(infos.get("compte_suggere", "606300"))
@@ -162,7 +161,6 @@ def generer_fec(infos: dict) -> tuple[str, str]:
     tva = parse_montant(infos.get("tva", 0))
     ttc = parse_montant(infos.get("montant_ttc", 0))
 
-    # 3. Construction de chaque ligne (tous les champs obligatoires)
     def ligne(ecriture_num, compte_num, compte_lib, debit, credit):
         return (
             f"ACH;Achats;{ecriture_num};{date_fec};"
@@ -170,7 +168,6 @@ def generer_fec(infos: dict) -> tuple[str, str]:
             f"{fournisseur};{debit:.2f};{credit:.2f};;{date_fec};{date_fec};;"
         )
 
-    # 4. En-tête officiel
     colonnes = (
         "JournalCode;JournalLib;EcritureNum;EcritureDate;"
         "CompteNum;CompteLib;CompAuxNum;CompAuxLib;PieceRef;PieceDate;"
@@ -290,38 +287,71 @@ Montant TTC: 45.50 €"""
                 st.download_button("📥 Télécharger FEC (.csv)", fec, nom_fec, mime="text/csv")
                 sauvegarder_facture(infos)
 
-# ==================== DÉTECTION ANOMALIES ====================
+# ==================== DÉTECTION ANOMALIES (version corrigée) ====================
 elif menu == "🔍 Détection anomalies":
     st.title("🔍 Détection d'anomalies comptables")
     st.caption("Analyse des exports Sage / Cegid / Pennylane")
     st.divider()
 
-    uploaded_file = st.file_uploader("Choisissez votre export (CSV, XLSX, FEC)", type=["csv", "xlsx", "txt"])
-    seuil = st.number_input("Seuil d'alerte (€)", min_value=0, value=5000, step=1000)
+    uploaded_file = st.file_uploader("Choisissez votre export (CSV, XLSX)", type=["csv", "xlsx"])
 
-    if uploaded_file:
+    if uploaded_file is not None:
         try:
             import pandas as pd
+
+            # Lecture sans en-tête automatique
             if uploaded_file.name.endswith("xlsx"):
-                df = pd.read_excel(uploaded_file)
+                df = pd.read_excel(uploaded_file, header=None)
             else:
-                df = pd.read_csv(uploaded_file, sep=None, engine="python")
+                df = pd.read_csv(uploaded_file, sep=None, engine="python", header=None)
+
+            st.write("📄 **Aperçu des premières lignes :**")
             st.dataframe(df.head(10))
-            montant_col = None
-            for col in df.columns:
-                if "montant" in col.lower() or "debit" in col.lower() or "credit" in col.lower():
-                    montant_col = col
-                    break
-            if montant_col and df[montant_col].dtype in ['float64', 'int64']:
-                anomalies = df[df[montant_col].abs() > seuil]
-                st.warning(f"🚨 {len(anomalies)} écritures > {seuil} € détectées")
-                st.dataframe(anomalies)
-            else:
-                st.info("Aucune colonne de montant identifiée automatiquement.")
+
+            # Sélection de la ligne d'en-tête
+            header_row = st.number_input(
+                "Numéro de la ligne contenant les noms des colonnes",
+                min_value=0,
+                max_value=len(df) - 1,
+                value=0,
+                step=1
+            )
+
+            # Appliquer l'en-tête
+            df.columns = df.iloc[header_row]
+            df = df[header_row + 1:].reset_index(drop=True)
+
+            # Sélection de la colonne montant
+            colonnes = df.columns.tolist()
+            colonne_montant = st.selectbox("📊 Choisissez la colonne contenant les montants", colonnes)
+
+            # Conversion en numérique
+            df[colonne_montant] = pd.to_numeric(df[colonne_montant], errors='coerce')
+
+            # Seuil d'alerte
+            seuil = st.number_input("🚨 Seuil d'alerte (€)", min_value=0, value=5000, step=1000)
+
+            if st.button("🔍 Lancer la détection", type="primary"):
+                anomalies = df[df[colonne_montant].abs() > seuil]
+                st.warning(f"🚨 **{len(anomalies)}** écritures > {seuil} € détectées")
+
+                if not anomalies.empty:
+                    st.dataframe(anomalies)
+                    csv = anomalies.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button(
+                        "📥 Télécharger les anomalies (CSV)",
+                        csv,
+                        "anomalies.csv",
+                        mime="text/csv"
+                    )
+                else:
+                    st.success("✅ Aucune anomalie détectée.")
+
         except Exception as e:
             st.exception(e)
+            st.info("💡 Vérifiez que votre fichier est bien structuré (colonnes cohérentes).")
 
-# ==================== VEILLE FISCALE (version stable, sans appel réseau) ====================
+# ==================== VEILLE FISCALE ====================
 elif menu == "📰 Veille fiscale":
     st.title("📰 Veille fiscale hebdomadaire")
     st.caption("SMD Consulting - Souleymane Diallo")
@@ -332,7 +362,6 @@ elif menu == "📰 Veille fiscale":
     if st.button("📡 Générer la veille de la semaine", type="primary"):
         with st.spinner("🔍 Récupération et analyse des textes officiels..."):
             try:
-                # Données simulées réalistes (actualité fiscale française)
                 articles_ia = [
                     {
                         "source": "Journal Officiel",
@@ -365,7 +394,6 @@ elif menu == "📰 Veille fiscale":
                         st.markdown(f"**✅ Action recommandée :** {article['action']}")
                         st.markdown(f"[📖 Lire l'article original]({article['lien']})")
 
-                # Génération du HTML pour email
                 html_parts = ["<html><head><meta charset='utf-8'></head><body>"]
                 html_parts.append(f"<h1>📰 Veille fiscale — semaine du {datetime.now().strftime('%d/%m/%Y')}</h1>")
                 html_parts.append("<p><em>Généré par IA - SMD Consulting</em></p><hr>")
