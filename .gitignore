@@ -1,1 +1,28 @@
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Bases de données locales
+users.db
+historique_factures.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environnements virtuels
+.env
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
 
