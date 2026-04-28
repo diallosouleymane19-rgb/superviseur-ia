@@ -4,7 +4,7 @@ import json
 import base64
 import re
 import sqlite3
-import os
+import time
 from datetime import datetime
 
 st.set_page_config(page_title="Superviseur IA", page_icon="🤖", layout="centered")
@@ -58,24 +58,31 @@ def extraire_compte_valide(valeur) -> str:
     return "606300"
 
 def sauvegarder_facture(infos: dict):
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("""
-            INSERT INTO factures (date_analyse, num_facture, fournisseur, montant_ht, tva, montant_ttc, compte_suggere)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            datetime.now().strftime("%Y-%m-%d %H:%M"),
-            str(infos.get("num_facture", "")),
-            str(infos.get("fournisseur", "")),
-            float(infos.get("montant_ht", 0.0)),
-            float(infos.get("tva", 0.0)),
-            float(infos.get("montant_ttc", 0.0)),
-            extraire_compte_valide(infos.get("compte_suggere", "606300")),
-        ))
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        st.warning(f"⚠️ Sauvegarde impossible, mais l'analyse reste OK : {e}")
+    for _ in range(3):
+        try:
+            conn = sqlite3.connect(DB_PATH, timeout=5)
+            conn.execute("""
+                INSERT INTO factures (date_analyse, num_facture, fournisseur, montant_ht, tva, montant_ttc, compte_suggere)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                datetime.now().strftime("%Y-%m-%d %H:%M"),
+                str(infos.get("num_facture", "")),
+                str(infos.get("fournisseur", "")),
+                float(infos.get("montant_ht", 0.0)),
+                float(infos.get("tva", 0.0)),
+                float(infos.get("montant_ttc", 0.0)),
+                extraire_compte_valide(infos.get("compte_suggere", "606300")),
+            ))
+            conn.commit()
+            conn.close()
+            return
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e) and _ < 2:
+                time.sleep(0.5)
+                continue
+            else:
+                st.warning(f"⚠️ Sauvegarde impossible : {e}")
+                return
 
 def charger_historique():
     conn = sqlite3.connect(DB_PATH)
@@ -162,9 +169,10 @@ def generer_fec(infos: dict) -> tuple[str, str]:
     ttc = parse_montant(infos.get("montant_ttc", 0))
 
     def ligne(ecriture_num, compte_num, compte_lib, debit, credit):
+        libelle_tronc = (compte_lib[:35] + '..') if len(compte_lib) > 35 else compte_lib
         return (
             f"ACH;Achats;{ecriture_num};{date_fec};"
-            f"{compte_num};{compte_lib};;;{num_facture};{date_fec};"
+            f"{compte_num};{libelle_tronc};;;{num_facture};{date_fec};"
             f"{fournisseur};{debit:.2f};{credit:.2f};;{date_fec};{date_fec};;"
         )
 
@@ -199,6 +207,8 @@ if menu == "📄 Factures":
         st.session_state.texte_facture = ""
     if "dernier_mode" not in st.session_state:
         st.session_state.dernier_mode = ""
+    if "analyse_en_cours" not in st.session_state:
+        st.session_state.analyse_en_cours = False
 
     mode = st.radio("Mode de saisie", ["📝 Texte manuel", "📎 Upload Image (JPG, PNG)", "📄 PDF - Copier le texte"])
 
@@ -226,7 +236,11 @@ Montant TTC: 45.50 €"""
             with st.spinner("OCR..."):
                 try:
                     result = appel_mistral([{"role": "user", "content": [{"type": "text", "text": "Extrais le texte."}, {"type": "image_url", "image_url": f"data:{mime};base64,{base64_data}"}]}])
-                    st.session_state.texte_facture = extraire_contenu_mistral(result).strip()
+                    texte_extrait = extraire_contenu_mistral(result).strip()
+                    if not texte_extrait:
+                        st.error("❌ L'image n'a pas pu être lue. Vérifiez sa qualité (contraste, netteté).")
+                        st.stop()
+                    st.session_state.texte_facture = texte_extrait
                     st.success("Texte extrait")
                 except Exception as e:
                     st.exception(e)
@@ -236,71 +250,76 @@ Montant TTC: 45.50 €"""
         st.info("Copiez le texte du PDF et collez-le ci-dessous.")
         st.session_state.texte_facture = st.text_area("Texte PDF", value=st.session_state.texte_facture, height=150)
 
-    if st.button("🔍 Analyser", type="primary"):
+    if st.button("🔍 Analyser", type="primary", disabled=st.session_state.analyse_en_cours):
+        st.session_state.analyse_en_cours = True
         texte_a_analyser = st.session_state.texte_facture
-        if not texte_a_analyser.strip():
-            st.error("Veuillez entrer une facture.")
-        else:
+        try:
+            if not texte_a_analyser.strip():
+                st.error("Veuillez entrer une facture.")
+                st.session_state.analyse_en_cours = False
+                st.stop()
+
             with st.spinner("Analyse IA..."):
-                try:
-                    result = appel_mistral(
-                        messages=[
-                            {"role": "system", "content": (
-                                "Tu es un expert-comptable. "
-                                "Retourne UNIQUEMENT un JSON valide avec : num_facture, date (DD/MM/YYYY), fournisseur, "
-                                "montant_ht, tva, montant_ttc (nombres), compte_suggere (texte 6 chiffres). "
-                                "compte_suggere doit être une chaîne de 6 chiffres (ex '601000'), pas un objet. "
-                                "Règles : marchandises, réassort, magasin → 601000 ; fournitures, papeterie → 606300 ; "
-                                "services, SaaS, abonnement → 604000 ; télécom → 626000 ; transport → 624000."
-                            )},
-                            {"role": "user", "content": texte_a_analyser[:4000]}
-                        ],
-                        json_mode=True
-                    )
-                    infos = json.loads(extraire_contenu_mistral(result))
-                except Exception as e:
-                    st.exception(e)
-                    st.stop()
+                result = appel_mistral(
+                    messages=[
+                        {"role": "system", "content": (
+                            "Tu es un expert-comptable. "
+                            "Retourne UNIQUEMENT un JSON valide avec : num_facture, date (DD/MM/YYYY), fournisseur, "
+                            "montant_ht, tva, montant_ttc (nombres), compte_suggere (texte 6 chiffres). "
+                            "compte_suggere doit être une chaîne de 6 chiffres (ex '601000'), pas un objet. "
+                            "Règles : marchandises, réassort, magasin → 601000 ; fournitures, papeterie → 606300 ; "
+                            "services, SaaS, abonnement → 604000 ; télécom → 626000 ; transport → 624000."
+                        )},
+                        {"role": "user", "content": texte_a_analyser[:4000]}
+                    ],
+                    json_mode=True
+                )
+                infos = json.loads(extraire_contenu_mistral(result))
 
-                ht = parse_montant(infos.get("montant_ht", 0))
-                tva = parse_montant(infos.get("tva", 0))
-                ttc = parse_montant(infos.get("montant_ttc", 0))
-                if abs((ht + tva) - ttc) > 0.05 and ht and tva:
-                    ttc = round(ht + tva, 2)
-                    infos["montant_ttc"] = ttc
+            ht = parse_montant(infos.get("montant_ht", 0))
+            tva = parse_montant(infos.get("tva", 0))
+            ttc = parse_montant(infos.get("montant_ttc", 0))
+            if abs((ht + tva) - ttc) > 0.05 and ht and tva:
+                ttc = round(ht + tva, 2)
+                infos["montant_ttc"] = ttc
 
-                st.success("Analyse terminée")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Fournisseur", infos.get("fournisseur", "?"))
-                    st.metric("Date", infos.get("date", "?"))
-                    st.metric("N° facture", infos.get("num_facture", "?"))
-                with col2:
-                    st.metric("HT", f"{ht:.2f} €")
-                    st.metric("TVA", f"{tva:.2f} €")
-                    st.metric("TTC", f"{ttc:.2f} €")
+            st.success("Analyse terminée")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Fournisseur", infos.get("fournisseur", "?"))
+                st.metric("Date", infos.get("date", "?"))
+                st.metric("N° facture", infos.get("num_facture", "?"))
+            with col2:
+                st.metric("HT", f"{ht:.2f} €")
+                st.metric("TVA", f"{tva:.2f} €")
+                st.metric("TTC", f"{ttc:.2f} €")
 
-                compte = extraire_compte_valide(infos.get("compte_suggere", "606300"))
-                st.info(f"📝 Compte suggéré : **{compte}**")
+            compte = extraire_compte_valide(infos.get("compte_suggere", "606300"))
+            st.info(f"📝 Compte suggéré : **{compte}**")
 
-                fec, nom_fec = generer_fec(infos)
-                st.download_button("📥 Télécharger FEC (.csv)", fec, nom_fec, mime="text/csv")
-                sauvegarder_facture(infos)
+            fec, nom_fec = generer_fec(infos)
+            st.download_button("📥 Télécharger FEC (.csv)", fec, nom_fec, mime="text/csv")
+            sauvegarder_facture(infos)
+        except Exception as e:
+            st.exception(e)
+        finally:
+            st.session_state.analyse_en_cours = False
 
-# ==================== DÉTECTION ANOMALIES (version corrigée) ====================
+# ==================== DÉTECTION ANOMALIES ====================
 elif menu == "🔍 Détection anomalies":
     st.title("🔍 Détection d'anomalies comptables")
     st.caption("Analyse des exports Sage / Cegid / Pennylane")
     st.divider()
 
-    uploaded_file = st.file_uploader("Choisissez votre export (CSV, XLSX)", type=["csv", "xlsx"])
+    uploaded_file = st.file_uploader("Choisissez votre export (CSV ou XLSX)", type=["csv", "xlsx"])
 
     if uploaded_file is not None:
         try:
             import pandas as pd
-
-            # Lecture sans en-tête automatique
-            if uploaded_file.name.endswith("xlsx"):
+            if uploaded_file.name.endswith(".xls"):
+                st.error("❌ Le format `.xls` ancien n'est pas supporté. Veuillez convertir votre fichier en `.xlsx` (Excel 2007+).")
+                st.stop()
+            elif uploaded_file.name.endswith(".xlsx"):
                 df = pd.read_excel(uploaded_file, header=None)
             else:
                 df = pd.read_csv(uploaded_file, sep=None, engine="python", header=None)
@@ -308,48 +327,27 @@ elif menu == "🔍 Détection anomalies":
             st.write("📄 **Aperçu des premières lignes :**")
             st.dataframe(df.head(10))
 
-            # Sélection de la ligne d'en-tête
-            header_row = st.number_input(
-                "Numéro de la ligne contenant les noms des colonnes",
-                min_value=0,
-                max_value=len(df) - 1,
-                value=0,
-                step=1
-            )
-
-            # Appliquer l'en-tête
+            header_row = st.number_input("Ligne contenant les noms des colonnes", min_value=0, max_value=len(df)-1, value=0, step=1)
             df.columns = df.iloc[header_row]
-            df = df[header_row + 1:].reset_index(drop=True)
+            df = df[header_row+1:].reset_index(drop=True)
 
-            # Sélection de la colonne montant
             colonnes = df.columns.tolist()
             colonne_montant = st.selectbox("📊 Choisissez la colonne contenant les montants", colonnes)
-
-            # Conversion en numérique
             df[colonne_montant] = pd.to_numeric(df[colonne_montant], errors='coerce')
 
-            # Seuil d'alerte
             seuil = st.number_input("🚨 Seuil d'alerte (€)", min_value=0, value=5000, step=1000)
 
             if st.button("🔍 Lancer la détection", type="primary"):
                 anomalies = df[df[colonne_montant].abs() > seuil]
                 st.warning(f"🚨 **{len(anomalies)}** écritures > {seuil} € détectées")
-
                 if not anomalies.empty:
                     st.dataframe(anomalies)
                     csv = anomalies.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button(
-                        "📥 Télécharger les anomalies (CSV)",
-                        csv,
-                        "anomalies.csv",
-                        mime="text/csv"
-                    )
+                    st.download_button("📥 Télécharger anomalies (CSV)", csv, "anomalies.csv", mime="text/csv")
                 else:
                     st.success("✅ Aucune anomalie détectée.")
-
         except Exception as e:
             st.exception(e)
-            st.info("💡 Vérifiez que votre fichier est bien structuré (colonnes cohérentes).")
 
 # ==================== VEILLE FISCALE ====================
 elif menu == "📰 Veille fiscale":
@@ -357,85 +355,53 @@ elif menu == "📰 Veille fiscale":
     st.caption("SMD Consulting - Souleymane Diallo")
     st.divider()
 
-    st.markdown("**Analyse automatique des publications officielles (JO, BOFiP, URSSAF)**")
-
     if st.button("📡 Générer la veille de la semaine", type="primary"):
-        with st.spinner("🔍 Récupération et analyse des textes officiels..."):
-            try:
-                articles_ia = [
-                    {
-                        "source": "Journal Officiel",
-                        "titre": "Seuils micro-entrepreneurs 2026 : revalorisation de 5%",
-                        "impact": "Les seuils de TVA et de chiffre d'affaires augmentent de 5% pour les micro-entrepreneurs.",
-                        "action": "Vérifier les seuils de vos clients avant le 31 mai et mettre à jour leur statut fiscal.",
-                        "lien": "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000046789012"
-                    },
-                    {
-                        "source": "BOFiP",
-                        "titre": "TVA : précisions sur les livraisons à soi-même (LAS)",
-                        "impact": "Les entreprises réalisant des LAS doivent désormais utiliser le nouveau formulaire 3310-LAS.",
-                        "action": "Identifier les clients concernés (BTP, travaux immobiliers) et mettre à jour leurs procédures.",
-                        "lien": "https://bofip.impots.gouv.fr/bofip/1452-PGP"
-                    },
-                    {
-                        "source": "URSSAF",
-                        "titre": "Échéances sociales mai 2026",
-                        "impact": "Paiement des cotisations sociales le 15 mai, DSN (déclaration sociale nominative) le 10 mai.",
-                        "action": "Programmer les rappels pour vos clients avant le 10 mai et vérifier les montants.",
-                        "lien": "https://www.urssaf.fr/calendrier-mai-2026"
-                    }
-                ]
-
-                st.success(f"✅ {len(articles_ia)} articles analysés")
-
-                for article in articles_ia:
-                    with st.expander(f"📌 {article['titre']} — {article['source']}"):
-                        st.markdown(f"**🎯 Impact :** {article['impact']}")
-                        st.markdown(f"**✅ Action recommandée :** {article['action']}")
-                        st.markdown(f"[📖 Lire l'article original]({article['lien']})")
-
-                html_parts = ["<html><head><meta charset='utf-8'></head><body>"]
-                html_parts.append(f"<h1>📰 Veille fiscale — semaine du {datetime.now().strftime('%d/%m/%Y')}</h1>")
-                html_parts.append("<p><em>Généré par IA - SMD Consulting</em></p><hr>")
-                for a in articles_ia:
-                    html_parts.append(
-                        f"<h3>📌 {a['titre']}</h3>"
-                        f"<p><strong>Source :</strong> {a['source']}</p>"
-                        f"<p><strong>Impact :</strong> {a['impact']}</p>"
-                        f"<p><strong>Action :</strong> {a['action']}</p>"
-                        f"<p><a href='{a['lien']}'>📖 Lire l'article original</a></p><hr>"
-                    )
-                html_parts.append("</body></html>")
-
-                st.download_button(
-                    "📥 Télécharger la veille (HTML)",
-                    "\n".join(html_parts),
-                    f"veille_fiscale_{datetime.now().strftime('%Y%m%d')}.html",
-                    mime="text/html"
-                )
-
-                st.info("💡 Conseil : Envoyez ce contenu par email à vos clients chaque lundi.")
-
-            except Exception as e:
-                st.exception(e)
+        with st.spinner("🔍 Génération de la veille..."):
+            articles_ia = [
+                {
+                    "source": "Journal Officiel",
+                    "titre": "Seuils micro-entrepreneurs 2026 : revalorisation de 5%",
+                    "impact": "Les seuils de TVA et de chiffre d'affaires augmentent de 5% pour les micro-entrepreneurs.",
+                    "action": "Vérifier les seuils de vos clients avant le 31 mai et mettre à jour leur statut fiscal.",
+                    "lien": "https://www.legifrance.gouv.fr/jo"
+                },
+                {
+                    "source": "BOFiP",
+                    "titre": "TVA : précisions sur les livraisons à soi-même (LAS)",
+                    "impact": "Les entreprises réalisant des LAS doivent désormais utiliser le nouveau formulaire 3310-LAS.",
+                    "action": "Identifier les clients concernés (BTP, travaux immobiliers) et mettre à jour leurs procédures.",
+                    "lien": "https://bofip.impots.gouv.fr/bofip"
+                },
+                {
+                    "source": "URSSAF",
+                    "titre": "Échéances sociales mai 2026",
+                    "impact": "Paiement des cotisations sociales le 15 mai, DSN (déclaration sociale nominative) le 10 mai.",
+                    "action": "Programmer les rappels pour vos clients avant le 10 mai et vérifier les montants.",
+                    "lien": "https://www.urssaf.fr"
+                }
+            ]
+            st.success(f"✅ {len(articles_ia)} articles analysés")
+            for article in articles_ia:
+                with st.expander(f"📌 {article['titre']} — {article['source']}"):
+                    st.markdown(f"**Impact :** {article['impact']}")
+                    st.markdown(f"**Action :** {article['action']}")
+                    st.markdown(f"[📖 Lire l'article original]({article['lien']})")
+            html = "<html><body><h1>Veille fiscale</h1><hr>".join([f"<h3>{a['titre']}</h3><p>{a['impact']}</p>" for a in articles_ia])
+            st.download_button("📥 Télécharger (HTML)", html, "veille.html", mime="text/html")
+            st.info("💡 Envoyez ce contenu par email à vos clients chaque lundi.")
 
 # ==================== HISTORIQUE ====================
 elif menu == "🗂️ Historique":
     st.title("🗂️ Historique des factures analysées")
-    st.caption("SMD Consulting - Souleymane Diallo")
-    st.divider()
-
     rows = charger_historique()
     if not rows:
         st.info("Aucune facture analysée pour l'instant.")
     else:
-        st.markdown(f"**{len(rows)} facture(s) enregistrée(s)**")
         for row in rows:
             st.write(row)
-        if st.button("🗑️ Vider l'historique", type="secondary"):
+        if st.button("🗑️ Vider l'historique"):
             conn = sqlite3.connect(DB_PATH)
             conn.execute("DELETE FROM factures")
             conn.commit()
             conn.close()
-            st.success("Historique vidé.")
             st.rerun()
