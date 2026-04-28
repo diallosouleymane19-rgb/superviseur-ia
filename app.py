@@ -1,213 +1,121 @@
 import streamlit as st
-import requests
 import json
-import base64
-import re
-import sqlite3
-import time
-from datetime import datetime
+import pandas as pd
+from auth.users import init_user_db, create_user, authenticate_user
+from utils.database import init_db, ajouter_client, lister_clients, sauvegarder_facture, charger_historique, vider_historique
+from utils.ai import appel_mistral, extraire_contenu_mistral, parse_montant, extraire_compte_valide
+from utils.fec import generer_fec
+from utils.ocr import ocr_image_mistral
 
-st.set_page_config(page_title="Superviseur IA", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="Superviseur IA – SaaS", page_icon="🤖", layout="wide")
 
-# ==================== CONFIGURATION ====================
-def get_api_key():
-    try:
-        return st.secrets["MISTRAL_API_KEY"]
-    except (KeyError, FileNotFoundError):
-        st.error("⚠️ Clé API manquante. Ajoutez MISTRAL_API_KEY dans .streamlit/secrets.toml")
-        st.stop()
-
-# ==================== BASE DE DONNÉES (historique) ====================
-DB_PATH = "historique_factures.db"
-
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS factures (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date_analyse TEXT,
-            num_facture TEXT,
-            fournisseur TEXT,
-            montant_ht REAL,
-            tva REAL,
-            montant_ttc REAL,
-            compte_suggere TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-def extraire_compte_valide(valeur) -> str:
-    """Extrait un compte comptable valide (6 chiffres) depuis n'importe quelle forme renvoyée par l'IA"""
-    if isinstance(valeur, dict):
-        if "compte" in valeur:
-            valeur = valeur["compte"]
-        elif "suggestion" in valeur:
-            valeur = valeur["suggestion"]
-        else:
-            for k, v in valeur.items():
-                if isinstance(v, str) and re.match(r"^\d{6}$", v):
-                    return v
-            return "606300"
-    if isinstance(valeur, (int, float)):
-        return f"{int(valeur):06d}"
-    if isinstance(valeur, str):
-        cleaned = re.sub(r"[^0-9]", "", valeur)
-        if len(cleaned) >= 6:
-            return cleaned[:6]
-    return "606300"
-
-def sauvegarder_facture(infos: dict):
-    for tentative in range(3):
-        try:
-            conn = sqlite3.connect(DB_PATH, timeout=5)
-            with conn:
-                conn.execute("""
-                    INSERT INTO factures (date_analyse, num_facture, fournisseur, montant_ht, tva, montant_ttc, compte_suggere)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    str(infos.get("num_facture", "")),
-                    str(infos.get("fournisseur", "")),
-                    float(infos.get("montant_ht", 0.0)),
-                    float(infos.get("tva", 0.0)),
-                    float(infos.get("montant_ttc", 0.0)),
-                    extraire_compte_valide(infos.get("compte_suggere", "606300")),
-                ))
-            return
-        except sqlite3.OperationalError as e:
-            if "locked" in str(e) and tentative < 2:
-                time.sleep(0.5)
-                continue
-            else:
-                st.warning(f"⚠️ Sauvegarde impossible : {e}")
-                return
-
-@st.cache_data
-def charger_historique():
-    conn = sqlite3.connect(DB_PATH)
-    rows = conn.execute("SELECT * FROM factures ORDER BY id DESC LIMIT 50").fetchall()
-    conn.close()
-    return rows
-
+init_user_db()
 init_db()
 
-# ==================== UTILITAIRES ====================
-def parse_montant(val) -> float:
-    if isinstance(val, (int, float)):
-        return float(val)
-    cleaned = re.sub(r"[€$£\s]", "", str(val))
-    cleaned = cleaned.replace(",", ".")
-    cleaned = re.sub(r"\.(?=.*\.)", "", cleaned)
-    try:
-        return float(cleaned)
-    except ValueError:
-        return 0.0
+if "user" not in st.session_state:
+    st.session_state.user = None
 
-def extraire_contenu_mistral(result: dict) -> str:
-    try:
-        msg = result["choices"][0]["message"]["content"]
-    except (KeyError, IndexError):
-        return ""
-    if isinstance(msg, str):
-        return msg
-    if isinstance(msg, list):
-        for part in msg:
-            if isinstance(part, dict) and part.get("type") == "text":
-                return part.get("text", "")
-    return ""
+def show_auth():
+    tab_login, tab_register = st.tabs(["🔐 Connexion", "🆕 Inscription"])
+    with tab_login:
+        st.subheader("Connexion")
+        email = st.text_input("Email")
+        password = st.text_input("Mot de passe", type="password")
+        if st.button("Se connecter", type="primary"):
+            user = authenticate_user(email, password)
+            if user:
+                st.session_state.user = user
+                st.success("Connexion réussie")
+                st.experimental_rerun()
+            else:
+                st.error("Identifiants invalides")
+    with tab_register:
+        st.subheader("Créer un compte")
+        email_r = st.text_input("Email (nouveau compte)")
+        pwd_r1 = st.text_input("Mot de passe", type="password", key="pwd1")
+        pwd_r2 = st.text_input("Confirmer le mot de passe", type="password", key="pwd2")
+        if st.button("Créer le compte"):
+            if not email_r or not pwd_r1:
+                st.error("Email et mot de passe requis")
+            elif pwd_r1 != pwd_r2:
+                st.error("Les mots de passe ne correspondent pas")
+            else:
+                ok = create_user(email_r, pwd_r1)
+                if ok:
+                    st.success("Compte créé. Vous pouvez vous connecter.")
+                else:
+                    st.error("Cet email est déjà utilisé.")
 
-def appel_mistral(messages: list, json_mode: bool = False, timeout: int = 30) -> dict:
-    API_KEY = get_api_key()
-    url = "https://api.mistral.ai/v1/chat/completions"
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"}
-    payload = {"model": "mistral-small-latest", "messages": messages}
-    if json_mode:
-        payload["response_format"] = {"type": "json_object"}
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=timeout)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.Timeout:
-        st.error("⏱️ L'API Mistral ne répond pas. Réessayez.")
-        raise
-    except requests.exceptions.HTTPError as e:
-        code = e.response.status_code
-        msg = {401: "Clé API invalide.", 429: "Quota dépassé."}.get(code, str(e))
-        st.error(f"❌ Erreur API {code} : {msg}")
-        raise
-    except requests.exceptions.ConnectionError:
-        st.error("🌐 Problème de connexion.")
-        raise
-    except Exception as e:
-        st.exception(e)
-        st.stop()
-
-def generer_fec(infos: dict) -> tuple[str, str]:
-    """
-    Génère un fichier FEC 100% conforme DGFiP.
-    Aucun champ obligatoire n'est laissé vide.
-    """
-    # Date d'écriture (format AAAAMMJJ)
-    date_raw = infos.get("date", datetime.now().strftime("%d/%m/%Y"))
-    date_fec = None
-
-    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
-        try:
-            date_obj = datetime.strptime(date_raw, fmt)
-            date_fec = date_obj.strftime("%Y%m%d")
-            break
-        except ValueError:
-            continue
-
-    if not date_fec:
-        date_fec = datetime.now().strftime("%Y%m%d")
-
-    fournisseur = infos.get("fournisseur", "FOURNISSEUR")[:35]
-    num_facture  = infos.get("num_facture", "FAC000")[:30]
-    compte = extraire_compte_valide(infos.get("compte_suggere", "606300"))
-
-    ht  = parse_montant(infos.get("montant_ht", 0))
-    tva = parse_montant(infos.get("tva", 0))
-    ttc = parse_montant(infos.get("montant_ttc", 0))
-
-    def ligne(ecriture_num, compte_num, compte_lib, debit, credit):
-        libelle_tronc = (compte_lib[:35] + '..') if len(compte_lib) > 35 else compte_lib
-        # Montantdevise et Idevise remplis avec valeurs neutres
-        montantdevise = "0"
-        idevise = ""
-        return (
-            f"ACH;Achats;{ecriture_num};{date_fec};"
-            f"{compte_num};{libelle_tronc};;;{num_facture};{date_fec};"
-            f"{fournisseur};{debit:.2f};{credit:.2f};;{date_fec};{date_fec};{montantdevise};{idevise}"
+def sidebar_menu():
+    with st.sidebar:
+        st.markdown("### 🤖 Superviseur IA – SaaS")
+        st.markdown(f"**Connecté :** {st.session_state.user['email']}")
+        menu = st.radio(
+            "Navigation",
+            ["📊 Dashboard", "📄 Factures", "👥 Clients", "🔍 Anomalies", "📰 Veille fiscale", "🗂️ Historique"],
         )
+        if st.button("🚪 Déconnexion"):
+            st.session_state.user = None
+            st.experimental_rerun()
+    return menu
 
-    colonnes = (
-        "JournalCode;JournalLib;EcritureNum;EcritureDate;"
-        "CompteNum;CompteLib;CompAuxNum;CompAuxLib;PieceRef;PieceDate;"
-        "EcritureLib;Debit;Credit;EcritureLet;DateLet;ValidDate;Montantdevise;Idevise"
-    )
+if not st.session_state.user:
+    st.title("Superviseur IA – SaaS")
+    st.caption("SMD Consulting – Plateforme comptable intelligente")
+    show_auth()
+    st.stop()
 
-    libelle = "Achat marchandise" if compte == "601000" else "Achat"
-    lignes = [
-        colonnes,
-        ligne("001", compte,     libelle,          ht,   0),
-        ligne("002", "445660", "TVA déductible",  tva,  0),
-        ligne("003", "401000", "Fournisseur",      0,   ttc),
-    ]
+menu = sidebar_menu()
 
-    contenu_csv = "\n".join(lignes).encode("utf-8-sig").decode("utf-8")
-    nom_fichier = f"FEC_{num_facture}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    return contenu_csv, nom_fichier
+user_id = st.session_state.user["id"]
 
-# ==================== MENU ====================
-menu = st.sidebar.selectbox("📚 Plan comptable général (PCG France)", ["📄 Factures", "🔍 Détection anomalies", "📰 Veille fiscale", "🗂️ Historique"])
+# 📊 Dashboard
+if menu == "📊 Dashboard":
+    st.title("📊 Dashboard")
+    st.write("Vue synthétique (à enrichir : nombre de factures, montants, etc.).")
+    rows = charger_historique(user_id, limit=10)
+    st.write("Dernières factures :")
+    if rows:
+        df = pd.DataFrame(rows, columns=["ID", "Date analyse", "Client", "N° facture", "Fournisseur", "HT", "TVA", "TTC", "Compte"])
+        st.dataframe(df)
+    else:
+        st.info("Aucune facture pour l’instant.")
 
-# ==================== FACTURES ====================
-if menu == "📄 Factures":
-    st.title("🤖 Superviseur IA - Agent Comptable")
-    st.caption("SMD Consulting - Souleymane Diallo")
-    st.divider()
+# 👥 Clients
+elif menu == "👥 Clients":
+    st.title("👥 Gestion des clients")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Ajouter un client")
+        nom_client = st.text_input("Nom du client")
+        if st.button("Ajouter"):
+            if nom_client.strip():
+                ajouter_client(user_id, nom_client)
+                st.success("Client ajouté")
+                st.experimental_rerun()
+            else:
+                st.error("Nom obligatoire")
+    with col2:
+        st.subheader("Liste des clients")
+        clients = lister_clients(user_id)
+        if clients:
+            df = pd.DataFrame(clients, columns=["ID", "Nom"])
+            st.dataframe(df)
+        else:
+            st.info("Aucun client pour l’instant.")
+
+# 📄 Factures
+elif menu == "📄 Factures":
+    st.title("📄 Factures – Analyse IA")
+    clients = lister_clients(user_id)
+    client_id = None
+    if clients:
+        options = {f"{c[1]} (ID {c[0]})": c[0] for c in clients}
+        choix = st.selectbox("Associer à un client (optionnel)", ["Aucun"] + list(options.keys()))
+        if choix != "Aucun":
+            client_id = options[choix]
+    else:
+        st.info("Vous pouvez créer des clients dans l’onglet 👥 Clients.")
 
     if "texte_facture" not in st.session_state:
         st.session_state.texte_facture = ""
@@ -217,8 +125,7 @@ if menu == "📄 Factures":
         st.session_state.analyse_en_cours = False
 
     mode = st.radio("Mode de saisie", ["📝 Texte manuel", "📎 Upload Image (JPG, PNG)", "📄 PDF - Copier le texte"])
-
-    st.subheader("📄 Saisie de la facture")
+    st.subheader("Saisie de la facture")
 
     if mode != st.session_state.dernier_mode:
         st.session_state.texte_facture = ""
@@ -238,21 +145,11 @@ Montant TTC: 45.50 €"""
             bytes_data = fichier.read()
             ext = fichier.name.split(".")[-1].lower()
             mime = "image/png" if ext == "png" else "image/jpeg"
-            base64_data = base64.b64encode(bytes_data).decode()
             with st.spinner("OCR..."):
                 try:
-                    result = appel_mistral([
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": "Extrais le texte."},
-                                {"type": "input_image", "image_url": f"data:{mime};base64,{base64_data}"}
-                            ]
-                        }
-                    ])
-                    texte_extrait = extraire_contenu_mistral(result).strip()
+                    texte_extrait = ocr_image_mistral(bytes_data, mime)
                     if not texte_extrait:
-                        st.error("❌ L'image n'a pas pu être lue. Vérifiez sa qualité (contraste, netteté).")
+                        st.error("❌ L'image n'a pas pu être lue.")
                         st.stop()
                     st.session_state.texte_facture = texte_extrait
                     st.success("Texte extrait")
@@ -288,12 +185,11 @@ Montant TTC: 45.50 €"""
                     ],
                     json_mode=True
                 )
-
                 contenu = extraire_contenu_mistral(result)
                 try:
                     infos = json.loads(contenu)
                 except json.JSONDecodeError:
-                    st.error("❌ L'IA n'a pas renvoyé un JSON valide. Réessayez ou ajustez le texte de la facture.")
+                    st.error("❌ L'IA n'a pas renvoyé un JSON valide.")
                     st.stop()
 
             ht = parse_montant(infos.get("montant_ht", 0))
@@ -319,47 +215,34 @@ Montant TTC: 45.50 €"""
 
             fec, nom_fec = generer_fec(infos)
             st.download_button("📥 Télécharger FEC (.csv)", fec, nom_fec, mime="text/csv")
-            sauvegarder_facture(infos)
+            sauvegarder_facture(user_id, client_id, infos, compte)
         except Exception as e:
             st.exception(e)
         finally:
             st.session_state.analyse_en_cours = False
 
-# ==================== DÉTECTION ANOMALIES ====================
-elif menu == "🔍 Détection anomalies":
+# 🔍 Anomalies
+elif menu == "🔍 Anomalies":
     st.title("🔍 Détection d'anomalies comptables")
-    st.caption("Analyse des exports Sage / Cegid / Pennylane")
-    st.divider()
-
     uploaded_file = st.file_uploader("Choisissez votre export (CSV ou XLSX)", type=["csv", "xlsx"])
-
     if uploaded_file is not None:
         try:
-            import pandas as pd
-            if uploaded_file.name.endswith(".xls"):
-                st.error("❌ Le format `.xls` ancien n'est pas supporté. Veuillez convertir votre fichier en `.xlsx` (Excel 2007+).")
-                st.stop()
-            elif uploaded_file.name.endswith(".xlsx"):
+            if uploaded_file.name.endswith(".xlsx"):
                 df = pd.read_excel(uploaded_file, header=None)
             else:
                 df = pd.read_csv(uploaded_file, sep=None, engine="python", header=None)
-
             st.write("📄 **Aperçu des premières lignes :**")
             st.dataframe(df.head(10))
-
             header_row = st.number_input("Ligne contenant les noms des colonnes", min_value=0, max_value=len(df)-1, value=0, step=1)
             df.columns = df.iloc[header_row]
             df = df[header_row+1:].reset_index(drop=True)
-
             colonnes = df.columns.tolist()
-            colonne_montant = st.selectbox("📊 Choisissez la colonne contenant les montants", colonnes)
+            colonne_montant = st.selectbox("📊 Colonne montants", colonnes)
             df[colonne_montant] = pd.to_numeric(df[colonne_montant], errors='coerce')
-
             seuil = st.number_input("🚨 Seuil d'alerte (€)", min_value=0, value=5000, step=1000)
-
             if st.button("🔍 Lancer la détection", type="primary"):
                 anomalies = df[df[colonne_montant].abs() > seuil]
-                st.warning(f"🚨 **{len(anomalies)}** écritures > {seuil} € détectées")
+                st.warning(f"🚨 {len(anomalies)} écritures > {seuil} € détectées")
                 if not anomalies.empty:
                     st.dataframe(anomalies)
                     csv = anomalies.to_csv(index=False).encode('utf-8-sig')
@@ -369,14 +252,11 @@ elif menu == "🔍 Détection anomalies":
         except Exception as e:
             st.exception(e)
 
-# ==================== VEILLE FISCALE ====================
+# 📰 Veille
 elif menu == "📰 Veille fiscale":
     st.title("📰 Veille fiscale hebdomadaire")
-    st.caption("SMD Consulting - Souleymane Diallo")
-    st.divider()
-
     if st.button("📡 Générer la veille de la semaine", type="primary"):
-        with st.spinner("🔍 Génération de la veille..."):
+        with st.spinner("Génération de la veille..."):
             articles_ia = [
                 {
                     "source": "Journal Officiel",
@@ -395,33 +275,32 @@ elif menu == "📰 Veille fiscale":
                 {
                     "source": "URSSAF",
                     "titre": "Échéances sociales mai 2026",
-                    "impact": "Paiement des cotisations sociales le 15 mai, DSN (déclaration sociale nominative) le 10 mai.",
+                    "impact": "Paiement des cotisations sociales le 15 mai, DSN le 10 mai.",
                     "action": "Programmer les rappels pour vos clients avant le 10 mai et vérifier les montants.",
                     "lien": "https://www.urssaf.fr"
                 }
             ]
-            st.success(f"✅ {len(articles_ia)} articles analysés")
+            st.success(f"{len(articles_ia)} articles analysés")
             for article in articles_ia:
                 with st.expander(f"📌 {article['titre']} — {article['source']}"):
                     st.markdown(f"**Impact :** {article['impact']}")
                     st.markdown(f"**Action :** {article['action']}")
                     st.markdown(f"[📖 Lire l'article original]({article['lien']})")
-            html = "<html><body><h1>Veille fiscale</h1><hr>".join([f"<h3>{a['titre']}</h3><p>{a['impact']}</p>" for a in articles_ia])
+            html = "<html><body><h1>Veille fiscale</h1><hr>".join(
+                [f"<h3>{a['titre']}</h3><p>{a['impact']}</p>" for a in articles_ia]
+            )
             st.download_button("📥 Télécharger (HTML)", html, "veille.html", mime="text/html")
-            st.info("💡 Envoyez ce contenu par email à vos clients chaque lundi.")
 
-# ==================== HISTORIQUE ====================
+# 🗂️ Historique
 elif menu == "🗂️ Historique":
-    st.title("🗂️ Historique des factures analysées")
-    rows = charger_historique()
+    st.title("🗂️ Historique des factures")
+    rows = charger_historique(user_id)
     if not rows:
         st.info("Aucune facture analysée pour l'instant.")
     else:
-        for row in rows:
-            st.write(row)
+        df = pd.DataFrame(rows, columns=["ID", "Date analyse", "Client", "N° facture", "Fournisseur", "HT", "TVA", "TTC", "Compte"])
+        st.dataframe(df)
         if st.button("🗑️ Vider l'historique"):
-            conn = sqlite3.connect(DB_PATH)
-            conn.execute("DELETE FROM factures")
-            conn.commit()
-            conn.close()
-            st.rerun()
+            vider_historique(user_id)
+            st.success("Historique vidé.")
+            st.experimental_rerun()
