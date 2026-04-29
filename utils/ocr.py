@@ -1,35 +1,46 @@
-import requests
-import os
+import base64
+from utils.ai import appel_mistral, extraire_contenu_mistral
 
-API_KEY = os.getenv("MISTRAL_API_KEY")
-MODEL = "mistral-large-latest"
+def ocr_image_mistral(fichier):
+    """
+    OCR robuste via Mistral.
+    - Support PDF / JPG / PNG
+    - Pas d'appel à l'API Files (évite les erreurs d'ID)
+    - Retourne toujours un texte ou un message d'erreur clair
+    """
 
+    # Détection du type MIME
+    mime = fichier.type
 
-def ocr_image_mistral(uploaded_file):
-    url = "https://api.mistral.ai/v1/files"
+    # Lecture du fichier en bytes
+    bytes_data = fichier.read()
 
-    headers = {
-        "Authorization": f"Bearer {API_KEY}"
-    }
+    # Encodage base64
+    base64_data = base64.b64encode(bytes_data).decode()
 
-    files = {
-        "file": (uploaded_file.name, uploaded_file.getvalue())
-    }
+    # Construction du message pour Mistral
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Extrais TOUT le texte de ce document."},
+                {
+                    "type": "input_image",
+                    "image_url": f"data:{mime};base64,{base64_data}"
+                }
+            ]
+        }
+    ]
 
-    response = requests.post(url, headers=headers, files=files)
-    file_id = response.json()["id"]
+    # Appel Mistral
+    try:
+        result = appel_mistral(messages)
+        texte = extraire_contenu_mistral(result).strip()
 
-    # Extraction du texte
-    url_extract = "https://api.mistral.ai/v1/chat/completions"
+        if not texte:
+            return "⚠️ OCR effectué mais aucun texte détecté."
 
-    data = {
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": "Tu es un moteur OCR."},
-            {"role": "user", "content": f"Extract text from file {file_id}"}
-        ]
-    }
+        return texte
 
-    response = requests.post(url_extract, headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}, json=data)
-    return response.json()["choices"][0]["message"]["content"]
-
+    except Exception as e:
+        return f"❌ Erreur OCR : {str(e)}"
