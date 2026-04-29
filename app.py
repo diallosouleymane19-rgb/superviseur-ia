@@ -7,9 +7,7 @@ API_URL = "https://api.mistral.ai/v1/chat/completions"
 def appel_mistral(messages):
     """
     Appel générique à Mistral.
-    Supporte :
-    - messages texte
-    - messages multimodaux (OCR)
+    Compatible multimodal (OCR).
     Retourne toujours un dict propre.
     """
 
@@ -19,7 +17,7 @@ def appel_mistral(messages):
     }
 
     payload = {
-        "model": "pixtral-large-latest",
+        "model": "pixtral-vision-latest",   # modèle compatible images
         "messages": messages,
         "temperature": 0.2
     }
