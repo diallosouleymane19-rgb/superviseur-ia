@@ -1,49 +1,56 @@
-import requests
-import json
 import os
+import requests
 
 API_KEY = os.getenv("MISTRAL_API_KEY")
-MODEL = "mistral-large-latest"
+API_URL = "https://api.mistral.ai/v1/chat/completions"
 
-
-def appel_mistral(contenu):
-    url = "https://api.mistral.ai/v1/chat/completions"
+def appel_mistral(messages):
+    """
+    Appel générique à Mistral.
+    Compatible multimodal (OCR).
+    Retourne toujours un dict propre.
+    """
 
     headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {API_KEY}"
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
     }
 
-    data = {
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": "Tu es un expert-comptable français."},
-            {"role": "user", "content": contenu}
-        ]
+    payload = {
+        "model": "pixtral-vision-latest",   # modèle compatible images
+        "messages": messages,
+        "temperature": 0.2
     }
 
-    response = requests.post(url, headers=headers, data=json.dumps(data))
-    result = response.json()
+    try:
+        response = requests.post(API_URL, json=payload, headers=headers)
 
-    return result["choices"][0]["message"]["content"]
+        if response.status_code != 200:
+            return {"error": f"HTTP {response.status_code}", "details": response.text}
+
+        data = response.json()
+
+        if "choices" not in data:
+            return {"error": "Réponse inattendue", "details": data}
+
+        return data
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
-def extraire_contenu_mistral(texte):
-    return texte.strip()
+def extraire_contenu_mistral(data):
+    """
+    Extrait le texte d'une réponse Mistral.
+    """
 
+    if not isinstance(data, dict):
+        return "❌ Erreur : réponse IA invalide."
 
-def parse_montant(texte):
-    import re
-    match = re.search(r"(\d+[.,]\d{2})", texte)
-    if match:
-        return float(match.group(1).replace(",", "."))
-    return 0.0
+    if "error" in data:
+        return f"❌ Erreur IA : {data['error']}"
 
-
-def extraire_compte_valide(texte):
-    import re
-    match = re.search(r"\b(6\d{2}|7\d{2})\b", texte)
-    if match:
-        return match.group(1)
-    return "000"
-
+    try:
+        return data["choices"][0]["message"]["content"]
+    except:
+        return "❌ Erreur : impossible d'extraire le contenu IA."
