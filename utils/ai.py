@@ -1,70 +1,44 @@
-import os
 import requests
+import json
+import os
 
-API_KEY = os.getenv("MISTRAL_API_KEY")
-API_URL = "https://api.mistral.ai/v1/chat/completions"
+# Récupération de la clé API depuis Streamlit Cloud ou .env
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
-# Modèles Mistral valides
-MODEL_VISION = "pixtral-12b-vision-instruct"   # pour OCR / images
-MODEL_TEXTE  = "mistral-large-latest"          # pour analyse balance / texte
-
-
-def appel_mistral(messages, vision=False):
+def appel_mistral(prompt):
     """
-    Appel générique à Mistral.
-    - vision=True  → modèle OCR (images)
-    - vision=False → modèle texte (analyse comptable)
+    Envoie un prompt texte au modèle Mistral et retourne la réponse brute.
     """
 
-    model = MODEL_VISION if vision else MODEL_TEXTE
+    url = "https://api.mistral.ai/v1/chat/completions"
 
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
         "Content-Type": "application/json"
     }
 
     payload = {
-        "model": model,
-        "messages": messages,
+        "model": "mistral-large-latest",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
         "temperature": 0.2
     }
 
-    try:
-        response = requests.post(API_URL, json=payload, headers=headers)
+    response = requests.post(url, headers=headers, json=payload)
 
-        if response.status_code != 200:
-            return {
-                "error": f"HTTP {response.status_code}",
-                "details": response.text
-            }
+    if response.status_code != 200:
+        return f"Erreur IA : HTTP {response.status_code}"
 
-        data = response.json()
-
-        if "choices" not in data:
-            return {
-                "error": "Réponse inattendue",
-                "details": data
-            }
-
-        return data
-
-    except Exception as e:
-        return {"error": str(e)}
+    data = response.json()
+    return data["choices"][0]["message"]["content"]
 
 
-def extraire_contenu_mistral(data):
+def extraire_contenu_mistral(texte):
     """
-    Extrait le texte d'une réponse Mistral.
-    Gère les erreurs proprement.
+    Si jamais tu veux parser un JSON retourné par Mistral.
     """
-
-    if not isinstance(data, dict):
-        return "❌ Erreur : réponse IA invalide."
-
-    if "error" in data:
-        return f"❌ Erreur IA : {data['error']}"
-
     try:
-        return data["choices"][0]["message"]["content"]
+        return json.loads(texte)
     except:
-        return "❌ Erreur : impossible d'extraire le contenu IA."
+        return texte
