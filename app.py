@@ -1,6 +1,6 @@
 import streamlit as st
-import json
 import pandas as pd
+import json
 import datetime
 
 # Import des modules internes
@@ -13,29 +13,24 @@ from utils.database import (
     vider_historique
 )
 
-from utils.ai import (
-    appel_mistral,
-    extraire_contenu_mistral,
-    parse_montant,
-    extraire_compte_valide
-)
-
-from utils.fec import generer_fec
 from utils.ocr import ocr_image_mistral
+from utils.fec import generer_fec
+from utils.ai import appel_mistral
 
-
-# ---------------------------------------------------------
-# INITIALISATION DE LA BASE DE DONNÉES
-# ---------------------------------------------------------
+# Initialisation de la base
 init_db()
 
-st.set_page_config(page_title="Superviseur IA Comptable", layout="wide")
-st.title("🧠 Superviseur IA Comptable")
-st.write("Analyse automatique des factures, génération FEC, OCR, veille fiscale et gestion clients.")
-
+# ---------------------------------------------------------
+# CONFIGURATION DE L'APP
+# ---------------------------------------------------------
+st.set_page_config(
+    page_title="Superviseur IA Comptable",
+    page_icon="🧠",
+    layout="wide"
+)
 
 # ---------------------------------------------------------
-# MENU LATÉRAL
+# MENU
 # ---------------------------------------------------------
 menu = st.sidebar.selectbox(
     "Navigation",
@@ -47,203 +42,157 @@ menu = st.sidebar.selectbox(
         "Historique",
         "Générer FEC",
         "Veille fiscale",
-        "Analyse de la balance"
+        "Analyse de la balance",
+        "Écriture comptable automatique"
     ]
 )
-
 
 # ---------------------------------------------------------
 # PAGE : ACCUEIL
 # ---------------------------------------------------------
 if menu == "Accueil":
-    st.subheader("Bienvenue dans le Superviseur IA Comptable")
-    st.write("Choisissez une fonctionnalité dans le menu à gauche.")
-
+    st.title("🧠 Superviseur IA Comptable")
+    st.write("Analyse automatique des factures, génération FEC, OCR, veille fiscale et gestion clients.")
+    st.info("Choisissez une fonctionnalité dans le menu à gauche.")
 
 # ---------------------------------------------------------
 # PAGE : CLIENTS
 # ---------------------------------------------------------
 elif menu == "Clients":
-    st.subheader("Gestion des clients")
+    st.subheader("👥 Gestion des clients")
 
-    with st.form("form_client"):
-        nom = st.text_input("Nom du client")
-        adresse = st.text_input("Adresse")
-        siret = st.text_input("SIRET")
-        submit = st.form_submit_button("Ajouter")
-
-        if submit:
-            ajouter_client(nom, adresse, siret)
-            st.success("Client ajouté avec succès.")
+    nom = st.text_input("Nom du client")
+    if st.button("Ajouter"):
+        ajouter_client(nom)
+        st.success("Client ajouté.")
 
     st.write("### Liste des clients")
-    clients = lister_clients()
-    st.dataframe(pd.DataFrame(clients, columns=["Nom", "Adresse", "SIRET"]))
-
+    st.table(lister_clients())
 
 # ---------------------------------------------------------
 # PAGE : ANALYSE FACTURE
 # ---------------------------------------------------------
 elif menu == "Analyse facture":
-    st.subheader("Analyse automatique d'une facture")
+    st.subheader("📄 Analyse automatique de facture")
 
-    uploaded_file = st.file_uploader("Importer une facture (PDF ou image)", type=["pdf", "png", "jpg", "jpeg"])
-
-    if uploaded_file:
-        st.info("Analyse en cours…")
-
-        contenu = ocr_image_mistral(uploaded_file)
+    fichier = st.file_uploader("Importer une facture", type=["pdf", "png", "jpg", "jpeg"])
+    if fichier:
+        contenu = ocr_image_mistral(fichier)
         st.write("### Contenu extrait :")
         st.write(contenu)
 
-        analyse = appel_mistral(contenu)
-        st.write("### Analyse IA :")
-        st.write(analyse)
-
-        montant = parse_montant(analyse)
-        compte = extraire_compte_valide(analyse)
-
-        sauvegarder_facture(contenu, analyse, montant, compte)
-        st.success("Facture analysée et sauvegardée.")
-
+        if st.button("Analyser avec IA"):
+            prompt = f"Analyse cette facture : {contenu}"
+            resultat = appel_mistral(prompt)
+            st.write("### Analyse IA :")
+            st.write(resultat)
 
 # ---------------------------------------------------------
 # PAGE : OCR
 # ---------------------------------------------------------
 elif menu == "OCR":
-    st.subheader("Extraction OCR")
+    st.subheader("🔍 OCR – Extraction de texte")
 
-    uploaded_file = st.file_uploader("Importer une image", type=["png", "jpg", "jpeg"])
-
-    if uploaded_file:
-        texte = ocr_image_mistral(uploaded_file)
-        st.write("### Texte extrait :")
-        st.write(texte)
-
+    fichier = st.file_uploader("Importer un document", type=["pdf", "png", "jpg", "jpeg"])
+    if fichier:
+        texte = ocr_image_mistral(fichier)
+        st.text_area("Texte extrait :", texte, height=300)
 
 # ---------------------------------------------------------
 # PAGE : HISTORIQUE
 # ---------------------------------------------------------
 elif menu == "Historique":
-    st.subheader("Historique des analyses")
+    st.subheader("📚 Historique des analyses")
 
-    historique = charger_historique()
-
-    if historique:
-        st.dataframe(pd.DataFrame(historique))
-    else:
-        st.info("Aucune analyse enregistrée.")
+    st.write("### Factures analysées")
+    st.table(charger_historique())
 
     if st.button("Vider l'historique"):
         vider_historique()
         st.success("Historique supprimé.")
 
-
 # ---------------------------------------------------------
 # PAGE : GÉNÉRER FEC
 # ---------------------------------------------------------
 elif menu == "Générer FEC":
-    st.subheader("Génération du FEC")
+    st.subheader("📁 Génération FEC")
 
-    if st.button("Générer le fichier FEC"):
-        fec_path = generer_fec()
-        st.success(f"FEC généré : {fec_path}")
-        st.download_button("Télécharger le FEC", data=open(fec_path, "rb"), file_name="FEC.txt")
+    fichier = st.file_uploader("Importer un fichier comptable", type=["csv", "xlsx"])
+    if fichier:
+        df = pd.read_csv(fichier) if fichier.name.endswith(".csv") else pd.read_excel(fichier)
+        fec = generer_fec(df)
 
+        st.write("### FEC généré :")
+        st.dataframe(fec)
+
+        st.download_button(
+            "Télécharger FEC",
+            fec.to_csv(index=False),
+            file_name="fec.csv"
+        )
 
 # ---------------------------------------------------------
 # PAGE : VEILLE FISCALE
 # ---------------------------------------------------------
 elif menu == "Veille fiscale":
-    st.subheader("📰 Veille fiscale automatisée")
+    st.subheader("📢 Veille fiscale automatisée")
 
-    # --- Échéances fiscales automatiques ---
-    mois = datetime.datetime.now().strftime("%B %Y")
-    st.write(f"### 📅 Échéances fiscales – {mois}")
-
-    echeances = [
-        "🔸 **TVA** : Déclaration CA3 – le 19 ou 24",
-        "🔸 **TVA** : Régime simplifié – acompte trimestriel",
-        "🔸 **DSN** : Déclaration sociale nominative – le 5 ou le 15",
-        "🔸 **IS** : Acompte trimestriel – 15 du mois",
-        "🔸 **CFE** : Paiement du solde (décembre) ou acompte (juin)",
-        "🔸 **CVAE** : Déclaration et paiement si applicable",
-        "🔸 **IR** : Retenue à la source – reversement mensuel",
-    ]
-
-    for e in echeances:
-        st.write(e)
-
-    st.markdown("---")
-
-    # --- Analyse fiscale IA ---
-    question = st.text_area("Pose une question fiscale :", height=150)
-
-    if st.button("Analyser la question"):
-        if question.strip():
-            st.info("Analyse en cours…")
-
-            prompt = f"""
-Tu es un fiscaliste français. Réponds clairement et cite les règles applicables.
-
-Question :
-{question}
-
-Donne une réponse structurée :
-- règle fiscale applicable
-- références (CGI, BOFiP si possible)
-- risques fiscaux
-- conseils pratiques
-            """
-
-            reponse = appel_mistral(prompt)
-
-            st.write("### Réponse :")
-            st.write(reponse)
-        else:
-            st.warning("Veuillez entrer une question.")
-
+    question = st.text_input("Posez une question fiscale")
+    if st.button("Analyser"):
+        prompt = f"Réponds comme un fiscaliste expert : {question}"
+        reponse = appel_mistral(prompt)
+        st.write("### Réponse IA :")
+        st.write(reponse)
 
 # ---------------------------------------------------------
 # PAGE : ANALYSE DE LA BALANCE
 # ---------------------------------------------------------
 elif menu == "Analyse de la balance":
-    st.subheader("📊 Analyse intelligente de la balance comptable")
+    st.subheader("📊 Analyse IA de la balance comptable")
 
-    fichier = st.file_uploader("Importer une balance (CSV ou Excel)", type=["csv", "xlsx"])
+    fichier = st.file_uploader("Importer une balance", type=["csv", "xlsx"])
+    if fichier:
+        df = pd.read_csv(fichier) if fichier.name.endswith(".csv") else pd.read_excel(fichier)
+        st.write("### Balance importée :")
+        st.dataframe(df)
+
+        if st.button("Analyser la balance"):
+            prompt = f"Analyse cette balance comptable : {df.to_json()}"
+            resultat = appel_mistral(prompt)
+            st.write("### Analyse IA :")
+            st.write(resultat)
+
+# ---------------------------------------------------------
+# PAGE : ÉCRITURE COMPTABLE AUTOMATIQUE (PREMIUM)
+# ---------------------------------------------------------
+elif menu == "Écriture comptable automatique":
+    st.subheader("🧾 Génération automatique d'écriture comptable (Premium)")
+
+    fichier = st.file_uploader("Importer une facture (PDF ou image)", type=["pdf", "png", "jpg", "jpeg"])
 
     if fichier:
-        try:
-            if fichier.name.endswith(".csv"):
-                df = pd.read_csv(fichier)
-            else:
-                df = pd.read_excel(fichier)
+        st.info("Analyse OCR en cours…")
+        contenu = ocr_image_mistral(fichier)
 
-            st.write("### Aperçu de la balance :")
-            st.dataframe(df)
+        st.write("### Contenu extrait :")
+        st.write(contenu)
 
-            contenu_balance = df.to_csv(index=False)
+        if st.button("Générer l'écriture comptable"):
+            st.info("Analyse comptable IA en cours…")
 
-            if st.button("Analyser la balance"):
-                st.info("Analyse IA en cours…")
+            from utils.compta_auto import analyse_facture_premium
+            resultat = analyse_facture_premium(contenu)
 
-                prompt = f"""
-Tu es un expert-comptable. Analyse cette balance comptable :
+            st.write("### Résultat structuré :")
+            st.json(resultat)
 
-{contenu_balance}
+            if "ecriture_comptable" in resultat:
+                st.write("### Écriture comptable (format exportable) :")
+                df = pd.DataFrame(resultat["ecriture_comptable"])
+                st.dataframe(df)
 
-Détaille :
-- anomalies possibles
-- comptes incohérents
-- soldes anormaux
-- suggestions d'écritures
-- risques fiscaux
-                """
-
-                analyse = appel_mistral(prompt)
-
-                st.write("### Résultats de l'analyse :")
-                st.write(analyse)
-
-        except Exception as e:
-            st.error(f"Erreur lors de la lecture du fichier : {e}")
+                st.download_button(
+                    "Télécharger en CSV",
+                    df.to_csv(index=False),
+                    file_name="ecriture_comptable.csv"
+                )
