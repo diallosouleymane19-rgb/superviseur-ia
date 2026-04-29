@@ -1,5 +1,6 @@
 import base64
 import tempfile
+from io import BytesIO
 from pdf2image import convert_from_bytes
 from PyPDF2 import PdfReader
 from .ai import appel_mistral, extraire_contenu_mistral
@@ -9,8 +10,11 @@ from .ai import appel_mistral, extraire_contenu_mistral
 # 1) Extraction directe du texte (PDF texte)
 # ---------------------------------------------------------
 def _extract_pdf_text(pdf_bytes):
+    """
+    Extraction directe du texte pour les PDF vectoriels (Shopify, Stripe, Amazon, etc.)
+    """
     try:
-        reader = PdfReader(pdf_bytes)
+        reader = PdfReader(BytesIO(pdf_bytes))  # Correction essentielle
         texte = ""
 
         for page in reader.pages:
@@ -19,7 +23,8 @@ def _extract_pdf_text(pdf_bytes):
 
         texte = texte.strip()
 
-        if len(texte) > 10:  # PDF texte réel
+        # Si le PDF contient du texte réel
+        if len(texte) > 10:
             return texte
 
         return None
@@ -32,6 +37,9 @@ def _extract_pdf_text(pdf_bytes):
 # 2) Conversion PDF → images (PDF image)
 # ---------------------------------------------------------
 def _pdf_to_images(pdf_bytes):
+    """
+    Convertit un PDF image en liste d'images PIL.
+    """
     try:
         images = convert_from_bytes(pdf_bytes)
         return images
@@ -43,6 +51,9 @@ def _pdf_to_images(pdf_bytes):
 # 3) Conversion PIL → base64
 # ---------------------------------------------------------
 def _pil_image_to_base64(img):
+    """
+    Convertit une image PIL en base64 PNG.
+    """
     with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
         img.save(tmp.name, format="PNG")
         with open(tmp.name, "rb") as f:
@@ -53,6 +64,9 @@ def _pil_image_to_base64(img):
 # 4) OCR Mistral sur image base64
 # ---------------------------------------------------------
 def _ocr_image_base64(base64_data, mime="image/png"):
+    """
+    Envoie une image encodée en base64 à Mistral (Pixtral-Vision).
+    """
     messages = [
         {
             "role": "user",
@@ -71,6 +85,12 @@ def _ocr_image_base64(base64_data, mime="image/png"):
 # 5) OCR principal (PDF + images)
 # ---------------------------------------------------------
 def ocr_image_mistral(uploaded_file):
+    """
+    OCR complet :
+    - PDF texte → extraction directe
+    - PDF image → conversion + OCR
+    - Images → OCR direct
+    """
     filename = uploaded_file.name.lower()
     file_bytes = uploaded_file.read()
 
@@ -84,7 +104,7 @@ def ocr_image_mistral(uploaded_file):
         if texte_pdf:
             return texte_pdf
 
-        # 2) Sinon → conversion en images
+        # 2) Sinon → conversion en images (PDF image)
         images = _pdf_to_images(file_bytes)
         if images is None:
             return "❌ Erreur : impossible de convertir le PDF en images."
@@ -100,7 +120,7 @@ def ocr_image_mistral(uploaded_file):
         return texte_total.strip()
 
     # ---------------------------------------------------------
-    # CAS B : Image directe
+    # CAS B : Image directe (PNG, JPG, JPEG)
     # ---------------------------------------------------------
     else:
         mime = "image/png"
