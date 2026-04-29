@@ -4,12 +4,19 @@ import requests
 API_KEY = os.getenv("MISTRAL_API_KEY")
 API_URL = "https://api.mistral.ai/v1/chat/completions"
 
-def appel_mistral(messages):
+# Modèles Mistral valides
+MODEL_VISION = "pixtral-12b-vision-instruct"   # pour OCR / images
+MODEL_TEXTE  = "mistral-large-latest"          # pour analyse balance / texte
+
+
+def appel_mistral(messages, vision=False):
     """
     Appel générique à Mistral.
-    Compatible multimodal (OCR).
-    Retourne toujours un dict propre.
+    - vision=True  → modèle OCR (images)
+    - vision=False → modèle texte (analyse comptable)
     """
+
+    model = MODEL_VISION if vision else MODEL_TEXTE
 
     headers = {
         "Authorization": f"Bearer {API_KEY}",
@@ -17,7 +24,7 @@ def appel_mistral(messages):
     }
 
     payload = {
-        "model": "pixtral-vision-latest",   # modèle compatible images
+        "model": model,
         "messages": messages,
         "temperature": 0.2
     }
@@ -25,7 +32,6 @@ def appel_mistral(messages):
     try:
         response = requests.post(API_URL, json=payload, headers=headers)
 
-        # Vérification HTTP
         if response.status_code != 200:
             return {
                 "error": f"HTTP {response.status_code}",
@@ -34,7 +40,6 @@ def appel_mistral(messages):
 
         data = response.json()
 
-        # Vérification structure
         if "choices" not in data:
             return {
                 "error": "Réponse inattendue",
