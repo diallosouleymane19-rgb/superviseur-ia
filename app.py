@@ -35,7 +35,8 @@ page = st.sidebar.radio(
         "Accueil",
         "OCR Facture",
         "Analyse Balance",
-        "Traitement FEC"
+        "Traitement FEC",
+        "Traitement Factures"
     ]
 )
 
@@ -115,3 +116,85 @@ elif page == "Traitement FEC":
         resultat = traiter_fec(fichier)
         st.subheader("Résultat :")
         st.markdown(resultat, unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# PAGE : TRAITEMENT FACTURES EXCEL/CSV
+# ---------------------------------------------------------
+elif page == "Traitement Factures":
+    st.title("Traitement Factures Excel / CSV")
+    fichier = st.file_uploader("Importer un fichier de factures (Excel ou CSV)", type=["xlsx", "csv"])
+    if fichier:
+        try:
+            if fichier.name.endswith(".csv"):
+                df = pd.read_csv(fichier)
+            else:
+                df = pd.read_excel(fichier)
+
+            st.subheader("Aperçu des factures :")
+            st.dataframe(df)
+
+            # --- STATISTIQUES RAPIDES ---
+            st.subheader("Statistiques rapides :")
+            col1, col2, col3 = st.columns(3)
+
+            # Cherche une colonne montant
+            col_montant = None
+            for col in df.columns:
+                if any(mot in col.lower() for mot in ["montant", "total", "amount", "prix", "ttc", "ht"]):
+                    col_montant = col
+                    break
+
+            if col_montant:
+                df[col_montant] = pd.to_numeric(df[col_montant], errors="coerce")
+                col1.metric("Total", f"{df[col_montant].sum():,.2f} €")
+                col2.metric("Moyenne", f"{df[col_montant].mean():,.2f} €")
+                col3.metric("Nombre de factures", len(df))
+            else:
+                st.info("Aucune colonne montant détectée automatiquement.")
+                col3.metric("Nombre de factures", len(df))
+
+            if st.button("Analyser les factures"):
+                st.info("Analyse IA en cours…")
+
+                apercu = df.head(50).to_string()
+
+                prompt = f"""
+Tu es un expert-comptable français. Analyse ce tableau de factures :
+
+{apercu}
+
+Donne une analyse complète et structurée comprenant :
+
+1. RÉSUMÉ GÉNÉRAL
+   - Nombre total de factures
+   - Montant total, moyen, min et max
+   - Principaux fournisseurs ou clients
+
+2. DÉTECTION D'ANOMALIES
+   - Doublons potentiels (même montant, même date, même fournisseur)
+   - Montants suspects ou inhabituels
+   - Factures incomplètes ou mal renseignées
+
+3. ANALYSE PAR PÉRIODE
+   - Répartition mensuelle ou trimestrielle si dates disponibles
+   - Tendances observées
+
+4. RAPPROCHEMENT COMPTABLE
+   - Cohérence des montants HT, TVA, TTC
+   - Vérification des équilibres débit/crédit si disponibles
+   - Comptes comptables suggérés
+
+5. RECOMMANDATIONS
+   - Actions correctives à mener
+   - Risques fiscaux identifiés
+   - Bonnes pratiques à adopter
+
+Réponds de façon claire, structurée et professionnelle.
+                """
+
+                analyse = appel_mistral(prompt)
+                st.subheader("Analyse IA :")
+                st.markdown(analyse, unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"Erreur lors de la lecture du fichier : {e}")
