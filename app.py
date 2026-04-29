@@ -8,6 +8,14 @@ from utils.rapprochement import rapprocher_banque_compta
 from utils.coherence import analyser_coherence
 from utils.alertes import analyser_alertes
 from utils.veille_fiscale import obtenir_veille_fiscale
+from auth import login, logout, is_connecte
+
+# ---------------------------------------------------------
+# AUTHENTIFICATION
+# ---------------------------------------------------------
+if not is_connecte():
+    login()
+    st.stop()
 
 # ---------------------------------------------------------
 # STYLE GLOBAL (CSS)
@@ -33,11 +41,6 @@ th {
 tr:nth-child(even) {
     background-color: #f9f9f9;
 }
-.metric-container {
-    background-color: #f0f4ff;
-    padding: 10px;
-    border-radius: 8px;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -46,7 +49,11 @@ tr:nth-child(even) {
 # ---------------------------------------------------------
 st.sidebar.image("https://img.icons8.com/color/96/accounting.png", width=80)
 st.sidebar.title("Superviseur IA Comptable")
+st.sidebar.markdown(f"👤 Connecté : **{st.session_state['username']}**")
 st.sidebar.markdown("---")
+
+logout()
+
 page = st.sidebar.radio(
     "Navigation",
     [
