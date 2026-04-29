@@ -1,59 +1,204 @@
-import os
-import requests
+import streamlit as st
+import pandas as pd
+import json
+import datetime
 
-API_KEY = os.getenv("MISTRAL_API_KEY")
-API_URL = "https://api.mistral.ai/v1/chat/completions"
+# Import des modules internes
+from utils.database import (
+    init_db,
+    ajouter_client,
+    lister_clients,
+    sauvegarder_facture,
+    charger_historique,
+    vider_historique
+)
 
-def appel_mistral(messages):
-    """
-    Appel générique à Mistral.
-    Compatible multimodal (OCR).
-    Retourne toujours un dict propre.
-    """
+from utils.ocr import ocr_image_mistral
+from utils.fec import generer_fec
+from utils.ai import appel_mistral
+from utils.compta_auto import analyse_facture_premium
 
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
+# Initialisation de la base
+init_db()
 
-    payload = {
-        "model": "pixtral-vision-latest",   # modèle compatible images
-        "messages": messages,
-        "temperature": 0.2
-    }
+# ---------------------------------------------------------
+# CONFIGURATION DE L'APP
+# ---------------------------------------------------------
+st.set_page_config(
+    page_title="Superviseur IA Comptable",
+    page_icon="🧠",
+    layout="wide"
+)
 
-    try:
-        response = requests.post(API_URL, json=payload, headers=headers)
+# ---------------------------------------------------------
+# MENU
+# ---------------------------------------------------------
+menu = st.sidebar.selectbox(
+    "Navigation",
+    [
+        "Accueil",
+        "Clients",
+        "Analyse facture",
+        "OCR",
+        "Historique",
+        "Générer FEC",
+        "Veille fiscale",
+        "Analyse de la balance",
+        "Écriture comptable automatique"
+    ]
+)
 
-        # Vérification HTTP
-        if response.status_code != 200:
-            return {"error": f"HTTP {response.status_code}", "details": response.text}
+# ---------------------------------------------------------
+# PAGE : ACCUEIL
+# ---------------------------------------------------------
+if menu == "Accueil":
+    st.title("🧠 Superviseur IA Comptable")
+    st.write("Analyse automatique des factures, génération FEC, OCR, veille fiscale et gestion clients.")
+    st.info("Choisissez une fonctionnalité dans le menu à gauche.")
 
-        data = response.json()
+# ---------------------------------------------------------
+# PAGE : CLIENTS
+# ---------------------------------------------------------
+elif menu == "Clients":
+    st.subheader("👥 Gestion des clients")
 
-        # Vérification structure
-        if "choices" not in data:
-            return {"error": "Réponse inattendue", "details": data}
+    nom = st.text_input("Nom du client")
+    if st.button("Ajouter"):
+        ajouter_client(nom)
+        st.success("Client ajouté.")
 
-        return data
+    st.write("### Liste des clients")
+    st.table(lister_clients())
 
-    except Exception as e:
-        return {"error": str(e)}
+# ---------------------------------------------------------
+# PAGE : ANALYSE FACTURE
+# ---------------------------------------------------------
+elif menu == "Analyse facture":
+    st.subheader("📄 Analyse automatique de facture")
 
+    fichier = st.file_uploader("Importer une facture", type=["pdf", "png", "jpg", "jpeg"])
+    if fichier:
+        contenu = ocr_image_mistral(fichier)
+        st.write("### Contenu extrait :")
+        st.write(contenu)
 
-def extraire_contenu_mistral(data):
-    """
-    Extrait le texte d'une réponse Mistral.
-    Gère les erreurs proprement.
-    """
+        if st.button("Analyser avec IA"):
+            prompt = f"Analyse cette facture : {contenu}"
+            resultat = appel_mistral([
+                {"role": "user", "content": prompt}
+            ])
+            st.write("### Analyse IA :")
+            st.write(resultat)
 
-    if not isinstance(data, dict):
-        return "❌ Erreur : réponse IA invalide."
+# ---------------------------------------------------------
+# PAGE : OCR
+# ---------------------------------------------------------
+elif menu == "OCR":
+    st.subheader("🔍 OCR – Extraction de texte")
 
-    if "error" in data:
-        return f"❌ Erreur IA : {data['error']}"
+    fichier = st.file_uploader("Importer un document", type=["pdf", "png", "jpg", "jpeg"])
+    if fichier:
+        texte = ocr_image_mistral(fichier)
+        st.text_area("Texte extrait :", texte, height=300)
 
-    try:
-        return data["choices"][0]["message"]["content"]
-    except:
-        return "❌ Erreur : impossible d'extraire le contenu IA."
+# ---------------------------------------------------------
+# PAGE : HISTORIQUE
+# ---------------------------------------------------------
+elif menu == "Historique":
+    st.subheader("📚 Historique des analyses")
+
+    st.write("### Factures analysées")
+    st.table(charger_historique())
+
+    if st.button("Vider l'historique"):
+        vider_historique()
+        st.success("Historique supprimé.")
+
+# ---------------------------------------------------------
+# PAGE : GÉNÉRER FEC
+# ---------------------------------------------------------
+elif menu == "Générer FEC":
+    st.subheader("📁 Génération FEC")
+
+    fichier = st.file_uploader("Importer un fichier comptable", type=["csv", "xlsx"])
+    if fichier:
+        df = pd.read_csv(fichier) if fichier.name.endswith(".csv") else pd.read_excel(fichier)
+        fec = generer_fec(df)
+
+        st.write("### FEC généré :")
+        st.dataframe(fec)
+
+        st.download_button(
+            "Télécharger FEC",
+            fec.to_csv(index=False),
+            file_name="fec.csv"
+        )
+
+# ---------------------------------------------------------
+# PAGE : VEILLE FISCALE
+# ---------------------------------------------------------
+elif menu == "Veille fiscale":
+    st.subheader("📢 Veille fiscale automatisée")
+
+    question = st.text_input("Posez une question fiscale")
+    if st.button("Analyser"):
+        prompt = f"Réponds comme un fiscaliste expert : {question}"
+        reponse = appel_mistral([
+            {"role": "user", "content": prompt}
+        ])
+        st.write("### Réponse IA :")
+        st.write(reponse)
+
+# ---------------------------------------------------------
+# PAGE : ANALYSE DE LA BALANCE
+# ---------------------------------------------------------
+elif menu == "Analyse de la balance":
+    st.subheader("📊 Analyse IA de la balance comptable")
+
+    fichier = st.file_uploader("Importer une balance", type=["csv", "xlsx"])
+    if fichier:
+        df = pd.read_csv(fichier) if fichier.name.endswith(".csv") else pd.read_excel(fichier)
+        st.write("### Balance importée :")
+        st.dataframe(df)
+
+        if st.button("Analyser la balance"):
+            prompt = f"Analyse cette balance comptable : {df.to_json()}"
+            resultat = appel_mistral([
+                {"role": "user", "content": prompt}
+            ])
+            st.write("### Analyse IA :")
+            st.write(resultat)
+
+# ---------------------------------------------------------
+# PAGE : ÉCRITURE COMPTABLE AUTOMATIQUE (PREMIUM)
+# ---------------------------------------------------------
+elif menu == "Écriture comptable automatique":
+    st.subheader("🧾 Génération automatique d'écriture comptable (Premium)")
+
+    fichier = st.file_uploader("Importer une facture (PDF ou image)", type=["pdf", "png", "jpg", "jpeg"])
+
+    if fichier:
+        st.info("Analyse OCR en cours…")
+        contenu = ocr_image_mistral(fichier)
+
+        st.write("### Contenu extrait :")
+        st.write(contenu)
+
+        if st.button("Générer l'écriture comptable"):
+            st.info("Analyse comptable IA en cours…")
+
+            resultat = analyse_facture_premium(contenu)
+
+            st.write("### Résultat structuré :")
+            st.json(resultat)
+
+            if "ecriture_comptable" in resultat:
+                st.write("### Écriture comptable (format exportable) :")
+                df = pd.DataFrame(resultat["ecriture_comptable"])
+                st.dataframe(df)
+
+                st.download_button(
+                    "Télécharger en CSV",
+                    df.to_csv(index=False),
+                    file_name="ecriture_comptable.csv"
+                )
