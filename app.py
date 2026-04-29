@@ -89,7 +89,9 @@ elif page == "Analyse Balance":
 
                 # Appel IA
                 resultat = analyse_balance_ai(df)
-                texte_ia = extraire_contenu_mistral(resultat)
+
+                # IMPORTANT : analyse_balance_ai renvoie déjà du texte
+                texte_ia = resultat
 
                 st.subheader("Analyse IA :")
                 st.markdown(texte_ia, unsafe_allow_html=True)
@@ -111,4 +113,3 @@ elif page == "Traitement FEC":
         resultat = traiter_fec(fichier)
         st.subheader("Résultat :")
         st.write(resultat)
-
