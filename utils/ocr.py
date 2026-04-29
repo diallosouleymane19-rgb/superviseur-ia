@@ -1,35 +1,58 @@
 import base64
 import tempfile
 from pdf2image import convert_from_bytes
+from PyPDF2 import PdfReader
 from .ai import appel_mistral, extraire_contenu_mistral
 
 
-def _pdf_to_images(pdf_bytes):
-    """
-    Convertit un PDF en liste d'images PIL.
-    Supporte les PDF multi-pages.
-    """
+# ---------------------------------------------------------
+# 1) Extraction directe du texte (PDF texte)
+# ---------------------------------------------------------
+def _extract_pdf_text(pdf_bytes):
     try:
-        images = convert_from_bytes(pdf_bytes)
-        return images
-    except Exception as e:
+        reader = PdfReader(pdf_bytes)
+        texte = ""
+
+        for page in reader.pages:
+            contenu = page.extract_text() or ""
+            texte += contenu + "\n"
+
+        texte = texte.strip()
+
+        if len(texte) > 10:  # PDF texte réel
+            return texte
+
+        return None
+
+    except Exception:
         return None
 
 
+# ---------------------------------------------------------
+# 2) Conversion PDF → images (PDF image)
+# ---------------------------------------------------------
+def _pdf_to_images(pdf_bytes):
+    try:
+        images = convert_from_bytes(pdf_bytes)
+        return images
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------
+# 3) Conversion PIL → base64
+# ---------------------------------------------------------
 def _pil_image_to_base64(img):
-    """
-    Convertit une image PIL en base64 PNG.
-    """
     with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
         img.save(tmp.name, format="PNG")
         with open(tmp.name, "rb") as f:
             return base64.b64encode(f.read()).decode()
 
 
+# ---------------------------------------------------------
+# 4) OCR Mistral sur image base64
+# ---------------------------------------------------------
 def _ocr_image_base64(base64_data, mime="image/png"):
-    """
-    Envoie une image encodée en base64 à Mistral (Pixtral-Vision).
-    """
     messages = [
         {
             "role": "user",
@@ -44,23 +67,25 @@ def _ocr_image_base64(base64_data, mime="image/png"):
     return extraire_contenu_mistral(result)
 
 
+# ---------------------------------------------------------
+# 5) OCR principal (PDF + images)
+# ---------------------------------------------------------
 def ocr_image_mistral(uploaded_file):
-    """
-    OCR complet :
-    - PDF multi-pages → images
-    - Images → base64 → Mistral
-    - Concaténation du texte
-    """
-
     filename = uploaded_file.name.lower()
     file_bytes = uploaded_file.read()
 
     # ---------------------------------------------------------
-    # CAS 1 : PDF → conversion en images
+    # CAS A : PDF
     # ---------------------------------------------------------
     if filename.endswith(".pdf"):
-        images = _pdf_to_images(file_bytes)
 
+        # 1) Essayer extraction directe (PDF texte)
+        texte_pdf = _extract_pdf_text(file_bytes)
+        if texte_pdf:
+            return texte_pdf
+
+        # 2) Sinon → conversion en images
+        images = _pdf_to_images(file_bytes)
         if images is None:
             return "❌ Erreur : impossible de convertir le PDF en images."
 
@@ -75,7 +100,7 @@ def ocr_image_mistral(uploaded_file):
         return texte_total.strip()
 
     # ---------------------------------------------------------
-    # CAS 2 : Image directe (PNG, JPG…)
+    # CAS B : Image directe
     # ---------------------------------------------------------
     else:
         mime = "image/png"
