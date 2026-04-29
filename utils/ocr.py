@@ -1,46 +1,86 @@
 import base64
-from utils.ai import appel_mistral, extraire_contenu_mistral
+import tempfile
+from pdf2image import convert_from_bytes
+from .ai import appel_mistral, extraire_contenu_mistral
 
-def ocr_image_mistral(fichier):
+
+def _pdf_to_images(pdf_bytes):
     """
-    OCR robuste via Mistral.
-    - Support PDF / JPG / PNG
-    - Pas d'appel à l'API Files (évite les erreurs d'ID)
-    - Retourne toujours un texte ou un message d'erreur clair
+    Convertit un PDF en liste d'images PIL.
+    Supporte les PDF multi-pages.
     """
+    try:
+        images = convert_from_bytes(pdf_bytes)
+        return images
+    except Exception as e:
+        return None
 
-    # Détection du type MIME
-    mime = fichier.type
 
-    # Lecture du fichier en bytes
-    bytes_data = fichier.read()
+def _pil_image_to_base64(img):
+    """
+    Convertit une image PIL en base64 PNG.
+    """
+    with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
+        img.save(tmp.name, format="PNG")
+        with open(tmp.name, "rb") as f:
+            return base64.b64encode(f.read()).decode()
 
-    # Encodage base64
-    base64_data = base64.b64encode(bytes_data).decode()
 
-    # Construction du message pour Mistral
+def _ocr_image_base64(base64_data, mime="image/png"):
+    """
+    Envoie une image encodée en base64 à Mistral (Pixtral-Vision).
+    """
     messages = [
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Extrais TOUT le texte de ce document."},
-                {
-                    "type": "input_image",
-                    "image_url": f"data:{mime};base64,{base64_data}"
-                }
+                {"type": "text", "text": "Extrais tout le texte de cette image."},
+                {"type": "input_image", "image_url": f"data:{mime};base64,{base64_data}"}
             ]
         }
     ]
 
-    # Appel Mistral
-    try:
-        result = appel_mistral(messages)
-        texte = extraire_contenu_mistral(result).strip()
+    result = appel_mistral(messages)
+    return extraire_contenu_mistral(result)
 
-        if not texte:
-            return "⚠️ OCR effectué mais aucun texte détecté."
 
-        return texte
+def ocr_image_mistral(uploaded_file):
+    """
+    OCR complet :
+    - PDF multi-pages → images
+    - Images → base64 → Mistral
+    - Concaténation du texte
+    """
 
-    except Exception as e:
-        return f"❌ Erreur OCR : {str(e)}"
+    filename = uploaded_file.name.lower()
+    file_bytes = uploaded_file.read()
+
+    # ---------------------------------------------------------
+    # CAS 1 : PDF → conversion en images
+    # ---------------------------------------------------------
+    if filename.endswith(".pdf"):
+        images = _pdf_to_images(file_bytes)
+
+        if images is None:
+            return "❌ Erreur : impossible de convertir le PDF en images."
+
+        texte_total = ""
+
+        for i, img in enumerate(images):
+            base64_img = _pil_image_to_base64(img)
+            texte_page = _ocr_image_base64(base64_img)
+
+            texte_total += f"\n\n--- Page {i+1} ---\n{texte_page}"
+
+        return texte_total.strip()
+
+    # ---------------------------------------------------------
+    # CAS 2 : Image directe (PNG, JPG…)
+    # ---------------------------------------------------------
+    else:
+        mime = "image/png"
+        if filename.endswith(".jpg") or filename.endswith(".jpeg"):
+            mime = "image/jpeg"
+
+        base64_data = base64.b64encode(file_bytes).decode()
+        return _ocr_image_base64(base64_data, mime=mime)
