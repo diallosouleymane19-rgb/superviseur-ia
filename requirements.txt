@@ -6,3 +6,4 @@ openpyxl
 pdf2image
 pillow
 PyPDF2
+bcrypt
