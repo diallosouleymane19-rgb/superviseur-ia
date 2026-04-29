@@ -111,3 +111,4 @@ elif page == "Traitement FEC":
         resultat = traiter_fec(fichier)
         st.subheader("Résultat :")
         st.write(resultat)
+fix import ai.py
