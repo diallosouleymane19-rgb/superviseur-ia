@@ -42,3 +42,4 @@ def extraire_contenu_mistral(texte):
         return json.loads(texte)
     except:
         return texte
+fix ai.py
