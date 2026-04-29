@@ -3,3 +3,5 @@ requests
 feedparser
 pandas
 openpyxl
+pdf2image
+pillow
