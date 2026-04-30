@@ -5,68 +5,59 @@ from pdf2image import convert_from_bytes
 from PyPDF2 import PdfReader
 from .ai import appel_mistral, extraire_contenu_mistral
 
+# ---------------------------------------------------------
+# 1) Limitation de taille (5 Mo)
+# ---------------------------------------------------------
+MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024  # 5 Mo
+
+def _taille_valide(file_bytes):
+    if len(file_bytes) > MAX_FILE_SIZE_BYTES:
+        return False
+    return True
 
 # ---------------------------------------------------------
-# 1) Extraction directe du texte (PDF texte)
+# 2) Extraction directe du texte (PDF texte)
 # ---------------------------------------------------------
 def _extract_pdf_text(pdf_bytes):
-    """
-    Extraction directe du texte pour les PDF vectoriels (Shopify, Stripe, Amazon, etc.)
-    """
     try:
-        reader = PdfReader(BytesIO(pdf_bytes))  # Correction essentielle
+        reader = PdfReader(BytesIO(pdf_bytes))
         texte = ""
-
         for page in reader.pages:
             contenu = page.extract_text() or ""
             texte += contenu + "\n"
-
         texte = texte.strip()
-
-        # Si le PDF contient du texte réel
         if len(texte) > 10:
             return texte
-
         return None
-
     except Exception:
         return None
 
-
 # ---------------------------------------------------------
-# 2) Conversion PDF → images (PDF image)
+# 3) Conversion PDF → images
 # ---------------------------------------------------------
 def _pdf_to_images(pdf_bytes):
-    """
-    Convertit un PDF image en liste d'images PIL.
-    """
     try:
         images = convert_from_bytes(pdf_bytes)
         return images
     except Exception:
         return None
 
-
 # ---------------------------------------------------------
-# 3) Conversion PIL → base64
+# 4) PIL → base64
 # ---------------------------------------------------------
 def _pil_image_to_base64(img):
-    """
-    Convertit une image PIL en base64 PNG.
-    """
-    with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
-        img.save(tmp.name, format="PNG")
-        with open(tmp.name, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
+            img.save(tmp.name, format="PNG")
+            with open(tmp.name, "rb") as f:
+                return base64.b64encode(f.read()).decode()
+    except Exception:
+        return None
 
 # ---------------------------------------------------------
-# 4) OCR Mistral sur image base64
+# 5) OCR via Mistral (Pixtral-Vision)
 # ---------------------------------------------------------
 def _ocr_image_base64(base64_data, mime="image/png"):
-    """
-    Envoie une image encodée en base64 à Mistral (Pixtral-Vision).
-    """
     messages = [
         {
             "role": "user",
@@ -76,56 +67,57 @@ def _ocr_image_base64(base64_data, mime="image/png"):
             ]
         }
     ]
-
     result = appel_mistral(messages)
     return extraire_contenu_mistral(result)
 
-
 # ---------------------------------------------------------
-# 5) OCR principal (PDF + images)
+# 6) Fonction principale (OCR)
 # ---------------------------------------------------------
 def ocr_image_mistral(uploaded_file):
     """
     OCR complet :
     - PDF texte → extraction directe
-    - PDF image → conversion + OCR
-    - Images → OCR direct
+    - PDF image → conversion en images + OCR
+    - PNG/JPG → OCR direct
     """
     filename = uploaded_file.name.lower()
     file_bytes = uploaded_file.read()
 
-    # ---------------------------------------------------------
-    # CAS A : PDF
-    # ---------------------------------------------------------
+    # Vérification de la taille
+    if not _taille_valide(file_bytes):
+        return "❌ Fichier trop volumineux (limite 5 Mo). Veuillez compresser l'image ou le PDF."
+
+    # -------------------------------------------------
+    # Cas PDF
+    # -------------------------------------------------
     if filename.endswith(".pdf"):
+        # Essai extraction directe
+        texte = _extract_pdf_text(file_bytes)
+        if texte:
+            return texte
 
-        # 1) Essayer extraction directe (PDF texte)
-        texte_pdf = _extract_pdf_text(file_bytes)
-        if texte_pdf:
-            return texte_pdf
-
-        # 2) Sinon → conversion en images (PDF image)
+        # Sinon : conversion en images
         images = _pdf_to_images(file_bytes)
         if images is None:
             return "❌ Erreur : impossible de convertir le PDF en images."
 
         texte_total = ""
-
         for i, img in enumerate(images):
             base64_img = _pil_image_to_base64(img)
+            if base64_img is None:
+                texte_total += f"\n\n--- Page {i+1} ---\n⚠️ Conversion échouée"
+                continue
             texte_page = _ocr_image_base64(base64_img)
-
             texte_total += f"\n\n--- Page {i+1} ---\n{texte_page}"
 
         return texte_total.strip()
 
-    # ---------------------------------------------------------
-    # CAS B : Image directe (PNG, JPG, JPEG)
-    # ---------------------------------------------------------
+    # -------------------------------------------------
+    # Cas image directe (PNG, JPG, JPEG)
+    # -------------------------------------------------
     else:
         mime = "image/png"
         if filename.endswith(".jpg") or filename.endswith(".jpeg"):
             mime = "image/jpeg"
-
         base64_data = base64.b64encode(file_bytes).decode()
         return _ocr_image_base64(base64_data, mime=mime)
