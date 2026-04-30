@@ -376,3 +376,4 @@ elif page == "📈 Compte de Résultat":
                 telecharger_analyse("Analyse_Compte_Resultat", resultat)
         except Exception as e:
             st.error(f"Erreur : {e}")
+            
