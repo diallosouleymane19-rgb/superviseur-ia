@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import base64
+import io
 from utils.ocr import ocr_image_mistral
 from utils.compta_auto import analyse_balance_ai
 from utils.fec import traiter_fec
@@ -9,6 +11,31 @@ from utils.coherence import analyser_coherence
 from utils.alertes import analyser_alertes
 from utils.veille_fiscale import obtenir_veille_fiscale
 from auth import login, logout, is_connecte
+
+# ---------------------------------------------------------
+# FONCTION EXPORT HTML
+# ---------------------------------------------------------
+def telecharger_analyse(titre, contenu):
+    html = f"""
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>{titre}</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 40px; color: #333; }}
+            h1 {{ color: #1f77b4; border-bottom: 2px solid #1f77b4; padding-bottom: 10px; }}
+            pre {{ background: #f5f5f5; padding: 20px; border-radius: 8px; white-space: pre-wrap; }}
+        </style>
+    </head>
+    <body>
+        <h1>{titre}</h1>
+        <pre>{contenu}</pre>
+    </body>
+    </html>
+    """
+    b64 = base64.b64encode(html.encode()).decode()
+    href = f'<a href="data:text/html;base64,{b64}" download="{titre}.html">📥 Télécharger le rapport</a>'
+    st.markdown(href, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # AUTHENTIFICATION
@@ -82,7 +109,6 @@ if page == "🏠 Accueil":
     st.subheader("📊 Tableau de Bord")
 
     col1, col2 = st.columns(2)
-
     with col1:
         st.markdown("**Répartition des charges (exemple)**")
         df_charges = pd.DataFrame({
@@ -134,6 +160,7 @@ Extrais et structure : Fournisseur, Client, Numéro facture, Date, Montant HT, T
         """
         analyse = appel_mistral(prompt)
         st.markdown(analyse, unsafe_allow_html=True)
+        telecharger_analyse("Analyse_Facture", analyse)
 
 # ---------------------------------------------------------
 # PAGE : ANALYSE BALANCE
@@ -151,6 +178,7 @@ elif page == "📊 Analyse Balance":
                 resultat = analyse_balance_ai(df)
                 st.subheader("Analyse IA :")
                 st.markdown(resultat, unsafe_allow_html=True)
+                telecharger_analyse("Analyse_Balance", resultat)
         except Exception as e:
             st.error(f"Erreur : {e}")
 
@@ -165,6 +193,7 @@ elif page == "📂 Traitement FEC":
         resultat = traiter_fec(fichier)
         st.subheader("Résultat :")
         st.markdown(resultat, unsafe_allow_html=True)
+        telecharger_analyse("Analyse_FEC", resultat)
 
 # ---------------------------------------------------------
 # PAGE : TRAITEMENT FACTURES
@@ -197,6 +226,7 @@ elif page == "💳 Traitement Factures":
                 analyse = appel_mistral(prompt)
                 st.subheader("Analyse IA :")
                 st.markdown(analyse, unsafe_allow_html=True)
+                telecharger_analyse("Analyse_Factures", analyse)
         except Exception as e:
             st.error(f"Erreur : {e}")
 
@@ -222,6 +252,7 @@ elif page == "🏦 Rapprochement Bancaire":
                 st.info("Rapprochement en cours…")
                 resultat = rapprocher_banque_compta(df_banque, df_compta)
                 st.markdown(resultat, unsafe_allow_html=True)
+                telecharger_analyse("Rapprochement_Bancaire", resultat)
         except Exception as e:
             st.error(f"Erreur : {e}")
 
@@ -247,6 +278,7 @@ elif page == "🔗 Cohérence Inter-Documents":
             st.info("Analyse en cours…")
             resultat = analyser_coherence(df_factures, df_balance, df_fec)
             st.markdown(resultat, unsafe_allow_html=True)
+            telecharger_analyse("Coherence_Inter_Documents", resultat)
 
 # ---------------------------------------------------------
 # PAGE : ALERTES DE GESTION
@@ -262,6 +294,7 @@ elif page == "🚨 Alertes de Gestion":
                 st.info("Analyse en cours…")
                 resultat = analyser_alertes(df)
                 st.markdown(resultat, unsafe_allow_html=True)
+                telecharger_analyse("Alertes_Gestion", resultat)
         except Exception as e:
             st.error(f"Erreur : {e}")
 
@@ -274,3 +307,4 @@ elif page == "📰 Veille Fiscale":
         st.info("Génération en cours…")
         resultat = obtenir_veille_fiscale()
         st.markdown(resultat, unsafe_allow_html=True)
+        telecharger_analyse("Veille_Fiscale", resultat)
