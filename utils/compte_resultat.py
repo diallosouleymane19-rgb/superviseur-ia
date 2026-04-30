@@ -2,38 +2,36 @@ import pandas as pd
 from .ai import appel_mistral
 
 def analyser_compte_resultat(df):
-    """
-    Analyse IA du compte de résultat.
-    """
     try:
         apercu = df.head(50).to_string()
+        return analyser_cr_texte(apercu)
+    except Exception as e:
+        return f"Erreur analyse compte de résultat : {e}"
 
+def analyser_cr_texte(texte):
+    try:
         prompt = f"""
 Tu es un expert-comptable français spécialisé en analyse financière.
 
 Analyse ce compte de résultat :
 
-{apercu}
+{texte}
 
-Donne une analyse complète et structurée :
-
+Donne une analyse complète :
 1. SOLDES INTERMÉDIAIRES DE GESTION (SIG)
-   - Chiffre d'affaires (CA)
+   - Chiffre d'affaires
    - Marge commerciale
-   - Production de l'exercice
    - Valeur Ajoutée (VA)
    - Excédent Brut d'Exploitation (EBE)
    - Résultat d'exploitation
-   - Résultat courant avant impôts
    - Résultat net
 
 2. ANALYSE DES PRODUITS
-   - Structure des produits
-   - Évolution du chiffre d'affaires
+   - Structure et évolution du CA
    - Autres produits significatifs
 
 3. ANALYSE DES CHARGES
-   - Charges d'exploitation (achats, salaires, loyers)
+   - Charges d'exploitation
    - Charges financières
    - Charges exceptionnelles
    - Poids des charges par rapport au CA
@@ -42,19 +40,10 @@ Donne une analyse complète et structurée :
    - Taux de marge brute
    - Taux de marge nette
    - Taux de valeur ajoutée
-   - Rentabilité économique
-   - Rentabilité financière
+   - Rentabilité économique et financière
 
 5. POINTS FORTS ET POINTS FAIBLES
-   - Performances remarquables
-   - Postes de charges excessifs
-   - Risques sur la rentabilité
-
 6. RECOMMANDATIONS
-   - Optimisation des charges
-   - Axes d'amélioration de la rentabilité
-   - Risques fiscaux identifiés
-   - Actions prioritaires
 
 Réponds de façon claire, structurée et professionnelle.
         """

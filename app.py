@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import base64
-import io
 from utils.ocr import ocr_image_mistral
 from utils.compta_auto import analyse_balance_ai
 from utils.fec import traiter_fec
@@ -10,8 +9,8 @@ from utils.rapprochement import rapprocher_banque_compta
 from utils.coherence import analyser_coherence
 from utils.alertes import analyser_alertes
 from utils.veille_fiscale import obtenir_veille_fiscale
-from utils.bilan import analyser_bilan
-from utils.compte_resultat import analyser_compte_resultat
+from utils.bilan import analyser_bilan, analyser_bilan_texte
+from utils.compte_resultat import analyser_compte_resultat, analyser_cr_texte
 from auth import login, logout, is_connecte
 
 # ---------------------------------------------------------
@@ -323,15 +322,25 @@ elif page == "📰 Veille Fiscale":
 # ---------------------------------------------------------
 elif page == "📋 Analyse Bilan":
     st.title("📋 Analyse du Bilan Comptable")
-    fichier = st.file_uploader("Importer un bilan (Excel ou CSV)", type=["xlsx", "csv"])
+    fichier = st.file_uploader("Importer un bilan (Excel, CSV ou PDF)", type=["xlsx", "csv", "pdf", "png", "jpg", "jpeg"])
     if fichier:
         try:
-            df = pd.read_csv(fichier) if fichier.name.endswith(".csv") else pd.read_excel(fichier)
-            st.subheader("Aperçu du bilan :")
-            st.dataframe(df)
+            if fichier.name.endswith(".csv"):
+                df = pd.read_csv(fichier)
+                st.dataframe(df)
+                donnees = df.head(50).to_string()
+            elif fichier.name.endswith(".xlsx"):
+                df = pd.read_excel(fichier)
+                st.dataframe(df)
+                donnees = df.head(50).to_string()
+            else:
+                st.info("Extraction du texte en cours…")
+                donnees = ocr_image_mistral(fichier)
+                st.text_area("Texte extrait :", donnees, height=200)
+
             if st.button("Analyser le bilan"):
                 st.info("Analyse IA en cours…")
-                resultat = analyser_bilan(df)
+                resultat = analyser_bilan_texte(donnees)
                 st.subheader("Analyse IA :")
                 st.markdown(resultat, unsafe_allow_html=True)
                 telecharger_analyse("Analyse_Bilan", resultat)
@@ -343,15 +352,25 @@ elif page == "📋 Analyse Bilan":
 # ---------------------------------------------------------
 elif page == "📈 Compte de Résultat":
     st.title("📈 Analyse du Compte de Résultat")
-    fichier = st.file_uploader("Importer un compte de résultat (Excel ou CSV)", type=["xlsx", "csv"])
+    fichier = st.file_uploader("Importer un compte de résultat (Excel, CSV ou PDF)", type=["xlsx", "csv", "pdf", "png", "jpg", "jpeg"])
     if fichier:
         try:
-            df = pd.read_csv(fichier) if fichier.name.endswith(".csv") else pd.read_excel(fichier)
-            st.subheader("Aperçu du compte de résultat :")
-            st.dataframe(df)
+            if fichier.name.endswith(".csv"):
+                df = pd.read_csv(fichier)
+                st.dataframe(df)
+                donnees = df.head(50).to_string()
+            elif fichier.name.endswith(".xlsx"):
+                df = pd.read_excel(fichier)
+                st.dataframe(df)
+                donnees = df.head(50).to_string()
+            else:
+                st.info("Extraction du texte en cours…")
+                donnees = ocr_image_mistral(fichier)
+                st.text_area("Texte extrait :", donnees, height=200)
+
             if st.button("Analyser le compte de résultat"):
                 st.info("Analyse IA en cours…")
-                resultat = analyser_compte_resultat(df)
+                resultat = analyser_cr_texte(donnees)
                 st.subheader("Analyse IA :")
                 st.markdown(resultat, unsafe_allow_html=True)
                 telecharger_analyse("Analyse_Compte_Resultat", resultat)
