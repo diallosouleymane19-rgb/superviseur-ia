@@ -10,6 +10,8 @@ from utils.rapprochement import rapprocher_banque_compta
 from utils.coherence import analyser_coherence
 from utils.alertes import analyser_alertes
 from utils.veille_fiscale import obtenir_veille_fiscale
+from utils.bilan import analyser_bilan
+from utils.compte_resultat import analyser_compte_resultat
 from auth import login, logout, is_connecte
 
 # ---------------------------------------------------------
@@ -77,7 +79,9 @@ page = st.sidebar.radio(
         "🏦 Rapprochement Bancaire",
         "🔗 Cohérence Inter-Documents",
         "🚨 Alertes de Gestion",
-        "📰 Veille Fiscale"
+        "📰 Veille Fiscale",
+        "📋 Analyse Bilan",
+        "📈 Compte de Résultat"
     ]
 )
 
@@ -101,6 +105,11 @@ if page == "🏠 Accueil":
     col4.success("🏦 Rapprochement Bancaire\nComparez banque et comptabilité")
     col5.success("🔗 Cohérence Inter-Documents\nCroisez vos documents comptables")
     col6.success("🚨 Alertes de Gestion\nDétectez les anomalies en temps réel")
+
+    st.markdown("---")
+    col7, col8 = st.columns(2)
+    col7.warning("📋 Analyse Bilan\nRatios financiers et structure")
+    col8.warning("📈 Compte de Résultat\nSIG, marges et rentabilité")
 
     st.markdown("---")
     st.warning("📰 Veille Fiscale — Restez à jour sur la réglementation française")
@@ -308,3 +317,43 @@ elif page == "📰 Veille Fiscale":
         resultat = obtenir_veille_fiscale()
         st.markdown(resultat, unsafe_allow_html=True)
         telecharger_analyse("Veille_Fiscale", resultat)
+
+# ---------------------------------------------------------
+# PAGE : ANALYSE BILAN
+# ---------------------------------------------------------
+elif page == "📋 Analyse Bilan":
+    st.title("📋 Analyse du Bilan Comptable")
+    fichier = st.file_uploader("Importer un bilan (Excel ou CSV)", type=["xlsx", "csv"])
+    if fichier:
+        try:
+            df = pd.read_csv(fichier) if fichier.name.endswith(".csv") else pd.read_excel(fichier)
+            st.subheader("Aperçu du bilan :")
+            st.dataframe(df)
+            if st.button("Analyser le bilan"):
+                st.info("Analyse IA en cours…")
+                resultat = analyser_bilan(df)
+                st.subheader("Analyse IA :")
+                st.markdown(resultat, unsafe_allow_html=True)
+                telecharger_analyse("Analyse_Bilan", resultat)
+        except Exception as e:
+            st.error(f"Erreur : {e}")
+
+# ---------------------------------------------------------
+# PAGE : COMPTE DE RÉSULTAT
+# ---------------------------------------------------------
+elif page == "📈 Compte de Résultat":
+    st.title("📈 Analyse du Compte de Résultat")
+    fichier = st.file_uploader("Importer un compte de résultat (Excel ou CSV)", type=["xlsx", "csv"])
+    if fichier:
+        try:
+            df = pd.read_csv(fichier) if fichier.name.endswith(".csv") else pd.read_excel(fichier)
+            st.subheader("Aperçu du compte de résultat :")
+            st.dataframe(df)
+            if st.button("Analyser le compte de résultat"):
+                st.info("Analyse IA en cours…")
+                resultat = analyser_compte_resultat(df)
+                st.subheader("Analyse IA :")
+                st.markdown(resultat, unsafe_allow_html=True)
+                telecharger_analyse("Analyse_Compte_Resultat", resultat)
+        except Exception as e:
+            st.error(f"Erreur : {e}")
