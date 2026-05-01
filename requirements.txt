@@ -8,3 +8,4 @@ pillow
 PyPDF2
 bcrypt
 plotly
+python-docx

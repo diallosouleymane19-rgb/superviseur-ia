@@ -13,13 +13,14 @@ from utils.bilan import analyser_bilan, analyser_bilan_texte
 from utils.compte_resultat import analyser_compte_resultat, analyser_cr_texte
 from utils.database import init_db, creer_client, lister_clients, supprimer_client, sauvegarder_analyse, lister_analyses, get_analyse, supprimer_analyse
 from utils.rapport_client import generer_rapport_client
+from utils.export_word import export_analyse_word
 from auth import login, logout, is_connecte
 
 # Initialiser la base de données
 init_db()
 
 # ---------------------------------------------------------
-# FONCTION EXPORT HTML
+# FONCTIONS EXPORT
 # ---------------------------------------------------------
 def telecharger_analyse(titre, contenu):
     html = f"""
@@ -40,8 +41,17 @@ def telecharger_analyse(titre, contenu):
     </html>
     """
     b64 = base64.b64encode(html.encode()).decode()
-    href = f'<a href="data:text/html;base64,{b64}" download="{titre}.html">📥 Télécharger le rapport</a>'
+    href = f'<a href="data:text/html;base64,{b64}" download="{titre}.html">📥 Télécharger en HTML</a>'
     st.markdown(href, unsafe_allow_html=True)
+
+def telecharger_word(titre, contenu, nom_client="", exercice=""):
+    buffer = export_analyse_word(titre, contenu, nom_client, exercice)
+    st.download_button(
+        label="📄 Télécharger en Word (.docx)",
+        data=buffer,
+        file_name=f"{titre}.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
 def telecharger_rapport_html(titre, html_contenu):
     b64 = base64.b64encode(html_contenu.encode()).decode()
@@ -169,7 +179,6 @@ elif page == "📁 Dossiers Clients":
 
     onglet1, onglet2, onglet3 = st.tabs(["➕ Nouveau Client", "📋 Liste des Clients", "📊 Dossier Client"])
 
-    # --- ONGLET 1 : NOUVEAU CLIENT ---
     with onglet1:
         st.subheader("➕ Créer un nouveau dossier client")
         nom = st.text_input("Nom du client *")
@@ -189,13 +198,12 @@ elif page == "📁 Dossiers Clients":
             else:
                 st.warning("Le nom du client est obligatoire.")
 
-    # --- ONGLET 2 : LISTE DES CLIENTS ---
     with onglet2:
         st.subheader("📋 Liste des dossiers clients")
         clients = lister_clients()
 
         if not clients:
-            st.info("Aucun dossier client créé. Commencez par créer un nouveau client.")
+            st.info("Aucun dossier client créé.")
         else:
             for client in clients:
                 client_id, nom, siret, secteur, contact, email, date_creation = client
@@ -212,29 +220,23 @@ elif page == "📁 Dossiers Clients":
                     st.write(f"**Créé le :** {date_creation}")
 
                     col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button(f"📊 Ouvrir le dossier", key=f"open_{client_id}"):
-                            st.session_state["client_actif_id"] = client_id
-                            st.session_state["client_actif_nom"] = nom
-                            st.rerun()
                     with col2:
                         if st.button(f"🗑️ Supprimer", key=f"del_{client_id}"):
                             supprimer_client(client_id)
                             st.success(f"Dossier {nom} supprimé.")
                             st.rerun()
 
-    # --- ONGLET 3 : DOSSIER CLIENT ---
     with onglet3:
         st.subheader("📊 Dossier Client")
-
         clients = lister_clients()
+
         if not clients:
             st.info("Aucun client disponible.")
         else:
-            options = {f"{c[1]} (ID:{c[0]})": c[0] for c in clients}
+            options = {f"{c[1]}": c[0] for c in clients}
             choix = st.selectbox("Sélectionner un client", list(options.keys()))
             client_id = options[choix]
-            client_nom = choix.split(" (ID:")[0]
+            client_nom = choix
 
             analyses = lister_analyses(client_id)
             st.markdown(f"### 📁 {client_nom} — {len(analyses)} analyse(s)")
@@ -247,7 +249,8 @@ elif page == "📁 Dossiers Clients":
                     with st.expander(f"{type_analyse} — {titre} ({date_analyse})"):
                         detail = get_analyse(analyse_id)
                         if detail:
-                            st.markdown(detail[4], unsafe_allow_html=True)
+                            st.markdown(detail[4])
+                            telecharger_word(f"{type_analyse}_{client_nom}", detail[4], client_nom, exercice)
                         col1, col2 = st.columns(2)
                         with col1:
                             if st.button("🗑️ Supprimer", key=f"delA_{analyse_id}"):
@@ -267,6 +270,7 @@ elif page == "🧾 OCR Facture":
 
     clients = lister_clients()
     client_id = None
+    exercice = ""
     if clients:
         st.subheader("📁 Associer à un dossier client (optionnel)")
         options = {"-- Aucun --": None}
@@ -290,11 +294,12 @@ Extrais et structure : Fournisseur, Client, Numéro facture, Date, Montant HT, T
         analyse = appel_mistral(prompt)
         st.markdown(analyse)
         telecharger_analyse("Analyse_Facture", analyse)
+        telecharger_word("Analyse_Facture", analyse, exercice=exercice)
 
         if client_id:
             if st.button("💾 Sauvegarder dans le dossier client"):
                 sauvegarder_analyse(client_id, "🧾 OCR Facture", fichier.name, analyse, exercice)
-                st.success("✅ Analyse sauvegardée dans le dossier client !")
+                st.success("✅ Analyse sauvegardée !")
 
 # ---------------------------------------------------------
 # PAGE : ANALYSE BALANCE
@@ -304,6 +309,7 @@ elif page == "📊 Analyse Balance":
 
     clients = lister_clients()
     client_id = None
+    exercice = ""
     if clients:
         st.subheader("📁 Associer à un dossier client (optionnel)")
         options = {"-- Aucun --": None}
@@ -324,6 +330,7 @@ elif page == "📊 Analyse Balance":
                 st.subheader("Analyse IA :")
                 st.markdown(resultat)
                 telecharger_analyse("Analyse_Balance", resultat)
+                telecharger_word("Analyse_Balance", resultat, exercice=exercice)
 
                 if client_id:
                     if st.button("💾 Sauvegarder dans le dossier client"):
@@ -340,6 +347,7 @@ elif page == "📂 Traitement FEC":
 
     clients = lister_clients()
     client_id = None
+    exercice = ""
     if clients:
         st.subheader("📁 Associer à un dossier client (optionnel)")
         options = {"-- Aucun --": None}
@@ -355,6 +363,7 @@ elif page == "📂 Traitement FEC":
         st.subheader("Résultat :")
         st.markdown(resultat)
         telecharger_analyse("Analyse_FEC", resultat)
+        telecharger_word("Analyse_FEC", resultat, exercice=exercice)
 
         if client_id:
             if st.button("💾 Sauvegarder dans le dossier client"):
@@ -369,6 +378,7 @@ elif page == "💳 Traitement Factures":
 
     clients = lister_clients()
     client_id = None
+    exercice = ""
     if clients:
         st.subheader("📁 Associer à un dossier client (optionnel)")
         options = {"-- Aucun --": None}
@@ -404,6 +414,7 @@ elif page == "💳 Traitement Factures":
                 st.subheader("Analyse IA :")
                 st.markdown(analyse)
                 telecharger_analyse("Analyse_Factures", analyse)
+                telecharger_word("Analyse_Factures", analyse, exercice=exercice)
 
                 if client_id:
                     if st.button("💾 Sauvegarder dans le dossier client"):
@@ -420,6 +431,7 @@ elif page == "🏦 Rapprochement Bancaire":
 
     clients = lister_clients()
     client_id = None
+    exercice = ""
     if clients:
         st.subheader("📁 Associer à un dossier client (optionnel)")
         options = {"-- Aucun --": None}
@@ -446,6 +458,7 @@ elif page == "🏦 Rapprochement Bancaire":
                 resultat = rapprocher_banque_compta(df_banque, df_compta)
                 st.markdown(resultat)
                 telecharger_analyse("Rapprochement_Bancaire", resultat)
+                telecharger_word("Rapprochement_Bancaire", resultat, exercice=exercice)
 
                 if client_id:
                     if st.button("💾 Sauvegarder dans le dossier client"):
@@ -462,6 +475,7 @@ elif page == "🔗 Cohérence Inter-Documents":
 
     clients = lister_clients()
     client_id = None
+    exercice = ""
     if clients:
         options = {"-- Aucun --": None}
         options.update({f"{c[1]}": c[0] for c in clients})
@@ -487,6 +501,7 @@ elif page == "🔗 Cohérence Inter-Documents":
             resultat = analyser_coherence(df_factures, df_balance, df_fec)
             st.markdown(resultat)
             telecharger_analyse("Coherence_Inter_Documents", resultat)
+            telecharger_word("Coherence_Inter_Documents", resultat, exercice=exercice)
 
             if client_id:
                 if st.button("💾 Sauvegarder dans le dossier client"):
@@ -501,6 +516,7 @@ elif page == "🚨 Alertes de Gestion":
 
     clients = lister_clients()
     client_id = None
+    exercice = ""
     if clients:
         options = {"-- Aucun --": None}
         options.update({f"{c[1]}": c[0] for c in clients})
@@ -518,6 +534,7 @@ elif page == "🚨 Alertes de Gestion":
                 resultat = analyser_alertes(df)
                 st.markdown(resultat)
                 telecharger_analyse("Alertes_Gestion", resultat)
+                telecharger_word("Alertes_Gestion", resultat, exercice=exercice)
 
                 if client_id:
                     if st.button("💾 Sauvegarder dans le dossier client"):
@@ -536,6 +553,7 @@ elif page == "📰 Veille Fiscale":
         resultat = obtenir_veille_fiscale()
         st.markdown(resultat, unsafe_allow_html=True)
         telecharger_analyse("Veille_Fiscale", resultat)
+        telecharger_word("Veille_Fiscale", resultat)
 
 # ---------------------------------------------------------
 # PAGE : ANALYSE BILAN
@@ -545,6 +563,7 @@ elif page == "📋 Analyse Bilan":
 
     clients = lister_clients()
     client_id = None
+    exercice = ""
     if clients:
         st.subheader("📁 Associer à un dossier client (optionnel)")
         options = {"-- Aucun --": None}
@@ -575,6 +594,7 @@ elif page == "📋 Analyse Bilan":
                 st.subheader("Analyse IA :")
                 st.markdown(resultat)
                 telecharger_analyse("Analyse_Bilan", resultat)
+                telecharger_word("Analyse_Bilan", resultat, exercice=exercice)
 
                 if client_id:
                     if st.button("💾 Sauvegarder dans le dossier client"):
@@ -591,6 +611,7 @@ elif page == "📈 Compte de Résultat":
 
     clients = lister_clients()
     client_id = None
+    exercice = ""
     if clients:
         st.subheader("📁 Associer à un dossier client (optionnel)")
         options = {"-- Aucun --": None}
@@ -621,6 +642,7 @@ elif page == "📈 Compte de Résultat":
                 st.subheader("Analyse IA :")
                 st.markdown(resultat)
                 telecharger_analyse("Analyse_Compte_Resultat", resultat)
+                telecharger_word("Analyse_Compte_Resultat", resultat, exercice=exercice)
 
                 if client_id:
                     if st.button("💾 Sauvegarder dans le dossier client"):
