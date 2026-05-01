@@ -106,7 +106,6 @@ Consultant comptable & développeur IA
 📧 Contact : [diallosouleymane19@gmail.com](mailto:diallosouleymane19@gmail.com)  
 🔗 GitHub : [diallosouleymane19-rgb](https://github.com/diallosouleymane19-rgb)  
 💼 LinkedIn : (https://www.linkedin.com/in/souleymane-diallo-0071205a)
-
 ---
 
 ## 📄 Licence
