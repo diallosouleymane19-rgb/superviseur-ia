@@ -126,3 +126,5 @@ Les identifiants sont configurables dans le fichier `auth.py`.
 ---
 
 ## 📁 Structure du projet
+
+
