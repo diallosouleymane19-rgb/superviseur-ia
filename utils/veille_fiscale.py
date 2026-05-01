@@ -40,26 +40,21 @@ def obtenir_veille_fiscale():
         prompt = f"""
 Tu es un expert fiscaliste français. Nous sommes le {date_jour}.
 
-{f"Voici les dernières actualités officielles récupérées :{contexte}" if articles else "Génère une veille fiscale complète et à jour pour les entreprises françaises."}
+{f"Voici les dernières actualités officielles : {contexte}" if articles else "Génère une veille fiscale complète et à jour pour les entreprises françaises."}
 
-Génère une veille fiscale structurée en Markdown propre :
+Génère une veille fiscale en HTML simple (pas de Markdown).
+Utilise uniquement ces balises HTML : <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>, <hr>.
+Ne mets pas de balises <html>, <head>, <body>.
+Ne mets aucun bloc de code, aucun caractère #, aucun **.
 
-## 📋 Actualités fiscales récentes
-- Points législatifs importants avec sources
-
-## 📅 Calendrier fiscal de mai 2026
-- Échéances et obligations du mois
-
-## 💼 Impact pour les entreprises
-- Ce que les PME/TPE doivent savoir
-
-## 💡 Conseils pratiques
-- Recommandations concrètes et optimisations légales
-
-Réponds uniquement en Markdown propre, sans caractères d'échappement.
+Structure :
+<h2>📋 Actualités fiscales récentes</h2>
+<h2>📅 Calendrier fiscal {date_jour[:7]}</h2>
+<h2>💼 Impact pour les entreprises</h2>
+<h2>💡 Conseils pratiques</h2>
         """
 
         return appel_mistral(prompt)
 
     except Exception as e:
-        return f"Erreur veille fiscale : {e}"
+        return f"<p>Erreur veille fiscale : {e}</p>"
