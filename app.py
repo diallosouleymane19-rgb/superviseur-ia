@@ -314,7 +314,7 @@ elif page == "📰 Veille Fiscale":
     if st.button("Obtenir la veille fiscale"):
         st.info("Génération en cours…")
         resultat = obtenir_veille_fiscale()
-        st.markdown(resultat)
+        st.markdown(resultat, unsafe_allow_html=True)
         telecharger_analyse("Veille_Fiscale", resultat)
 
 # ---------------------------------------------------------
