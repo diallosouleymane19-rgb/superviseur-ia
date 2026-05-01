@@ -1,52 +1,65 @@
+import feedparser
+from .ai import appel_mistral
 from datetime import datetime
 
+SOURCES_RSS = [
+    "https://www.economie.gouv.fr/rss.xml",
+    "https://www.urssaf.fr/portail/home/rss.rss",
+    "https://bofip.impots.gouv.fr/bofip/flux-rss.html",
+]
+
+def recuperer_articles_rss():
+    articles = []
+    for url in SOURCES_RSS:
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:5]:
+                articles.append({
+                    "source": feed.feed.get("title", url),
+                    "titre": entry.get("title", "Sans titre"),
+                    "lien": entry.get("link", ""),
+                    "date": entry.get("published", ""),
+                    "resume": entry.get("summary", "")[:300]
+                })
+        except Exception:
+            continue
+    return articles
+
 def obtenir_veille_fiscale():
-    """
-    Retourne (texte_markdown, html)
-    """
-    articles = [
-        {
-            "source": "Journal Officiel",
-            "titre": "Seuils micro-entrepreneurs 2026 : revalorisation de 5%",
-            "impact": "Les seuils de TVA et de chiffre d'affaires augmentent de 5%.",
-            "action": "Vérifier les seuils de vos clients avant le 31 mai 2026.",
-            "lien": "https://www.legifrance.gouv.fr/jorf/jo"
-        },
-        {
-            "source": "BOFiP",
-            "titre": "TVA : précisions sur les livraisons à soi-même (LAS)",
-            "impact": "Les entreprises réalisant des LAS doivent utiliser le formulaire 3310-LAS.",
-            "action": "Identifier les clients concernés (BTP, travaux).",
-            "lien": "https://bofip.impots.gouv.fr/bofip"
-        },
-        {
-            "source": "URSSAF",
-            "titre": "Échéances sociales mai 2026",
-            "impact": "Paiement des cotisations sociales le 15 mai, DSN le 10 mai.",
-            "action": "Programmer les rappels clients avant le 10 mai.",
-            "lien": "https://www.urssaf.fr"
-        }
-    ]
+    try:
+        date_jour = datetime.now().strftime("%d/%m/%Y")
+        articles = recuperer_articles_rss()
 
-    md = f"📰 **Veille fiscale – semaine du {datetime.now().strftime('%d/%m/%Y')}**\n\n"
-    md += "*Généré par IA – SMD Consulting*\n\n---\n\n"
+        if articles:
+            contexte = ""
+            for art in articles:
+                contexte += f"Source: {art['source']}\nTitre: {art['titre']}\nDate: {art['date']}\nRésumé: {art['resume']}\n---\n"
+        else:
+            contexte = "Les flux RSS officiels ne sont pas disponibles actuellement."
 
-    for a in articles:
-        md += f"### 📌 {a['titre']}\n"
-        md += f"- **Source :** {a['source']}\n"
-        md += f"- **Impact :** {a['impact']}\n"
-        md += f"- **Action :** {a['action']}\n"
-        md += f"- [📖 Lire l'article]({a['lien']})\n\n---\n\n"
+        prompt = f"""
+Tu es un expert fiscaliste français. Nous sommes le {date_jour}.
 
-    html = f"""
-    <html>
-    <head><meta charset="UTF-8"><title>Veille fiscale</title></head>
-    <body>
-        <h1>📰 Veille fiscale – {datetime.now().strftime('%d/%m/%Y')}</h1>
-        <hr>
-    """
-    for a in articles:
-        html += f"<h3>📌 {a['titre']}</h3><p><strong>Impact :</strong> {a['impact']}</p><p><strong>Action :</strong> {a['action']}</p><hr>"
-    html += "</body></html>"
+{f"Voici les dernières actualités officielles récupérées :{contexte}" if articles else "Génère une veille fiscale complète et à jour pour les entreprises françaises."}
 
-    return md, html
+Génère une veille fiscale structurée en Markdown propre :
+
+## 📋 Actualités fiscales récentes
+- Points législatifs importants avec sources
+
+## 📅 Calendrier fiscal de mai 2026
+- Échéances et obligations du mois
+
+## 💼 Impact pour les entreprises
+- Ce que les PME/TPE doivent savoir
+
+## 💡 Conseils pratiques
+- Recommandations concrètes et optimisations légales
+
+Réponds uniquement en Markdown propre, sans caractères d'échappement.
+        """
+
+        return appel_mistral(prompt)
+
+    except Exception as e:
+        return f"Erreur veille fiscale : {e}"
