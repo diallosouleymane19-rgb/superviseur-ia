@@ -11,7 +11,12 @@ from utils.alertes import analyser_alertes
 from utils.veille_fiscale import obtenir_veille_fiscale
 from utils.bilan import analyser_bilan, analyser_bilan_texte
 from utils.compte_resultat import analyser_compte_resultat, analyser_cr_texte
+from utils.database import init_db, creer_client, lister_clients, supprimer_client, sauvegarder_analyse, lister_analyses, get_analyse, supprimer_analyse
+from utils.rapport_client import generer_rapport_client
 from auth import login, logout, is_connecte
+
+# Initialiser la base de données
+init_db()
 
 # ---------------------------------------------------------
 # FONCTION EXPORT HTML
@@ -36,6 +41,11 @@ def telecharger_analyse(titre, contenu):
     """
     b64 = base64.b64encode(html.encode()).decode()
     href = f'<a href="data:text/html;base64,{b64}" download="{titre}.html">📥 Télécharger le rapport</a>'
+    st.markdown(href, unsafe_allow_html=True)
+
+def telecharger_rapport_html(titre, html_contenu):
+    b64 = base64.b64encode(html_contenu.encode()).decode()
+    href = f'<a href="data:text/html;base64,{b64}" download="{titre}.html">📥 Télécharger le dossier complet</a>'
     st.markdown(href, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
@@ -71,6 +81,7 @@ page = st.sidebar.radio(
     "Navigation",
     [
         "🏠 Accueil",
+        "📁 Dossiers Clients",
         "🧾 OCR Facture",
         "📊 Analyse Balance",
         "📂 Traitement FEC",
@@ -150,10 +161,120 @@ if page == "🏠 Accueil":
     st.plotly_chart(fig3, use_container_width=True)
 
 # ---------------------------------------------------------
+# PAGE : DOSSIERS CLIENTS
+# ---------------------------------------------------------
+elif page == "📁 Dossiers Clients":
+    st.title("📁 Gestion des Dossiers Clients")
+    st.markdown("---")
+
+    onglet1, onglet2, onglet3 = st.tabs(["➕ Nouveau Client", "📋 Liste des Clients", "📊 Dossier Client"])
+
+    # --- ONGLET 1 : NOUVEAU CLIENT ---
+    with onglet1:
+        st.subheader("➕ Créer un nouveau dossier client")
+        nom = st.text_input("Nom du client *")
+        col1, col2 = st.columns(2)
+        with col1:
+            siret = st.text_input("SIRET")
+            contact = st.text_input("Contact")
+        with col2:
+            secteur = st.text_input("Secteur d'activité")
+            email = st.text_input("Email")
+
+        if st.button("Créer le dossier"):
+            if nom:
+                creer_client(nom, siret, secteur, contact, email)
+                st.success(f"✅ Dossier **{nom}** créé avec succès !")
+                st.rerun()
+            else:
+                st.warning("Le nom du client est obligatoire.")
+
+    # --- ONGLET 2 : LISTE DES CLIENTS ---
+    with onglet2:
+        st.subheader("📋 Liste des dossiers clients")
+        clients = lister_clients()
+
+        if not clients:
+            st.info("Aucun dossier client créé. Commencez par créer un nouveau client.")
+        else:
+            for client in clients:
+                client_id, nom, siret, secteur, contact, email, date_creation = client
+                analyses = lister_analyses(client_id)
+
+                with st.expander(f"📁 {nom} — {len(analyses)} analyse(s)"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**SIRET :** {siret or 'Non renseigné'}")
+                        st.write(f"**Secteur :** {secteur or 'Non renseigné'}")
+                    with col2:
+                        st.write(f"**Contact :** {contact or 'Non renseigné'}")
+                        st.write(f"**Email :** {email or 'Non renseigné'}")
+                    st.write(f"**Créé le :** {date_creation}")
+
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button(f"📊 Ouvrir le dossier", key=f"open_{client_id}"):
+                            st.session_state["client_actif_id"] = client_id
+                            st.session_state["client_actif_nom"] = nom
+                            st.rerun()
+                    with col2:
+                        if st.button(f"🗑️ Supprimer", key=f"del_{client_id}"):
+                            supprimer_client(client_id)
+                            st.success(f"Dossier {nom} supprimé.")
+                            st.rerun()
+
+    # --- ONGLET 3 : DOSSIER CLIENT ---
+    with onglet3:
+        st.subheader("📊 Dossier Client")
+
+        clients = lister_clients()
+        if not clients:
+            st.info("Aucun client disponible.")
+        else:
+            options = {f"{c[1]} (ID:{c[0]})": c[0] for c in clients}
+            choix = st.selectbox("Sélectionner un client", list(options.keys()))
+            client_id = options[choix]
+            client_nom = choix.split(" (ID:")[0]
+
+            analyses = lister_analyses(client_id)
+            st.markdown(f"### 📁 {client_nom} — {len(analyses)} analyse(s)")
+
+            if not analyses:
+                st.info("Aucune analyse enregistrée pour ce client.")
+            else:
+                for analyse in analyses:
+                    analyse_id, type_analyse, titre, date_analyse, exercice = analyse
+                    with st.expander(f"{type_analyse} — {titre} ({date_analyse})"):
+                        detail = get_analyse(analyse_id)
+                        if detail:
+                            st.markdown(detail[4], unsafe_allow_html=True)
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("🗑️ Supprimer", key=f"delA_{analyse_id}"):
+                                supprimer_analyse(analyse_id)
+                                st.rerun()
+
+            st.markdown("---")
+            if st.button("📥 Télécharger le dossier complet"):
+                rapport = generer_rapport_client(client_id)
+                telecharger_rapport_html(f"Dossier_{client_nom}", rapport)
+
+# ---------------------------------------------------------
 # PAGE : OCR FACTURE
 # ---------------------------------------------------------
 elif page == "🧾 OCR Facture":
     st.title("🧾 OCR Facture (IA Vision)")
+
+    clients = lister_clients()
+    client_id = None
+    if clients:
+        st.subheader("📁 Associer à un dossier client (optionnel)")
+        options = {"-- Aucun --": None}
+        options.update({f"{c[1]}": c[0] for c in clients})
+        choix = st.selectbox("Client", list(options.keys()), key="ocr_client")
+        client_id = options[choix]
+        exercice = st.text_input("Exercice (ex: 2024)", key="ocr_exercice")
+
     fichier = st.file_uploader("Importer une facture (PDF ou image)", type=["pdf", "png", "jpg", "jpeg"])
     if fichier:
         st.info("Analyse en cours…")
@@ -170,11 +291,27 @@ Extrais et structure : Fournisseur, Client, Numéro facture, Date, Montant HT, T
         st.markdown(analyse)
         telecharger_analyse("Analyse_Facture", analyse)
 
+        if client_id:
+            if st.button("💾 Sauvegarder dans le dossier client"):
+                sauvegarder_analyse(client_id, "🧾 OCR Facture", fichier.name, analyse, exercice)
+                st.success("✅ Analyse sauvegardée dans le dossier client !")
+
 # ---------------------------------------------------------
 # PAGE : ANALYSE BALANCE
 # ---------------------------------------------------------
 elif page == "📊 Analyse Balance":
     st.title("📊 Analyse de la Balance Comptable")
+
+    clients = lister_clients()
+    client_id = None
+    if clients:
+        st.subheader("📁 Associer à un dossier client (optionnel)")
+        options = {"-- Aucun --": None}
+        options.update({f"{c[1]}": c[0] for c in clients})
+        choix = st.selectbox("Client", list(options.keys()), key="balance_client")
+        client_id = options[choix]
+        exercice = st.text_input("Exercice (ex: 2024)", key="balance_exercice")
+
     fichier = st.file_uploader("Importer une balance (Excel ou CSV)", type=["xlsx", "csv"])
     if fichier:
         try:
@@ -187,6 +324,11 @@ elif page == "📊 Analyse Balance":
                 st.subheader("Analyse IA :")
                 st.markdown(resultat)
                 telecharger_analyse("Analyse_Balance", resultat)
+
+                if client_id:
+                    if st.button("💾 Sauvegarder dans le dossier client"):
+                        sauvegarder_analyse(client_id, "📊 Balance", fichier.name, resultat, exercice)
+                        st.success("✅ Analyse sauvegardée !")
         except Exception as e:
             st.error(f"Erreur : {e}")
 
@@ -195,6 +337,17 @@ elif page == "📊 Analyse Balance":
 # ---------------------------------------------------------
 elif page == "📂 Traitement FEC":
     st.title("📂 Traitement FEC")
+
+    clients = lister_clients()
+    client_id = None
+    if clients:
+        st.subheader("📁 Associer à un dossier client (optionnel)")
+        options = {"-- Aucun --": None}
+        options.update({f"{c[1]}": c[0] for c in clients})
+        choix = st.selectbox("Client", list(options.keys()), key="fec_client")
+        client_id = options[choix]
+        exercice = st.text_input("Exercice (ex: 2024)", key="fec_exercice")
+
     fichier = st.file_uploader("Importer un fichier FEC", type=["txt"])
     if fichier:
         st.info("Traitement en cours…")
@@ -203,11 +356,27 @@ elif page == "📂 Traitement FEC":
         st.markdown(resultat)
         telecharger_analyse("Analyse_FEC", resultat)
 
+        if client_id:
+            if st.button("💾 Sauvegarder dans le dossier client"):
+                sauvegarder_analyse(client_id, "📂 FEC", fichier.name, resultat, exercice)
+                st.success("✅ Analyse sauvegardée !")
+
 # ---------------------------------------------------------
 # PAGE : TRAITEMENT FACTURES
 # ---------------------------------------------------------
 elif page == "💳 Traitement Factures":
     st.title("💳 Traitement Factures Excel / CSV")
+
+    clients = lister_clients()
+    client_id = None
+    if clients:
+        st.subheader("📁 Associer à un dossier client (optionnel)")
+        options = {"-- Aucun --": None}
+        options.update({f"{c[1]}": c[0] for c in clients})
+        choix = st.selectbox("Client", list(options.keys()), key="fact_client")
+        client_id = options[choix]
+        exercice = st.text_input("Exercice (ex: 2024)", key="fact_exercice")
+
     fichier = st.file_uploader("Importer un fichier de factures", type=["xlsx", "csv"])
     if fichier:
         try:
@@ -235,6 +404,11 @@ elif page == "💳 Traitement Factures":
                 st.subheader("Analyse IA :")
                 st.markdown(analyse)
                 telecharger_analyse("Analyse_Factures", analyse)
+
+                if client_id:
+                    if st.button("💾 Sauvegarder dans le dossier client"):
+                        sauvegarder_analyse(client_id, "💳 Factures", fichier.name, analyse, exercice)
+                        st.success("✅ Analyse sauvegardée !")
         except Exception as e:
             st.error(f"Erreur : {e}")
 
@@ -243,6 +417,17 @@ elif page == "💳 Traitement Factures":
 # ---------------------------------------------------------
 elif page == "🏦 Rapprochement Bancaire":
     st.title("🏦 Rapprochement Bancaire")
+
+    clients = lister_clients()
+    client_id = None
+    if clients:
+        st.subheader("📁 Associer à un dossier client (optionnel)")
+        options = {"-- Aucun --": None}
+        options.update({f"{c[1]}": c[0] for c in clients})
+        choix = st.selectbox("Client", list(options.keys()), key="rappr_client")
+        client_id = options[choix]
+        exercice = st.text_input("Exercice (ex: 2024)", key="rappr_exercice")
+
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Relevé Bancaire")
@@ -261,6 +446,11 @@ elif page == "🏦 Rapprochement Bancaire":
                 resultat = rapprocher_banque_compta(df_banque, df_compta)
                 st.markdown(resultat)
                 telecharger_analyse("Rapprochement_Bancaire", resultat)
+
+                if client_id:
+                    if st.button("💾 Sauvegarder dans le dossier client"):
+                        sauvegarder_analyse(client_id, "🏦 Rapprochement", "Rapprochement bancaire", resultat, exercice)
+                        st.success("✅ Analyse sauvegardée !")
         except Exception as e:
             st.error(f"Erreur : {e}")
 
@@ -269,6 +459,16 @@ elif page == "🏦 Rapprochement Bancaire":
 # ---------------------------------------------------------
 elif page == "🔗 Cohérence Inter-Documents":
     st.title("🔗 Cohérence Inter-Documents")
+
+    clients = lister_clients()
+    client_id = None
+    if clients:
+        options = {"-- Aucun --": None}
+        options.update({f"{c[1]}": c[0] for c in clients})
+        choix = st.selectbox("Client", list(options.keys()), key="coh_client")
+        client_id = options[choix]
+        exercice = st.text_input("Exercice", key="coh_exercice")
+
     fichier_factures = st.file_uploader("Factures (optionnel)", type=["xlsx", "csv"], key="fact")
     fichier_balance = st.file_uploader("Balance (optionnel)", type=["xlsx", "csv"], key="bal")
     fichier_fec = st.file_uploader("FEC (optionnel)", type=["txt"], key="fec")
@@ -288,11 +488,26 @@ elif page == "🔗 Cohérence Inter-Documents":
             st.markdown(resultat)
             telecharger_analyse("Coherence_Inter_Documents", resultat)
 
+            if client_id:
+                if st.button("💾 Sauvegarder dans le dossier client"):
+                    sauvegarder_analyse(client_id, "🔗 Cohérence", "Cohérence inter-documents", resultat, exercice)
+                    st.success("✅ Analyse sauvegardée !")
+
 # ---------------------------------------------------------
 # PAGE : ALERTES DE GESTION
 # ---------------------------------------------------------
 elif page == "🚨 Alertes de Gestion":
     st.title("🚨 Alertes de Gestion")
+
+    clients = lister_clients()
+    client_id = None
+    if clients:
+        options = {"-- Aucun --": None}
+        options.update({f"{c[1]}": c[0] for c in clients})
+        choix = st.selectbox("Client", list(options.keys()), key="alert_client")
+        client_id = options[choix]
+        exercice = st.text_input("Exercice", key="alert_exercice")
+
     fichier = st.file_uploader("Importer un fichier financier", type=["xlsx", "csv"])
     if fichier:
         try:
@@ -303,6 +518,11 @@ elif page == "🚨 Alertes de Gestion":
                 resultat = analyser_alertes(df)
                 st.markdown(resultat)
                 telecharger_analyse("Alertes_Gestion", resultat)
+
+                if client_id:
+                    if st.button("💾 Sauvegarder dans le dossier client"):
+                        sauvegarder_analyse(client_id, "🚨 Alertes", fichier.name, resultat, exercice)
+                        st.success("✅ Analyse sauvegardée !")
         except Exception as e:
             st.error(f"Erreur : {e}")
 
@@ -322,6 +542,17 @@ elif page == "📰 Veille Fiscale":
 # ---------------------------------------------------------
 elif page == "📋 Analyse Bilan":
     st.title("📋 Analyse du Bilan Comptable")
+
+    clients = lister_clients()
+    client_id = None
+    if clients:
+        st.subheader("📁 Associer à un dossier client (optionnel)")
+        options = {"-- Aucun --": None}
+        options.update({f"{c[1]}": c[0] for c in clients})
+        choix = st.selectbox("Client", list(options.keys()), key="bilan_client")
+        client_id = options[choix]
+        exercice = st.text_input("Exercice (ex: 2024)", key="bilan_exercice")
+
     fichier = st.file_uploader("Importer un bilan (Excel, CSV ou PDF)", type=["xlsx", "csv", "pdf", "png", "jpg", "jpeg"])
     if fichier:
         try:
@@ -344,6 +575,11 @@ elif page == "📋 Analyse Bilan":
                 st.subheader("Analyse IA :")
                 st.markdown(resultat)
                 telecharger_analyse("Analyse_Bilan", resultat)
+
+                if client_id:
+                    if st.button("💾 Sauvegarder dans le dossier client"):
+                        sauvegarder_analyse(client_id, "📋 Bilan", fichier.name, resultat, exercice)
+                        st.success("✅ Analyse sauvegardée !")
         except Exception as e:
             st.error(f"Erreur : {e}")
 
@@ -352,6 +588,17 @@ elif page == "📋 Analyse Bilan":
 # ---------------------------------------------------------
 elif page == "📈 Compte de Résultat":
     st.title("📈 Analyse du Compte de Résultat")
+
+    clients = lister_clients()
+    client_id = None
+    if clients:
+        st.subheader("📁 Associer à un dossier client (optionnel)")
+        options = {"-- Aucun --": None}
+        options.update({f"{c[1]}": c[0] for c in clients})
+        choix = st.selectbox("Client", list(options.keys()), key="cr_client")
+        client_id = options[choix]
+        exercice = st.text_input("Exercice (ex: 2024)", key="cr_exercice")
+
     fichier = st.file_uploader("Importer un compte de résultat (Excel, CSV ou PDF)", type=["xlsx", "csv", "pdf", "png", "jpg", "jpeg"])
     if fichier:
         try:
@@ -374,6 +621,10 @@ elif page == "📈 Compte de Résultat":
                 st.subheader("Analyse IA :")
                 st.markdown(resultat)
                 telecharger_analyse("Analyse_Compte_Resultat", resultat)
+
+                if client_id:
+                    if st.button("💾 Sauvegarder dans le dossier client"):
+                        sauvegarder_analyse(client_id, "📈 Compte de Résultat", fichier.name, resultat, exercice)
+                        st.success("✅ Analyse sauvegardée !")
         except Exception as e:
             st.error(f"Erreur : {e}")
-            
