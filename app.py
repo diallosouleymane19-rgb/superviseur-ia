@@ -167,7 +167,7 @@ Tu es un expert-comptable français. Analyse cette facture extraite par OCR :
 Extrais et structure : Fournisseur, Client, Numéro facture, Date, Montant HT, TVA, TTC, Mode paiement, Compte comptable, Observations.
         """
         analyse = appel_mistral(prompt)
-        st.markdown(analyse, unsafe_allow_html=True)
+        st.markdown(analyse)
         telecharger_analyse("Analyse_Facture", analyse)
 
 # ---------------------------------------------------------
@@ -185,7 +185,7 @@ elif page == "📊 Analyse Balance":
                 st.info("Analyse IA en cours…")
                 resultat = analyse_balance_ai(df)
                 st.subheader("Analyse IA :")
-                st.markdown(resultat, unsafe_allow_html=True)
+                st.markdown(resultat)
                 telecharger_analyse("Analyse_Balance", resultat)
         except Exception as e:
             st.error(f"Erreur : {e}")
@@ -200,7 +200,7 @@ elif page == "📂 Traitement FEC":
         st.info("Traitement en cours…")
         resultat = traiter_fec(fichier)
         st.subheader("Résultat :")
-        st.markdown(resultat, unsafe_allow_html=True)
+        st.markdown(resultat)
         telecharger_analyse("Analyse_FEC", resultat)
 
 # ---------------------------------------------------------
@@ -233,7 +233,7 @@ elif page == "💳 Traitement Factures":
                 prompt = f"Tu es expert-comptable. Analyse ces factures :\n{apercu}\n1. RÉSUMÉ 2. ANOMALIES 3. PÉRIODE 4. RAPPROCHEMENT 5. RECOMMANDATIONS"
                 analyse = appel_mistral(prompt)
                 st.subheader("Analyse IA :")
-                st.markdown(analyse, unsafe_allow_html=True)
+                st.markdown(analyse)
                 telecharger_analyse("Analyse_Factures", analyse)
         except Exception as e:
             st.error(f"Erreur : {e}")
@@ -259,7 +259,7 @@ elif page == "🏦 Rapprochement Bancaire":
             if st.button("Lancer le rapprochement"):
                 st.info("Rapprochement en cours…")
                 resultat = rapprocher_banque_compta(df_banque, df_compta)
-                st.markdown(resultat, unsafe_allow_html=True)
+                st.markdown(resultat)
                 telecharger_analyse("Rapprochement_Bancaire", resultat)
         except Exception as e:
             st.error(f"Erreur : {e}")
@@ -285,7 +285,7 @@ elif page == "🔗 Cohérence Inter-Documents":
         else:
             st.info("Analyse en cours…")
             resultat = analyser_coherence(df_factures, df_balance, df_fec)
-            st.markdown(resultat, unsafe_allow_html=True)
+            st.markdown(resultat)
             telecharger_analyse("Coherence_Inter_Documents", resultat)
 
 # ---------------------------------------------------------
@@ -301,7 +301,7 @@ elif page == "🚨 Alertes de Gestion":
             if st.button("Générer les alertes"):
                 st.info("Analyse en cours…")
                 resultat = analyser_alertes(df)
-                st.markdown(resultat, unsafe_allow_html=True)
+                st.markdown(resultat)
                 telecharger_analyse("Alertes_Gestion", resultat)
         except Exception as e:
             st.error(f"Erreur : {e}")
@@ -314,7 +314,7 @@ elif page == "📰 Veille Fiscale":
     if st.button("Obtenir la veille fiscale"):
         st.info("Génération en cours…")
         resultat = obtenir_veille_fiscale()
-        st.markdown(resultat, unsafe_allow_html=True)
+        st.markdown(resultat)
         telecharger_analyse("Veille_Fiscale", resultat)
 
 # ---------------------------------------------------------
@@ -342,7 +342,7 @@ elif page == "📋 Analyse Bilan":
                 st.info("Analyse IA en cours…")
                 resultat = analyser_bilan_texte(donnees)
                 st.subheader("Analyse IA :")
-                st.markdown(resultat, unsafe_allow_html=True)
+                st.markdown(resultat)
                 telecharger_analyse("Analyse_Bilan", resultat)
         except Exception as e:
             st.error(f"Erreur : {e}")
@@ -372,7 +372,7 @@ elif page == "📈 Compte de Résultat":
                 st.info("Analyse IA en cours…")
                 resultat = analyser_cr_texte(donnees)
                 st.subheader("Analyse IA :")
-                st.markdown(resultat, unsafe_allow_html=True)
+                st.markdown(resultat)
                 telecharger_analyse("Analyse_Compte_Resultat", resultat)
         except Exception as e:
             st.error(f"Erreur : {e}")
