@@ -1,20 +1,15 @@
 import streamlit as st
 import pandas as pd
+import os
 from utils.ocr import ocr_image_mistral
-from utils.compta_auto import analyse_balance_ai
-from utils.fec import traiter_fec
 from utils.ai import appel_mistral, extraire_contenu_mistral
 from utils.export_word import export_analyse_word
 from auth import login, logout, is_connecte
 
-# 1. CONFIGURATION DE LA PAGE
-st.set_page_config(
-    page_title="SMD Consulting - Superviseur IA",
-    page_icon="📊",
-    layout="wide"
-)
+# 1. Configuration de l'interface
+st.set_page_config(page_title="SMD Consulting - Superviseur IA", layout="wide", page_icon="📊")
 
-# 2. STYLE PROFESSIONNEL (CSS)
+# Style CSS pour un rendu professionnel
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -24,105 +19,86 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. VÉRIFICATION CONNEXION
+# 2. Vérification de la connexion
 if not is_connecte():
     login()
     st.stop()
 
-# 4. MENU LATÉRAL
-st.sidebar.image("https://img.icons8.com/color/96/accounting.png", width=60)
+# 3. Menu de navigation
 st.sidebar.title("SMD Consulting")
 st.sidebar.markdown(f"👤 Expert : **{st.session_state.get('username', 'Utilisateur')}**")
 st.sidebar.divider()
 
 page = st.sidebar.radio(
-    "Navigation",
-    ["🏠 Accueil", "🧾 Supervision Flux (OCR)", "📊 Audit Balance", "📂 Traitement FEC", "🛡️ Audit Benford"]
+    "Modules de supervision",
+    ["🏠 Accueil", "🧾 Analyse Facture (OCR)", "📊 Audit Balance", "📂 Traitement FEC", "🛡️ Loi de Benford", "📰 Veille Fiscale"]
 )
 
 st.sidebar.divider()
-logout()
+if st.sidebar.button("🚪 Déconnexion"):
+    logout()
 
-# ---------------------------------------------------------
-# PAGE : ACCUEIL
-# ---------------------------------------------------------
+# --- FONCTION DE TÉLÉCHARGEMENT SÉCURISÉE ---
+def generer_bouton_word(titre, contenu):
+    try:
+        # On s'assure que le contenu est du texte pur
+        texte_final = extraire_contenu_mistral(contenu)
+        buf = export_analyse_word(titre, texte_final)
+        st.download_button(f"📄 Télécharger le Rapport {titre}", buf, f"{titre}.docx")
+    except Exception as e:
+        st.error(f"Erreur lors de la préparation du fichier Word : {e}")
+
+# 4. Logique des pages
 if page == "🏠 Accueil":
-    st.title("🏠 Superviseur IA Comptable")
-    st.markdown("### Bienvenue dans votre cockpit de supervision augmentée.")
-    st.info("Sélectionnez un module dans le menu à gauche pour commencer vos analyses.")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.success("**Objectif Sécurité** : Détectez les anomalies et les fraudes sur 100% des flux.")
-    with col2:
-        st.success("**Objectif Productivité** : Automatisez les tâches à faible valeur ajoutée.")
+    st.title("🏠 Tableau de bord")
+    st.info("Bienvenue dans votre outil de supervision. Sélectionnez un module à gauche pour débuter.")
 
-# ---------------------------------------------------------
-# PAGE : OCR FACTURE
-# ---------------------------------------------------------
-elif page == "🧾 Supervision Flux (OCR)":
-    st.title("🧾 Analyse de Factures par IA")
-    fichier = st.file_uploader("Importer une facture (PDF, JPG, PNG)", type=["pdf", "png", "jpg"])
-    
-    if fichier:
-        with st.spinner("Analyse et extraction des données..."):
-            texte_brut = ocr_image_mistral(fichier)
-            resultat_ia = appel_mistral(f"Extraire Date, Fournisseur, HT, TVA, TTC et analyser la cohérence : {texte_brut}")
+elif page == "🧾 Analyse Facture (OCR)":
+    st.title("🧾 Analyse de Facture")
+    f = st.file_uploader("Déposer une facture (PDF, PNG, JPG)", type=["pdf", "png", "jpg"])
+    if f:
+        with st.spinner("L'IA analyse le document..."):
+            texte_ocr = ocr_image_mistral(f)
+            analyse = appel_mistral(f"Analyse cette facture (Fournisseur, Date, HT, TVA, TTC) : {texte_ocr}")
             
-            # NETTOYAGE DU CONTENU
-            analyse_propre = extraire_contenu_mistral(resultat_ia)
-            
-            st.divider()
-            st.markdown(analyse_propre)
-            
-            # EXPORT WORD
-            buf = export_analyse_word("Rapport d'Analyse Facture", analyse_propre)
-            st.download_button("📄 Télécharger le Rapport Word", buf, f"Rapport_Facture_{fichier.name}.docx")
+            if "429" in str(analyse):
+                st.warning("⚠️ Le service est momentanément saturé (Erreur 429). Veuillez patienter quelques minutes.")
+            else:
+                st.markdown(analyse)
+                generer_bouton_word("Analyse_Facture", analyse)
 
-# ---------------------------------------------------------
-# PAGE : BALANCE
-# ---------------------------------------------------------
 elif page == "📊 Audit Balance":
-    st.title("📊 Audit IA de la Balance Comptable")
-    fichier = st.file_uploader("Importer une Balance (Excel)", type=["xlsx"])
-    
-    if fichier:
-        df = pd.read_excel(fichier)
-        if st.button("Lancer l'Audit des Cycles"):
-            with st.spinner("L'IA examine les comptes..."):
-                resultat_brut = analyse_balance_ai(df)
-                analyse_propre = extraire_contenu_mistral(resultat_brut)
-                
-                st.divider()
-                st.markdown(analyse_propre)
-                
-                buf = export_analyse_word("Audit de Balance Comptable", analyse_propre)
-                st.download_button("📄 Télécharger l'Audit Word", buf, "Audit_Balance.docx")
+    st.title("📊 Audit de Balance")
+    f = st.file_uploader("Balance Excel (.xlsx)", type=["xlsx"])
+    if f:
+        df = pd.read_excel(f)
+        if st.button("Lancer l'analyse IA"):
+            with st.spinner("Examen des comptes..."):
+                analyse = appel_mistral(f"Analyse cette balance comptable et identifie les anomalies : {df.to_string()[:2000]}")
+                st.markdown(analyse)
+                generer_bouton_word("Audit_Balance", analyse)
 
-# ---------------------------------------------------------
-# PAGE : FEC
-# ---------------------------------------------------------
-elif page == "📂 Traitement FEC":
-    st.title("📂 Contrôle du Fichier des Écritures Comptables")
-    fichier = st.file_uploader("Importer un FEC (.txt)", type=["txt"])
-    
-    if fichier:
-        with st.spinner("Vérification de la structure et des écritures..."):
-            resultat_brut = traiter_fec(fichier)
-            analyse_propre = extraire_contenu_mistral(resultat_brut)
-            
-            st.divider()
-            st.markdown(analyse_propre)
-            
-            buf = export_analyse_word("Contrôle de Conformité FEC", analyse_propre)
-            st.download_button("📄 Télécharger le Rapport FEC", buf, "Rapport_FEC.docx")
+elif page == "🛡️ Loi de Benford":
+    st.title("🛡️ Audit de Fraude")
+    try:
+        from benford_module import analyse_benford_complete
+        f = st.file_uploader("Données comptables", type=["csv", "xlsx"])
+        if f:
+            df = pd.read_excel(f) if f.name.endswith('xlsx') else pd.read_csv(f)
+            col = st.selectbox("Sélectionnez la colonne des montants", df.columns)
+            if st.button("Lancer l'audit statistique"):
+                fig, rapp, risque = analyse_benford_complete(df, col)
+                st.plotly_chart(fig)
+                st.markdown(rapp)
+    except ImportError:
+        st.error("Le module Benford est mal configuré. Vérifiez vos fichiers utils.")
 
-# ---------------------------------------------------------
-# PAGE : BENFORD
-# ---------------------------------------------------------
-elif page == "🛡️ Audit Benford":
-    st.title("🛡️ Audit de Fraude (Loi de Benford)")
-    st.warning("Ce module analyse la probabilité statistique de manipulation des chiffres.")
-    # (Logique Benford simplifiée pour l'exemple, à adapter selon votre module spécifique)
-    st.info("Veuillez importer un fichier FEC ou une liste de montants pour lancer l'audit statistique.")
-
+elif page == "📰 Veille Fiscale":
+    st.title("📰 Dernières Actualités Fiscales")
+    if st.button("Actualiser la veille"):
+        from utils.veille_fiscale import obtenir_veille_fiscale
+        res = obtenir_veille_fiscale()
+        if "429" in str(res):
+            st.warning("⚠️ Limite de requêtes atteinte. Réessayez dans un instant.")
+        else:
+            st.markdown(res)
