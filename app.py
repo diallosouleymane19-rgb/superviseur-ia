@@ -16,6 +16,9 @@ from utils.rapport_client import generer_rapport_client
 from utils.export_word import export_analyse_word
 from auth import login, logout, is_connecte
 
+# --- NOUVEL IMPORT : MODULE BENFORD ---
+from benford_module import analyse_benford_complete
+
 # Initialiser la base de données
 init_db()
 
@@ -358,10 +361,44 @@ elif page == "📂 Traitement FEC":
 
     fichier = st.file_uploader("Importer un fichier FEC", type=["txt"])
     if fichier:
+        # --- BLOC ORIGINAL : TRAITEMENT FEC ---
         st.info("Traitement en cours…")
         resultat = traiter_fec(fichier)
-        st.subheader("Résultat :")
+        st.subheader("Résultat de l'analyse FEC :")
         st.markdown(resultat)
+        
+        # --- NOUVELLE BRIQUE : AUDIT BENFORD ---
+        st.markdown("---")
+        st.subheader("🛡️ Audit de Supervision Avancé (Loi de Benford)")
+        if st.button("Lancer l'audit de fraude statistique"):
+            try:
+                # On recharge le FEC en DataFrame pour l'analyse statistique
+                # On suppose le séparateur tabulation classique du FEC
+                df_fec = pd.read_csv(fichier, sep="\t", dtype=str)
+                
+                # Détection automatique de la colonne montant
+                col_montant = None
+                for c in ['Debit', 'Montant', 'Montant_HT', 'Debit_Montant']:
+                    if c in df_fec.columns:
+                        col_montant = c
+                        break
+                
+                if col_montant:
+                    fig, rapp, risque = analyse_benford_complete(df_fec, col_montant=col_montant)
+                    if fig:
+                        st.plotly_chart(fig, use_container_width=True)
+                        st.markdown(rapp)
+                        if risque == "Élevé":
+                            st.error("🚨 Alerte : La distribution des montants est suspecte. Risque de manipulation élevé.")
+                    else:
+                        st.warning(rapp)
+                else:
+                    st.error("Impossible de trouver une colonne 'Debit' ou 'Montant' pour l'audit statistique.")
+            except Exception as e:
+                st.error(f"Erreur lors de l'audit statistique : {e}")
+
+        # --- EXPORTS ET SAUVEGARDE ---
+        st.markdown("---")
         telecharger_analyse("Analyse_FEC", resultat)
         telecharger_word("Analyse_FEC", resultat, exercice=exercice)
 
