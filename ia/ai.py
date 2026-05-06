@@ -49,7 +49,7 @@ def valider_cle_api() -> bool:
     return True
 
 # ---------------------------------------------------------
-# Fonction d'appel à l'API Mistral (VERSION AMÉLIORÉE)
+# Fonction d'appel à l'API Mistral
 # ---------------------------------------------------------
 def appel_mistral(
     prompt: str,
@@ -59,17 +59,7 @@ def appel_mistral(
 ) -> Dict[str, any]:
     """
     Envoie un prompt texte au modèle Mistral et retourne la réponse.
-    
-    Args:
-        prompt: Le texte à envoyer au modèle
-        model: Le modèle Mistral à utiliser
-        temperature: Contrôle la créativité (0.0 à 1.0)
-        max_tokens: Limite de tokens dans la réponse (optionnel)
-    
-    Returns:
-        Dict avec 'success' (bool), 'content' (str) et 'error' (str optionnel)
     """
-    # Validation de la clé API
     if not valider_cle_api():
         return {
             "success": False,
@@ -77,7 +67,6 @@ def appel_mistral(
             "error": "Clé API Mistral invalide ou manquante"
         }
     
-    # Validation du prompt
     if not prompt or prompt.strip() == "":
         return {
             "success": False,
@@ -85,7 +74,6 @@ def appel_mistral(
             "error": "Le prompt ne peut pas être vide"
         }
     
-    # Préparation de la requête
     headers = {
         "Authorization": f"Bearer {MISTRAL_API_KEY}",
         "Content-Type": "application/json"
@@ -103,9 +91,7 @@ def appel_mistral(
         payload["max_tokens"] = max_tokens
     
     try:
-        logger.info(f"Appel API Mistral - Modèle: {model}, Temperature: {temperature}")
-        
-        # Appel API avec timeout
+        logger.info(f"Appel API Mistral - Modèle: {model}")
         response = requests.post(
             MISTRAL_API_URL,
             headers=headers,
@@ -113,106 +99,39 @@ def appel_mistral(
             timeout=REQUEST_TIMEOUT
         )
         
-        # Gestion des erreurs HTTP
-        if response.status_code == 401:
-            logger.error("Erreur d'authentification - Clé API invalide")
-            return {
-                "success": False,
-                "content": None,
-                "error": "Clé API invalide ou expirée"
-            }
-        
-        if response.status_code == 429:
-            logger.error("Limite de taux dépassée")
-            return {
-                "success": False,
-                "content": None,
-                "error": "Trop de requêtes - limite API atteinte"
-            }
-        
         if response.status_code != 200:
-            logger.error(f"Erreur HTTP {response.status_code}: {response.text}")
-            return {
-                "success": False,
-                "content": None,
-                "error": f"Erreur API: HTTP {response.status_code}"
-            }
+            logger.error(f"Erreur HTTP {response.status_code}")
+            return {"success": False, "content": None, "error": f"Erreur API: {response.status_code}"}
         
-        # Parsing de la réponse JSON
-        try:
-            data = response.json()
-        except json.JSONDecodeError as e:
-            logger.error(f"Erreur de parsing JSON: {e}")
-            return {
-                "success": False,
-                "content": None,
-                "error": "Réponse API invalide (JSON malformé)"
-            }
-        
-        # Validation de la structure de la réponse
-        if "choices" not in data or len(data["choices"]) == 0:
-            logger.error("Structure de réponse inattendue")
-            return {
-                "success": False,
-                "content": None,
-                "error": "Structure de réponse API invalide"
-            }
-        
-        # Extraction du contenu
+        data = response.json()
         content = data["choices"][0]["message"]["content"]
-        logger.info("Réponse reçue avec succès")
-        
         return {
             "success": True,
             "content": content,
             "error": None,
-            "usage": data.get("usage", {})  # Informations sur les tokens utilisés
-        }
-    
-    except requests.exceptions.Timeout:
-        logger.error(f"Timeout après {REQUEST_TIMEOUT} secondes")
-        return {
-            "success": False,
-            "content": None,
-            "error": f"Délai d'attente dépassé ({REQUEST_TIMEOUT}s)"
-        }
-    
-    except requests.exceptions.ConnectionError:
-        logger.error("Erreur de connexion réseau")
-        return {
-            "success": False,
-            "content": None,
-            "error": "Impossible de se connecter à l'API Mistral"
-        }
-    
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Erreur requête: {e}")
-        return {
-            "success": False,
-            "content": None,
-            "error": f"Erreur réseau: {str(e)}"
+            "usage": data.get("usage", {})
         }
     
     except Exception as e:
         logger.error(f"Erreur inattendue: {e}")
-        return {
-            "success": False,
-            "content": None,
-            "error": f"Erreur inattendue: {str(e)}"
-        }
+        return {"success": False, "content": None, "error": str(e)}
 
 # ---------------------------------------------------------
-# Exemple d'utilisation
+# FONCTION CORRIGÉE : extraire_contenu_mistral
+# ---------------------------------------------------------
+def extraire_contenu_mistral(resultat_api: Dict[str, any]) -> str:
+    """
+    Extrait le texte de la réponse API de manière sécurisée pour l'OCR.
+    """
+    if resultat_api.get("success") and resultat_api.get("content"):
+        return resultat_api["content"]
+    
+    error_msg = resultat_api.get("error", "Erreur inconnue")
+    return f"Désolé, je n'ai pas pu analyser le document. Détails : {error_msg}"
+
+# ---------------------------------------------------------
+# Exemple d'utilisation (Test local)
 # ---------------------------------------------------------
 if __name__ == "__main__":
-    # Test de l'API
-    result = appel_mistral(
-        prompt="Explique-moi la comptabilité en 2 phrases",
-        temperature=0.3
-    )
-    
-    if result["success"]:
-        print(f"✅ Réponse: {result['content']}")
-        print(f"📊 Tokens utilisés: {result.get('usage', {})}")
-    else:
-        print(f"❌ Erreur: {result['error']}")
+    result = appel_mistral(prompt="Bonjour")
+    print(extraire_contenu_mistral(result))
