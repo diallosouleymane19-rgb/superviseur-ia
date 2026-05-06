@@ -105,8 +105,7 @@ Consultant comptable & développeur IA
 
 📧 Contact : [diallosouleymane19@gmail.com](mailto:diallosouleymane19@gmail.com)  
 🔗 GitHub : [diallosouleymane19-rgb](https://github.com/diallosouleymane19-rgb)  
-💼 LinkedIn : *(à ajouter)*
-
+💼 LinkedIn : [Souleymane DIALLO](https://www.linkedin.com/in/souleymane-diallo-0071205a)
 ---
 
 ## 📄 Licence
@@ -127,3 +126,5 @@ Les identifiants sont configurables dans le fichier `auth.py`.
 ---
 
 ## 📁 Structure du projet
+
+
