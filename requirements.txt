@@ -11,3 +11,5 @@ plotly
 python-docx
 mistralai
 python-dotenv
+scipy
+numpy
