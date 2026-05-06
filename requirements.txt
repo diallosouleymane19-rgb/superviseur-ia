@@ -9,3 +9,4 @@ PyPDF2
 bcrypt
 plotly
 python-docx
+mistralai
