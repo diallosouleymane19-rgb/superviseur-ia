@@ -135,6 +135,33 @@ elif page == "📂 Traitement FEC":
         resultat = traiter_fec(fichier)
         st.markdown(resultat)
         telecharger_word("Analyse_FEC", resultat)
+        
+# ---------------------------------------------------------
+# PAGE : TRAITEMENT FACTURES (LOTS)
+# ---------------------------------------------------------
+elif page == "💳 Traitement Factures":
+    st.title("💳 Traitement des Factures (Analyse de Lot)")
+    st.markdown("Déposez plusieurs factures pour une analyse groupée des montants et de la TVA.")
+    
+    fichiers = st.file_uploader("Importer des factures", type=["pdf", "png", "jpg"], accept_multiple_files=True)
+    
+    if fichiers:
+        resultats = []
+        for f in fichiers:
+            with st.spinner(f"Analyse de {f.name}..."):
+                texte_brut = ocr_image_mistral(f)
+                prompt = f"Extrais les informations suivantes : Date, Fournisseur, HT, TVA, TTC de ce texte : {texte_brut}"
+                analyse = extraire_contenu_mistral(prompt)
+                resultats.append({"Fichier": f.name, "Détails": analyse})
+        
+        # Affichage des résultats
+        for res in resultats:
+            with st.expander(f"Résultat : {res['Fichier']}"):
+                st.markdown(res['Détails'])
+        
+        # Bouton d'export global
+        texte_complet = "\n\n".join([f"--- {r['Fichier']} ---\n{r['Détails']}" for r in resultats])
+        telecharger_word("Analyse_Lots_Factures", texte_complet)
 
 # ---------------------------------------------------------
 # PAGE : BENFORD (NOUVEAU)
