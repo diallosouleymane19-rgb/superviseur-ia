@@ -16,7 +16,7 @@ from utils.rapport_client import generer_rapport_client
 from utils.export_word import export_analyse_word
 from auth import login, logout, is_connecte
 
-# --- NOUVEL IMPORT : MODULE BENFORD ---
+# --- IMPORT MODULE BENFORD ---
 from benford_module import analyse_benford_complete
 
 # Initialiser la base de données
@@ -26,35 +26,14 @@ init_db()
 # FONCTIONS EXPORT
 # ---------------------------------------------------------
 def telecharger_analyse(titre, contenu):
-    html = f"""
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>{titre}</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 40px; color: #333; }}
-            h1 {{ color: #1f77b4; border-bottom: 2px solid #1f77b4; padding-bottom: 10px; }}
-            pre {{ background: #f5f5f5; padding: 20px; border-radius: 8px; white-space: pre-wrap; }}
-        </style>
-    </head>
-    <body>
-        <h1>{titre}</h1>
-        <pre>{contenu}</pre>
-    </body>
-    </html>
-    """
+    html = f"<html><body style='font-family:sans-serif;'><h1>{titre}</h1><pre>{contenu}</pre></body></html>"
     b64 = base64.b64encode(html.encode()).decode()
     href = f'<a href="data:text/html;base64,{b64}" download="{titre}.html">📥 Télécharger en HTML</a>'
     st.markdown(href, unsafe_allow_html=True)
 
 def telecharger_word(titre, contenu, nom_client="", exercice=""):
     buffer = export_analyse_word(titre, contenu, nom_client, exercice)
-    st.download_button(
-        label="📄 Télécharger en Word (.docx)",
-        data=buffer,
-        file_name=f"{titre}.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+    st.download_button(label="📄 Télécharger en Word", data=buffer, file_name=f"{titre}.docx")
 
 def telecharger_rapport_html(titre, html_contenu):
     b64 = base64.b64encode(html_contenu.encode()).decode()
@@ -69,44 +48,20 @@ if not is_connecte():
     st.stop()
 
 # ---------------------------------------------------------
-# STYLE GLOBAL (CSS)
-# ---------------------------------------------------------
-st.markdown("""
-<style>
-body { font-family: 'Segoe UI', sans-serif; }
-table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #ddd; padding: 8px; }
-th { background-color: #1f77b4; color: white; font-weight: bold; }
-tr:nth-child(even) { background-color: #f9f9f9; }
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------------------------------------------------
 # MENU LATÉRAL
 # ---------------------------------------------------------
 st.sidebar.image("https://img.icons8.com/color/96/accounting.png", width=80)
-st.sidebar.title("Superviseur IA Comptable")
-st.sidebar.markdown(f"👤 Connecté : **{st.session_state['username']}**")
-st.sidebar.markdown("---")
+st.sidebar.title("Superviseur IA")
+st.sidebar.markdown(f"👤 **{st.session_state['username']}**")
 logout()
 
-# --- MODIFICATION ICI : AJOUT DE BENFORD DANS LA LISTE ---
 page = st.sidebar.radio(
     "Navigation",
     [
-        "🏠 Accueil",
-        "📁 Dossiers Clients",
-        "🧾 OCR Facture",
-        "📊 Analyse Balance",
-        "📂 Traitement FEC",
-        "🛡️ Benford (Audit de fraude)",
-        "💳 Traitement Factures",
-        "🏦 Rapprochement Bancaire",
-        "🔗 Cohérence Inter-Documents",
-        "🚨 Alertes de Gestion",
-        "📰 Veille Fiscale",
-        "📋 Analyse Bilan",
-        "📈 Compte de Résultat"
+        "🏠 Accueil", "📁 Dossiers Clients", "🧾 OCR Facture", "📊 Analyse Balance", 
+        "📂 Traitement FEC", "🛡️ Benford (Audit de fraude)", "💳 Traitement Factures", 
+        "🏦 Rapprochement Bancaire", "🔗 Cohérence Inter-Documents", "🚨 Alertes de Gestion", 
+        "📰 Veille Fiscale", "📋 Analyse Bilan", "📈 Compte de Résultat"
     ]
 )
 
@@ -115,112 +70,143 @@ page = st.sidebar.radio(
 # ---------------------------------------------------------
 if page == "🏠 Accueil":
     import plotly.express as px
-
     st.title("🏠 Superviseur IA Comptable")
-    st.markdown("### Bienvenue dans votre assistant comptable intelligent")
-    st.markdown("---")
+    st.markdown("### Bienvenue dans votre assistant intelligent")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info("Utilisez le menu à gauche pour naviguer dans les modules d'analyse.")
+    with col2:
+        st.success("Toutes les analyses peuvent être exportées en Word (Format SMD Consulting).")
 
-    col1, col2, col3 = st.columns(3)
-    col1.info("🧾 OCR Facture\nExtraction automatique de vos factures")
-    col2.info("📊 Analyse Balance\nAnalyse IA de votre balance comptable")
-    col3.info("📂 Traitement FEC\nContrôle fiscal de vos écritures")
+# ---------------------------------------------------------
+# PAGE : DOSSIERS CLIENTS
+# ---------------------------------------------------------
+elif page == "📁 Dossiers Clients":
+    st.title("📁 Gestion des Dossiers Clients")
+    onglet1, onglet2 = st.tabs(["➕ Nouveau Client", "📋 Liste & Dossiers"])
+    with onglet1:
+        nom = st.text_input("Nom du client")
+        if st.button("Créer le dossier"):
+            if nom: 
+                creer_client(nom, "", "", "", "")
+                st.success("Client créé")
+    with onglet2:
+        clients = lister_clients()
+        for c in clients:
+            with st.expander(f"Dossier {c[1]}"):
+                st.write(f"ID: {c[0]}")
+                if st.button(f"Supprimer {c[1]}", key=f"del_{c[0]}"):
+                    supprimer_client(c[0])
+                    st.rerun()
 
-    st.markdown("---")
-    col4, col5, col6 = st.columns(3)
-    col4.success("🏦 Rapprochement Bancaire\nComparez banque et comptabilité")
-    col5.success("🔗 Cohérence Inter-Documents\nCroisez vos documents comptables")
-    col6.success("🚨 Alertes de Gestion\nDétectez les anomalies en temps réel")
+# ---------------------------------------------------------
+# PAGE : OCR FACTURE
+# ---------------------------------------------------------
+elif page == "🧾 OCR Facture":
+    st.title("🧾 OCR Facture (IA Vision)")
+    fichier = st.file_uploader("Facture (PDF/Image)", type=["pdf", "png", "jpg"])
+    if fichier:
+        texte = ocr_image_mistral(fichier)
+        st.subheader("Analyse :")
+        analyse = appel_mistral(f"Analyse cette facture : {texte}")
+        st.markdown(analyse)
+        telecharger_word("Analyse_Facture", analyse)
 
-    st.markdown("---")
-    col7, col8 = st.columns(2)
-    col7.warning("📋 Analyse Bilan\nRatios financiers et structure")
-    col8.warning("📈 Compte de Résultat\nSIG, marges et rentabilité")
-
-    st.markdown("---")
-    st.warning("📰 Veille Fiscale — Restez à jour sur la réglementation française")
-
-# ... [Les autres pages restent identiques jusqu'au bloc Traitement FEC] ...
+# ---------------------------------------------------------
+# PAGE : ANALYSE BALANCE
+# ---------------------------------------------------------
+elif page == "📊 Analyse Balance":
+    st.title("📊 Analyse de la Balance")
+    fichier = st.file_uploader("Balance (Excel/CSV)", type=["xlsx", "csv"])
+    if fichier:
+        df = pd.read_excel(fichier) if fichier.name.endswith('xlsx') else pd.read_csv(fichier)
+        if st.button("Lancer l'analyse IA"):
+            resultat = analyse_balance_ai(df)
+            st.markdown(resultat)
+            telecharger_word("Analyse_Balance", resultat)
 
 # ---------------------------------------------------------
 # PAGE : TRAITEMENT FEC
 # ---------------------------------------------------------
 elif page == "📂 Traitement FEC":
     st.title("📂 Traitement FEC")
-
-    clients = lister_clients()
-    client_id = None
-    exercice = ""
-    if clients:
-        st.subheader("📁 Associer à un dossier client (optionnel)")
-        options = {"-- Aucun --": None}
-        options.update({f"{c[1]}": c[0] for c in clients})
-        choix = st.selectbox("Client", list(options.keys()), key="fec_client")
-        client_id = options[choix]
-        exercice = st.text_input("Exercice (ex: 2024)", key="fec_exercice")
-
-    fichier = st.file_uploader("Importer un fichier FEC", type=["txt"])
+    fichier = st.file_uploader("Fichier FEC (.txt)", type=["txt"])
     if fichier:
-        st.info("Traitement en cours…")
         resultat = traiter_fec(fichier)
-        st.subheader("Résultat de l'analyse FEC :")
         st.markdown(resultat)
-        
-        telecharger_analyse("Analyse_FEC", resultat)
-        telecharger_word("Analyse_FEC", resultat, exercice=exercice)
-
-        if client_id:
-            if st.button("💾 Sauvegarder dans le dossier client"):
-                sauvegarder_analyse(client_id, "📂 FEC", fichier.name, resultat, exercice)
-                st.success("✅ Analyse sauvegardée !")
+        telecharger_word("Analyse_FEC", resultat)
 
 # ---------------------------------------------------------
-# NOUVELLE PAGE : BENFORD (AUDIT DE FRAUDE)
+# PAGE : BENFORD (NOUVEAU)
 # ---------------------------------------------------------
 elif page == "🛡️ Benford (Audit de fraude)":
-    st.title("🛡️ Audit de Supervision Avancé (Loi de Benford)")
-    st.markdown("Cette analyse statistique permet de détecter des anomalies potentielles ou des manipulations dans les montants comptables.")
+    st.title("🛡️ Audit de fraude (Loi de Benford)")
+    fichier = st.file_uploader("Fichier pour audit (FEC ou Excel)", type=["txt", "xlsx", "csv"])
+    if fichier:
+        df = pd.read_csv(fichier, sep="\t") if fichier.name.endswith(".txt") else pd.read_excel(fichier)
+        col_montant = st.selectbox("Colonne des montants", df.columns)
+        if st.button("Lancer l'audit"):
+            fig, rapp, risque = analyse_benford_complete(df, col_montant=col_montant)
+            st.plotly_chart(fig)
+            st.markdown(rapp)
 
-    fichier_benford = st.file_uploader("Importer un fichier FEC (txt) ou Excel pour audit", type=["txt", "xlsx", "csv"])
-    
-    if fichier_benford:
-        try:
-            if fichier_benford.name.endswith(".txt"):
-                df_audit = pd.read_csv(fichier_benford, sep="\t", dtype=str)
-            elif fichier_benford.name.endswith(".csv"):
-                df_audit = pd.read_csv(fichier_benford, dtype=str)
-            else:
-                df_audit = pd.read_excel(fichier_benford, dtype=str)
+# ---------------------------------------------------------
+# PAGE : RAPPROCHEMENT BANCAIRE
+# ---------------------------------------------------------
+elif page == "🏦 Rapprochement Bancaire":
+    st.title("🏦 Rapprochement Bancaire")
+    f1 = st.file_uploader("Relevé Bancaire", type=["xlsx", "csv"])
+    f2 = st.file_uploader("Compta", type=["xlsx", "csv"])
+    if f1 and f2:
+        if st.button("Comparer"):
+            df1 = pd.read_excel(f1)
+            df2 = pd.read_excel(f2)
+            res = rapprocher_banque_compta(df1, df2)
+            st.markdown(res)
 
-            st.write("Aperçu des données :")
-            st.dataframe(df_audit.head(5))
+# ---------------------------------------------------------
+# PAGE : COHÉRENCE
+# ---------------------------------------------------------
+elif page == "🔗 Cohérence Inter-Documents":
+    st.title("🔗 Cohérence Inter-Documents")
+    f_fact = st.file_uploader("Import Factures", type=["xlsx"])
+    f_bal = st.file_uploader("Import Balance", type=["xlsx"])
+    if st.button("Analyser la cohérence"):
+        res = analyser_coherence(pd.read_excel(f_fact) if f_fact else None, pd.read_excel(f_bal) if f_bal else None, None)
+        st.markdown(res)
 
-            # Détection automatique de la colonne montant
-            col_montant = None
-            colonnes_possibles = ['Debit', 'Montant', 'Montant_HT', 'Debit_Montant', 'DEBIT', 'MONTANT']
-            for c in colonnes_possibles:
-                if c in df_audit.columns:
-                    col_montant = c
-                    break
-            
-            if not col_montant:
-                col_montant = st.selectbox("Sélectionnez la colonne des montants :", df_audit.columns)
+# ---------------------------------------------------------
+# PAGE : ALERTES
+# ---------------------------------------------------------
+elif page == "🚨 Alertes de Gestion":
+    st.title("🚨 Alertes de Gestion")
+    f = st.file_uploader("Fichier financier", type=["xlsx"])
+    if f:
+        res = analyser_alertes(pd.read_excel(f))
+        st.markdown(res)
 
-            if st.button("Lancer l'audit statistique"):
-                fig, rapp, risque = analyse_benford_complete(df_audit, col_montant=col_montant)
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True)
-                    st.markdown(rapp)
-                    if risque == "Élevé":
-                        st.error("🚨 Alerte : La distribution des montants est suspecte. Risque de manipulation élevé.")
-                    elif risque == "Modéré":
-                        st.warning("⚠️ Attention : Des écarts sont visibles. À vérifier.")
-                    else:
-                        st.success("✅ Cohérence statistique validée.")
-                else:
-                    st.warning(rapp)
+# ---------------------------------------------------------
+# PAGE : VEILLE FISCALE
+# ---------------------------------------------------------
+elif page == "📰 Veille Fiscale":
+    st.title("📰 Veille Fiscale")
+    if st.button("Actualiser la veille"):
+        res = obtenir_veille_fiscale()
+        st.markdown(res, unsafe_allow_html=True)
 
-        except Exception as e:
-            st.error(f"Erreur lors de l'audit : {e}")
+# ---------------------------------------------------------
+# PAGE : BILAN / CR
+# ---------------------------------------------------------
+elif page == "📋 Analyse Bilan":
+    st.title("📋 Analyse du Bilan")
+    f = st.file_uploader("Bilan (PDF/Excel)", type=["pdf", "xlsx"])
+    if f:
+        res = analyser_bilan_texte(ocr_image_mistral(f) if f.name.endswith(".pdf") else "Données Excel")
+        st.markdown(res)
 
-# ... [Le reste du code pour les autres pages continue ici] ...
-# (Rapprochement Bancaire, Cohérence, etc. tels que dans votre original)
+elif page == "📈 Compte de Résultat":
+    st.title("📈 Compte de Résultat")
+    f = st.file_uploader("CR (PDF/Excel)", type=["pdf", "xlsx"])
+    if f:
+        res = analyser_cr_texte(ocr_image_mistral(f) if f.name.endswith(".pdf") else "Données Excel")
+        st.markdown(res)
