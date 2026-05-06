@@ -10,3 +10,4 @@ bcrypt
 plotly
 python-docx
 mistralai
+python-dotenv
