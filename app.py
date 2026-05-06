@@ -125,3 +125,4 @@ elif page == "🛡️ Audit Benford":
     st.warning("Ce module analyse la probabilité statistique de manipulation des chiffres.")
     # (Logique Benford simplifiée pour l'exemple, à adapter selon votre module spécifique)
     st.info("Veuillez importer un fichier FEC ou une liste de montants pour lancer l'audit statistique.")
+
