@@ -3,7 +3,7 @@ import tempfile
 from io import BytesIO
 from pdf2image import convert_from_bytes
 from PyPDF2 import PdfReader
-from .ai import appel_mistral, extraire_contenu_mistral
+from utils.ai import appel_mistral, extraire_contenu_mistral
 
 # ---------------------------------------------------------
 # 1) Limitation de taille (5 Mo)
