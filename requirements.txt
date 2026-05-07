@@ -12,3 +12,4 @@ plotly==6.7.0
 scipy==1.17.1
 matplotlib
 seaborn
+openpyxl
