@@ -3,7 +3,7 @@ import tempfile
 from io import BytesIO
 from pdf2image import convert_from_bytes
 from PyPDF2 import PdfReader
-from .ai import appel_mistral, extraire_contenu_mistral
+from .ai import appel_mistral_vision, extraire_contenu_mistral
 
 # ---------------------------------------------------------
 # 1) Limitation de taille (5 Mo)
@@ -67,7 +67,7 @@ def _ocr_image_base64(base64_data, mime="image/png"):
             ]
         }
     ]
-    result = appel_mistral(messages)
+    result = appel_mistral_vision(messages)
     return extraire_contenu_mistral(result)
 
 # ---------------------------------------------------------
