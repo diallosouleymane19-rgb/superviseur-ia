@@ -18,7 +18,6 @@ from utils.veille_fiscale import obtenir_veille_fiscale
 from utils.database import init_db, sauvegarder_analyse
 from utils.fec import valider_fec, analyser_fec
 from utils.bilan import generer_bilan
-from utils.compte_resultat import generer_compte_resultat
 from utils.rapprochement import rapprocher_bancaire
 from utils.rapport_client import generer_rapport_client
 from utils.alertes import detecter_alertes
@@ -302,124 +301,367 @@ Fournis une analyse détaillée avec :
 
 
 # -----------------------------------------------------------------------------
-# 3. AUDIT BALANCE
+# 3. AUDIT BALANCE - VERSION UNIVERSELLE
 # -----------------------------------------------------------------------------
 
 elif page == "📊 Audit Balance":
-    st.title("📊 Audit de Balance")
-    st.markdown("Vérification automatique de l'équilibre et cohérence de la balance")
+    st.title("📊 Audit de Balance Comptable")
+    st.markdown("**Analyse approfondie** pour Cabinets, DAF et Dirigeants")
+    st.caption("✨ Compatible : Sage, Cegid, EBP, Ciel, ACD, Tiime, Pennylane, QuickBooks")
     
-    uploaded_file = st.file_uploader("Balance comptable (CSV, XLSX)", type=["csv", "xlsx"])
+    uploaded_file = st.file_uploader(
+        "📎 Déposer votre balance (CSV, XLSX)", 
+        type=["csv", "xlsx"]
+    )
     
     if uploaded_file:
+        from utils.audit_balance import auditer_balance, generer_rapport_audit
+        from utils.intelligent_parser import parser_balance_intelligent, nettoyer_balance
+        
+        mode_lecture = st.radio(
+            "🔧 Mode de lecture",
+            ["🤖 Auto-détection universelle", "📋 Mode manuel"],
+            horizontal=True
+        )
+        
         try:
-            df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('xlsx') else pd.read_csv(uploaded_file)
+            if mode_lecture == "🤖 Auto-détection universelle":
+                with st.spinner("🤖 Analyse intelligente de la balance..."):
+                    df, info = parser_balance_intelligent(uploaded_file)
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("📊 Format détecté", info['format_detecte'])
+                with col2:
+                    st.metric("📍 Ligne en-tête", info['ligne_entete'])
+                with col3:
+                    st.metric("📝 Lignes données", info['nb_lignes_donnees'])
+                
+                if info['colonnes_manquantes']:
+                    st.warning(f"⚠️ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
+                
+                with st.expander("🔍 Détails de la détection", expanded=False):
+                    st.write("**Mapping des colonnes :**")
+                    for orig, std in info['colonnes_mappees'].items():
+                        st.write(f"- `{orig}` → **{std}**")
+                
+                with st.expander("👀 Aperçu de la balance", expanded=True):
+                    st.dataframe(df.head(15), use_container_width=True)
             
-            st.success(f"✅ Fichier chargé : {len(df)} lignes")
-            afficher_stats_rapides(df)
+            else:
+                col1, col2 = st.columns(2)
+                with col1:
+                    a_un_entete = st.checkbox("✅ Mon fichier a une ligne d'en-tête", value=True)
+                with col2:
+                    ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else None
+                
+                if uploaded_file.name.endswith('xlsx'):
+                    df = pd.read_excel(uploaded_file, header=ligne_entete if a_un_entete else None)
+                else:
+                    df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
+                
+                st.success(f"✅ Balance chargée : **{len(df):,} lignes**")
+                
+                with st.expander("👀 Aperçu de la balance", expanded=True):
+                    st.dataframe(df.head(15), use_container_width=True)
+                
+                st.divider()
+                st.markdown("### 🎯 Identification des Colonnes")
+                colonnes_disponibles = ["-- Aucune --"] + [str(c) for c in df.columns]
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    col_compte = st.selectbox("🔢 Compte", colonnes_disponibles, index=1 if len(df.columns) > 0 else 0)
+                    col_libelle = st.selectbox("📝 Libellé", colonnes_disponibles, index=2 if len(df.columns) > 1 else 0)
+                with col2:
+                    col_debit = st.selectbox("📥 Débit", colonnes_disponibles, index=3 if len(df.columns) > 2 else 0)
+                    col_credit = st.selectbox("📤 Crédit", colonnes_disponibles, index=4 if len(df.columns) > 3 else 0)
+                
+                renommage = {}
+                if col_compte != "-- Aucune --":
+                    renommage[col_compte] = 'CompteNum'
+                if col_libelle != "-- Aucune --":
+                    renommage[col_libelle] = 'CompteLib'
+                if col_debit != "-- Aucune --":
+                    renommage[col_debit] = 'Debit'
+                if col_credit != "-- Aucune --":
+                    renommage[col_credit] = 'Credit'
+                
+                df = df.rename(columns=renommage)
             
-            with st.expander("👀 Aperçu des données"):
-                st.dataframe(df.head(20))
+            st.divider()
             
-            if st.button("🔍 Lancer l'audit", type="primary"):
-                with st.spinner("Analyse en cours..."):
-                    st.subheader("📋 Vérifications")
+            col1, col2 = st.columns(2)
+            with col1:
+                nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+            with col2:
+                exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
+            
+            if st.button("🔍 Lancer l'audit professionnel", type="primary", use_container_width=True):
+                with st.spinner("Audit en cours..."):
+                    audit = auditer_balance(df)
                     
-                    if 'Debit' in df.columns and 'Credit' in df.columns:
-                        total_debit = df['Debit'].sum()
-                        total_credit = df['Credit'].sum()
-                        ecart = abs(total_debit - total_credit)
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("Total Débit", f"{total_debit:,.2f} €")
-                        with col2:
-                            st.metric("Total Crédit", f"{total_credit:,.2f} €")
-                        with col3:
-                            st.metric("Écart", f"{ecart:,.2f} €", 
-                                    delta_color="inverse" if ecart > 0.01 else "normal")
-                        
-                        if ecart < 0.01:
-                            st.success("✅ Balance équilibrée")
+                    st.markdown("## 🎯 Score de Qualité de la Balance")
+                    score = audit['score_qualite']
+                    niveau = audit['niveau']
+                    
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        if score >= 90:
+                            st.success(f"### {niveau} : {score}% ✅")
+                        elif score >= 75:
+                            st.info(f"### {niveau} : {score}% ℹ️")
+                        elif score >= 50:
+                            st.warning(f"### {niveau} : {score}% ⚠️")
                         else:
-                            st.error(f"❌ Déséquilibre détecté : {ecart:,.2f} €")
+                            st.error(f"### {niveau} : {score}% ❌")
+                        st.progress(int(score))
                     
-                    st.subheader("🤖 Analyse IA Approfondie")
+                    st.divider()
                     
-                    prompt = f"""Analyse cette balance comptable :
-
-Statistiques :
-- Nombre de lignes : {len(df)}
-- Colonnes : {', '.join(df.columns.tolist())}
-- Total Débit : {total_debit if 'Debit' in df.columns else 'N/A'}
-- Total Crédit : {total_credit if 'Credit' in df.columns else 'N/A'}
-
-Premiers enregistrements :
-{df.head(10).to_string()}
-
-Fournis :
-1. Évaluation de la qualité des données
-2. Anomalies potentielles
-3. Recommandations d'amélioration
-4. Points d'attention"""
-                    
-                    result = appel_mistral(prompt, temperature=0.3)
-                    
-                    if result["success"]:
-                        st.markdown(result["content"])
-                        sauvegarder_analyse(type_analyse="Audit Balance", resultat=result["content"])
-                        generer_bouton_word("Audit_Balance", result["content"])
-                    else:
-                        st.error(f"Erreur IA : {result['error']}")
+                    if audit['kpis']:
+                        st.markdown("## 💰 Indicateurs Clés")
+                        kpis = audit['kpis']
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            if 'total_debit' in kpis:
+                                st.metric("Total Débit", f"{kpis['total_debit']:,.0f} €")
+                        with col2:
+                            if 'total_credit' in kpis:
+                                st.metric("Total Crédit", f"{kpis['total_credit']:,.0f} €")
+                        with col3:
+                            if 'nb_comptes' in kpis:
+                                st.metric("Comptes", kpis['nb_comptes'])
+                        with col4:
+                            if 'ecart' in kpis:
+                                st.metric("Écart D/C", f"{kpis['ecart']:,.2f} €",
+                                         delta_color="inverse" if kpis['ecart'] > 0.01 else "normal")
                         
+                        if 'resultat_estime' in kpis:
+                            st.markdown("### 📈 Performance Estimée")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Produits", f"{kpis['produits_totaux']:,.0f} €")
+                            with col2:
+                                st.metric("Charges", f"{kpis['charges_totales']:,.0f} €")
+                            with col3:
+                                st.metric("Résultat", f"{kpis['resultat_estime']:,.0f} €",
+                                         delta=f"Marge : {kpis.get('marge_pct', 0):.1f}%")
+                    
+                    st.divider()
+                    
+                    if 'repartition_classes' in audit['kpis']:
+                        st.markdown("## 📚 Répartition par Classe Comptable (PCG)")
+                        repartition = audit['kpis']['repartition_classes']
+                        df_classes = pd.DataFrame([
+                            {'Classe': k, 'Nombre de comptes': v} 
+                            for k, v in repartition.items()
+                        ]).sort_values('Nombre de comptes', ascending=False)
+                        
+                        col1, col2 = st.columns([1, 2])
+                        with col1:
+                            st.dataframe(df_classes, use_container_width=True, hide_index=True)
+                        with col2:
+                            st.bar_chart(df_classes.set_index('Classe'))
+                    
+                    st.divider()
+                    
+                    st.markdown("## 🔍 Contrôles Effectués")
+                    for nom, ctrl in audit['controles'].items():
+                        if ctrl['statut'] == 'OK':
+                            st.success(f"✅ **{nom}** : {ctrl['message']}")
+                        elif ctrl['statut'] == 'WARNING':
+                            st.warning(f"⚠️ **{nom}** : {ctrl['message']}")
+                        else:
+                            st.error(f"❌ **{nom}** : {ctrl['message']}")
+                    
+                    if audit['anomalies']:
+                        st.markdown("## ⚠️ Anomalies Détectées")
+                        for anomalie in audit['anomalies']:
+                            grav = anomalie['gravite']
+                            if grav == 'CRITIQUE':
+                                st.error(f"🔴 **[{grav}]** {anomalie['type']} : {anomalie['description']}")
+                            elif grav == 'MOYENNE':
+                                st.warning(f"🟡 **[{grav}]** {anomalie['type']} : {anomalie['description']}")
+                            else:
+                                st.info(f"🔵 **[{grav}]** {anomalie['type']} : {anomalie['description']}")
+                    
+                    if audit['recommandations']:
+                        st.markdown("## 💡 Recommandations Cabinet")
+                        for reco in audit['recommandations']:
+                            st.info(f"💼 {reco}")
+                    
+                    st.divider()
+                    
+                    rapport = generer_rapport_audit(audit, nom_entreprise)
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder", use_container_width=True):
+                            sauvegarder_analyse(type_analyse="Audit Balance", resultat=rapport)
+                            st.success("✅ Sauvegardé !")
+                    with col2:
+                        try:
+                            generer_bouton_word(f"Audit_Balance_{nom_entreprise}", rapport)
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+                            
         except Exception as e:
             st.error(f"❌ Erreur : {str(e)}")
-
-
-# -----------------------------------------------------------------------------
+            import traceback
+            with st.expander("Détails techniques"):
+                st.code(traceback.format_exc())# -----------------------------------------------------------------------------
 # 4. TRAITEMENT FEC
 # -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# 4. TRAITEMENT FEC - VERSION PROFESSIONNELLE CABINET
+# -----------------------------------------------------------------------------
+
 elif page == "📂 Traitement FEC":
-    st.title("📂 Traitement FEC")
-    st.markdown("Validation et analyse des Fichiers des Écritures Comptables (FEC)")
+    st.title("📂 Traitement FEC - Audit Conformité DGFiP")
+    st.markdown("**Validation et analyse approfondie** des Fichiers des Écritures Comptables (Article L.47 A du LPF)")
     
-    uploaded_file = st.file_uploader("Fichier FEC (TXT, CSV)", type=["txt", "csv"])
+    uploaded_file = st.file_uploader(
+        "📎 Déposer votre fichier FEC", 
+        type=["txt", "csv"],
+        help="Format pipe (|) ou tabulation, encodage UTF-8 ou ISO-8859-1"
+    )
     
     if uploaded_file:
-        try:
-            try:
-                df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-            except:
-                df = pd.read_csv(uploaded_file, sep='\t', encoding='utf-8')
+        from utils.fec import lire_fec, valider_fec, analyser_fec, detecter_anomalies_fec
+        
+        # Lecture intelligente
+        with st.spinner("📖 Lecture du FEC..."):
+            df, sep, enc = lire_fec(uploaded_file)
+        
+        if df is None:
+            st.error("❌ Impossible de lire le FEC. Vérifiez le format (séparateur pipe | ou tabulation).")
+        else:
+            st.success(f"✅ FEC chargé : **{len(df):,} écritures** | Séparateur : `{sep}` | Encodage : `{enc}`")
             
-            st.success(f"✅ FEC chargé : {len(df):,} écritures")
-            afficher_stats_rapides(df)
+            # KPIs en haut
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("📝 Écritures", f"{len(df):,}")
+            with col2:
+                if 'EcritureNum' in df.columns:
+                    st.metric("📄 Pièces", f"{df['EcritureNum'].nunique():,}")
+            with col3:
+                if 'CompteNum' in df.columns:
+                    st.metric("🔢 Comptes", f"{df['CompteNum'].nunique()}")
+            with col4:
+                if 'JournalCode' in df.columns:
+                    st.metric("📚 Journaux", f"{df['JournalCode'].nunique()}")
             
-            with st.expander("👀 Aperçu du FEC"):
-                st.dataframe(df.head(20))
+            # Aperçu
+            with st.expander("👀 Aperçu des données (20 premières lignes)"):
+                st.dataframe(df.head(20), use_container_width=True)
             
-            if st.button("✅ Valider le FEC", type="primary"):
-                with st.spinner("Validation en cours..."):
-                    resultats_validation = valider_fec(df)
+            st.divider()
+            
+            # ===== VALIDATION DGFiP =====
+            if st.button("🛡️ Lancer la validation DGFiP complète", type="primary", use_container_width=True):
+                with st.spinner("Validation en cours selon Article A.47 A-1 du LPF..."):
+                    resultats = valider_fec(df)
                     
-                    st.subheader("📋 Résultats de validation")
+                    # SCORE GLOBAL
+                    meta = resultats.pop('_meta', {})
+                    score = meta.get('score_conformite', 0)
+                    niveau = meta.get('niveau', 'Inconnu')
                     
-                    for verif, status in resultats_validation.items():
-                        if status["valide"]:
-                            st.success(f"✅ {verif}")
+                    st.markdown("## 🎯 Score de Conformité DGFiP")
+                    
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        # Couleur selon score
+                        if score >= 90:
+                            st.success(f"### {niveau} : {score}% ✅")
+                        elif score >= 75:
+                            st.info(f"### {niveau} : {score}% ℹ️")
+                        elif score >= 50:
+                            st.warning(f"### {niveau} : {score}% ⚠️")
                         else:
-                            st.error(f"❌ {verif} : {status.get('message', '')}")
+                            st.error(f"### {niveau} : {score}% ❌")
+                        
+                        st.progress(int(score))
+                        st.caption(f"Points obtenus : {meta.get('points', 0)} / {meta.get('points_max', 100)}")
                     
-                    st.subheader("🔍 Analyse FEC")
+                    st.divider()
+                    
+                    # DÉTAIL DES VÉRIFICATIONS
+                    st.markdown("## 📋 Détail des Contrôles")
+                    
+                    for verif, status in resultats.items():
+                        if status["valide"]:
+                            st.success(f"✅ **{verif}** : {status.get('message', 'Conforme')}")
+                        else:
+                            st.error(f"❌ **{verif}** : {status.get('message', '')}")
+                    
+                    st.divider()
+                    
+                    # ANALYSE APPROFONDIE
+                    st.markdown("## 🔍 Analyse Approfondie")
                     analyse = analyser_fec(df)
-                    st.write(analyse)
+                    st.markdown(analyse)
                     
-                    sauvegarder_analyse(type_analyse="Validation FEC", resultat=str(resultats_validation))
+                    st.divider()
                     
-        except Exception as e:
-            st.error(f"❌ Erreur de lecture du FEC : {str(e)}")
-            st.info("💡 Le FEC doit être au format pipe (|) ou tabulation, encodé en UTF-8")
+                    # ANOMALIES
+                    st.markdown("## ⚠️ Détection d'Anomalies")
+                    anomalies = detecter_anomalies_fec(df)
+                    
+                    if anomalies:
+                        col1, col2, col3 = st.columns(3)
+                        nb_elevees = len([a for a in anomalies if a['gravite'] == 'Elevee'])
+                        nb_moyennes = len([a for a in anomalies if a['gravite'] == 'Moyenne'])
+                        nb_faibles = len([a for a in anomalies if a['gravite'] == 'Faible'])
+                        
+                        with col1:
+                            st.metric("🔴 Élevées", nb_elevees)
+                        with col2:
+                            st.metric("🟡 Moyennes", nb_moyennes)
+                        with col3:
+                            st.metric("🔵 Faibles", nb_faibles)
+                        
+                        for anomalie in anomalies:
+                            if anomalie['gravite'] == 'Elevee':
+                                st.error(f"🔴 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
+                            elif anomalie['gravite'] == 'Moyenne':
+                                st.warning(f"🟡 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
+                            else:
+                                st.info(f"🔵 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
+                    else:
+                        st.success("✅ Aucune anomalie majeure détectée")
+                    
+                    st.divider()
+                    
+                    # SAUVEGARDE & EXPORT
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder le rapport", use_container_width=True):
+                            sauvegarder_analyse(
+                                type_analyse="Audit FEC", 
+                                resultat=f"Score: {score}% - {analyse}"
+                            )
+                            st.success("✅ Rapport sauvegardé !")
+                    
+                    with col2:
+                        rapport_complet = f"""# RAPPORT D'AUDIT FEC
+
+## Score de Conformité DGFiP : {score}% ({niveau})
+
+{analyse}
+
+## Anomalies Détectées
+{chr(10).join([f"- {a['type']} ({a['gravite']}) : {a['description']}" for a in anomalies]) if anomalies else "Aucune anomalie majeure"}
+
+---
+*Rapport généré par SMD Consulting - Superviseur IA Comptable*
+"""
+                        try:
+                            generer_bouton_word("Rapport_Audit_FEC", rapport_complet)
+                        except Exception as e:
+                            st.error(f"Erreur export : {e}")
 
 
 # -----------------------------------------------------------------------------
@@ -470,62 +712,163 @@ elif page == "🛡️ Loi de Benford":
 
 
 # -----------------------------------------------------------------------------
-# 6. COMPTE DE RÉSULTAT
+# 6. COMPTE DE RÉSULTAT - VERSION PROFESSIONNELLE CABINET
 # -----------------------------------------------------------------------------
 
 elif page == "📈 Compte de Résultat":
     st.title("📈 Compte de Résultat")
-    st.markdown("Génération automatique du compte de résultat depuis le FEC")
+    st.markdown("**Calcul automatique des SIG** (Soldes Intermédiaires de Gestion) selon PCG")
+    st.caption("✨ Pour Cabinets, DAF et Dirigeants - Compatible toutes balances")
     
-    uploaded_file = st.file_uploader("Fichier FEC ou Balance (CSV, XLSX, TXT)", type=["csv", "xlsx", "txt"])
+    uploaded_file = st.file_uploader(
+        "📎 Déposer votre balance ou FEC",
+        type=["csv", "xlsx", "txt"],
+        help="La balance doit contenir les comptes des classes 6 (charges) et 7 (produits)"
+    )
     
     if uploaded_file:
+        from utils.compte_resultat import calculer_compte_resultat, generer_rapport_compte_resultat
+        from utils.intelligent_parser import parser_balance_intelligent
+        
         try:
-            if uploaded_file.name.endswith('xlsx'):
-                df = pd.read_excel(uploaded_file)
-            elif uploaded_file.name.endswith('txt'):
-                df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-            else:
-                df = pd.read_csv(uploaded_file)
+            with st.spinner("🤖 Analyse de la balance..."):
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                    df, info = parser_balance_intelligent(uploaded_file)
+                    st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} comptes**")
+                else:
+                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
             
-            st.success(f"✅ Fichier chargé : {len(df):,} lignes")
-            
-            col1, col2 = st.columns(2)
+            st.divider()
+            col1, col2, col3 = st.columns(3)
             with col1:
-                date_debut = st.date_input("Date de début")
+                nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
             with col2:
-                date_fin = st.date_input("Date de fin")
+                exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
+            with col3:
+                type_entreprise = st.selectbox(
+                    "🏭 Type d'entreprise",
+                    ["Mixte", "Commerciale", "Industrielle", "Services"]
+                )
             
-            if st.button("📊 Générer le Compte de Résultat", type="primary"):
-                with st.spinner("Génération en cours..."):
-                    try:
-                        resultat = generer_compte_resultat(df, date_debut, date_fin)
+            if st.button("📊 Générer le Compte de Résultat", type="primary", use_container_width=True):
+                with st.spinner("Calcul des SIG en cours..."):
+                    resultat = calculer_compte_resultat(df, type_entreprise)
+                    
+                    if 'erreur' in resultat:
+                        st.error(f"❌ {resultat['erreur']}")
+                    else:
+                        st.markdown(f"## 📊 Soldes Intermédiaires de Gestion")
+                        st.caption(f"{nom_entreprise} - Exercice {exercice}")
                         
-                        st.subheader("📈 Compte de Résultat")
-                        st.dataframe(resultat, use_container_width=True)
+                        sig = resultat['sig']
                         
-                        if 'Montant' in resultat.columns:
-                            total_produits = resultat[resultat['Type'] == 'Produits']['Montant'].sum()
-                            total_charges = resultat[resultat['Type'] == 'Charges']['Montant'].sum()
-                            resultat_net = total_produits - total_charges
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("💰 CA", f"{sig['Chiffre d\'affaires']:,.0f} €")
+                        with col2:
+                            st.metric("⚙️ VA", f"{sig['Valeur ajoutée (VA)']:,.0f} €")
+                        with col3:
+                            st.metric("📈 EBE", f"{sig['Excedent Brut d\'Exploitation (EBE)']:,.0f} €")
+                        with col4:
+                            rn = sig['Resultat net']
+                            st.metric("🎯 Résultat Net", f"{rn:,.0f} €",
+                                     delta="Bénéfice" if rn > 0 else "Déficit",
+                                     delta_color="normal" if rn > 0 else "inverse")
+                        
+                        st.divider()
+                        
+                        st.markdown("### 📋 Détail des Soldes Intermédiaires")
+                        df_sig = pd.DataFrame([
+                            {'Indicateur': nom, 'Montant (€)': f"{val:,.2f}"} 
+                            for nom, val in sig.items()
+                        ])
+                        st.dataframe(df_sig, use_container_width=True, hide_index=True)
+                        
+                        df_sig_chart = pd.DataFrame([
+                            {'Indicateur': nom, 'Montant': val} 
+                            for nom, val in sig.items()
+                        ])
+                        st.bar_chart(df_sig_chart.set_index('Indicateur'))
+                        
+                        st.divider()
+                        
+                        if resultat['ratios']:
+                            st.markdown("## 📈 Ratios de Performance")
+                            ratios = resultat['ratios']
                             
-                            col1, col2, col3 = st.columns(3)
+                            col1, col2, col3, col4 = st.columns(4)
                             with col1:
-                                st.metric("Total Produits", f"{total_produits:,.2f} €")
+                                if 'Taux de valeur ajoutee (%)' in ratios:
+                                    val = ratios['Taux de valeur ajoutee (%)']
+                                    st.metric("Taux VA", f"{val:.1f}%")
                             with col2:
-                                st.metric("Total Charges", f"{total_charges:,.2f} €")
+                                if 'Taux de marge brute - EBE (%)' in ratios:
+                                    st.metric("Marge EBE", f"{ratios['Taux de marge brute - EBE (%)']:.1f}%")
                             with col3:
-                                st.metric("Résultat Net", f"{resultat_net:,.2f} €",
-                                        delta_color="normal" if resultat_net > 0 else "inverse")
+                                if 'Taux de rentabilite exploitation (%)' in ratios:
+                                    st.metric("Rentab. Exploit.", f"{ratios['Taux de rentabilite exploitation (%)']:.1f}%")
+                            with col4:
+                                if 'Taux de rentabilite nette (%)' in ratios:
+                                    st.metric("Rentab. Nette", f"{ratios['Taux de rentabilite nette (%)']:.1f}%")
+                            
+                            df_ratios = pd.DataFrame([
+                                {'Ratio': nom, 'Valeur': f"{val:.2f}{'%' if '€' not in nom else ' €'}"} 
+                                for nom, val in ratios.items()
+                            ])
+                            st.dataframe(df_ratios, use_container_width=True, hide_index=True)
                         
-                        sauvegarder_analyse(type_analyse="Compte de Résultat", resultat=resultat.to_string())
+                        st.divider()
                         
-                    except Exception as e:
-                        st.error(f"❌ Erreur : {str(e)}")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown("### 💰 PRODUITS")
+                            df_prod = pd.DataFrame([
+                                {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
+                                for k, v in resultat['produits'].items() if v != 0
+                            ])
+                            st.dataframe(df_prod, use_container_width=True, hide_index=True)
                         
+                        with col2:
+                            st.markdown("### 💸 CHARGES")
+                            df_ch = pd.DataFrame([
+                                {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
+                                for k, v in resultat['charges'].items() if v != 0
+                            ])
+                            st.dataframe(df_ch, use_container_width=True, hide_index=True)
+                        
+                        st.divider()
+                        
+                        if resultat['analyse']:
+                            st.markdown("## 💡 Analyse Cabinet")
+                            for item in resultat['analyse']:
+                                if item['type'] == 'OK':
+                                    st.success(f"✅ {item['message']}")
+                                elif item['type'] == 'WARNING':
+                                    st.warning(f"⚠️ {item['message']}")
+                                else:
+                                    st.error(f"🔴 {item['message']}")
+                        
+                        st.divider()
+                        
+                        rapport = generer_rapport_compte_resultat(resultat, nom_entreprise, exercice)
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("💾 Sauvegarder", use_container_width=True):
+                                sauvegarder_analyse(type_analyse="Compte de Résultat", resultat=rapport)
+                                st.success("✅ Sauvegardé !")
+                        with col2:
+                            try:
+                                generer_bouton_word(f"Compte_Resultat_{nom_entreprise}", rapport)
+                            except Exception as e:
+                                st.error(f"Erreur : {e}")
+                                
         except Exception as e:
-            st.error(f"❌ Erreur de chargement : {str(e)}")
-
+            st.error(f"❌ Erreur : {str(e)}")
+            import traceback
+            with st.expander("Détails techniques"):
+                st.code(traceback.format_exc())
 
 # -----------------------------------------------------------------------------
 # 7. BILAN COMPTABLE
@@ -540,7 +883,7 @@ elif page == "📊 Bilan Comptable":
     if uploaded_file:
         try:
             if uploaded_file.name.endswith('xlsx'):
-                df = pd.read_excel(uploaded_file)
+                df = pd.read_excel(uploaded_file, header=1)
             elif uploaded_file.name.endswith('txt'):
                 df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
             else:
@@ -818,6 +1161,10 @@ elif page == "✅ Cohérence des Données":
 # 12. VEILLE FISCALE
 # -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# 12. VEILLE FISCALE
+# -----------------------------------------------------------------------------
+
 elif page == "📰 Veille Fiscale":
     st.title("📰 Veille Fiscale")
     st.markdown("Dernières actualités fiscales et réglementaires")
@@ -827,22 +1174,35 @@ elif page == "📰 Veille Fiscale":
             try:
                 actualites = obtenir_veille_fiscale()
                 
-                if actualites:
+                if actualites and len(actualites) > 0:
                     st.subheader("📰 Dernières Actualités")
                     
-                    for article in actualites:
-                        with st.expander(f"📄 {article['titre']}"):
-                            st.caption(f"🗓️ {article.get('date', 'Date inconnue')}")
-                            st.markdown(article.get('resume', ''))
-                            if article.get('lien'):
-                                st.markdown(f"[🔗 Lire l'article complet]({article['lien']})")
+                    for idx, article in enumerate(actualites):
+                        # Vérification que article est bien un dict
+                        if isinstance(article, dict):
+                            titre = article.get('titre', 'Sans titre')
+                            date = article.get('date', 'Date inconnue')
+                            resume = article.get('resume', '')
+                            lien = article.get('lien', '')
+                            
+                            with st.expander(f"📄 {titre}"):
+                                st.caption(f"🗓️ {date}")
+                                if resume:
+                                    st.markdown(resume)
+                                if lien:
+                                    st.markdown(f"[🔗 Lire l'article complet]({lien})")
+                        else:
+                            st.warning(f"Article {idx}: Format incorrect")
                     
+                    # Sauvegarde
                     sauvegarder_analyse(type_analyse="Veille Fiscale", resultat=str(actualites))
                 else:
                     st.info("ℹ️ Aucune actualité récente disponible")
                     
             except Exception as e:
                 st.error(f"❌ Erreur : {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
     
     st.divider()
     st.subheader("❓ Poser une question fiscale")
