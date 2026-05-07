@@ -46,18 +46,26 @@ init_db()
 # AUTHENTIFICATION
 # =============================================================================
 
-if False:  # Auth désactivée temporairement
+if not is_connecte():
     st.title("🔒 Superviseur IA Comptable")
     st.subheader("Accès réservé aux cabinets clients")
     
-    email = st.text_input("Email professionnel", placeholder="contact@cabinet.com")
-    password = st.text_input("Mot de passe", type="password")
+    col1, col2, col3 = st.columns([1, 2, 1])
     
-    if st.button("Se connecter", type="primary"):
-        if login(email, password):
-            st.rerun()
-        else:
-            st.error("❌ Email ou mot de passe incorrect")
+    with col2:
+        st.markdown("---")
+        email = st.text_input("📧 Email professionnel", placeholder="contact@cabinet.com")
+        password = st.text_input("🔑 Mot de passe", type="password")
+        
+        if st.button("🚀 Se connecter", type="primary", use_container_width=True):
+            if login(email, password):
+                st.success("✅ Connexion réussie !")
+                st.rerun()
+            else:
+                st.error("❌ Email ou mot de passe incorrect")
+        
+        st.markdown("---")
+        st.info("💡 **Identifiants de test** :\n- Email : `smdconsulting@gmail.com`\n- Mot de passe : `SMDConsulting2026!`")
     
     st.divider()
     st.caption("SMD Consulting © 2026 - Comptable IA Augmenté")
@@ -68,7 +76,7 @@ if False:  # Auth désactivée temporairement
 # =============================================================================
 
 st.sidebar.title("SMD Consulting")
-st.sidebar.caption(f"Expert : {st.session_state.get('user_email', 'Utilisateur')}")
+st.sidebar.caption(f"👤 {st.session_state.get('user_email', 'Utilisateur')}")
 st.sidebar.divider()
 
 st.sidebar.subheader("Modules de supervision")
@@ -94,9 +102,8 @@ page = st.sidebar.radio(
 
 st.sidebar.divider()
 
-if st.sidebar.button("🚪 Déconnexion"):
+if st.sidebar.button("🚪 Déconnexion", use_container_width=True):
     logout()
-    st.rerun()
 
 # =============================================================================
 # FONCTIONS UTILITAIRES
@@ -111,7 +118,8 @@ def generer_bouton_word(titre, contenu):
             f"📄 Télécharger {titre}", 
             buf, 
             f"{titre.replace(' ', '_')}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
         )
     except Exception as e:
         st.error(f"Erreur lors de la génération du fichier Word : {e}")
@@ -174,52 +182,84 @@ if page == "🏠 Accueil":
     
     st.divider()
     
-    # Statistiques d'utilisation (si disponible dans la DB)
-    st.subheader("📊 Statistiques d'utilisation")
+    # Statistiques d'utilisation
+    st.subheader("📊 Votre Session")
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric("Analyses effectuées", "...", help="Total des analyses sur cette session")
+        st.metric("Connecté en tant que", st.session_state.get('user_email', 'Utilisateur'))
     with col2:
-        st.metric("Documents traités", "...", help="Factures, FEC, etc.")
+        st.metric("Modules disponibles", "12")
     with col3:
-        st.metric("Alertes détectées", "...", help="Anomalies identifiées")
+        st.metric("Statut", "✅ Opérationnel")
     
     st.divider()
     st.caption("**SMD Consulting** - Comptable IA Augmenté © 2026")
 
 
 # -----------------------------------------------------------------------------
-# 2. ANALYSE FACTURE (OCR)
+# 2. ANALYSE FACTURE (OCR) - VERSION AMÉLIORÉE
 # -----------------------------------------------------------------------------
 
 elif page == "🧾 Analyse Facture (OCR)":
     st.title("🧾 Analyse de Facture")
     st.markdown("**Extraction automatique** des données de factures via OCR + IA")
     
-    uploaded_file = st.file_uploader(
-        "Déposer une facture (PDF, PNG, JPG)", 
-        type=["pdf", "png", "jpg", "jpeg"]
-    )
+    # Initialisation de l'état
+    if 'ocr_resultat' not in st.session_state:
+        st.session_state.ocr_resultat = None
+    if 'ocr_analyse_ia' not in st.session_state:
+        st.session_state.ocr_analyse_ia = None
+    
+    # Upload + Bouton Reset
+    col1, col2 = st.columns([5, 1])
+    with col1:
+        uploaded_file = st.file_uploader(
+            "📎 Déposer une facture (PDF, PNG, JPG)", 
+            type=["pdf", "png", "jpg", "jpeg"],
+            key="facture_uploader"
+        )
+    with col2:
+        st.write("")
+        st.write("")
+        if st.button("🔄", help="Nouvelle analyse"):
+            st.session_state.ocr_resultat = None
+            st.session_state.ocr_analyse_ia = None
+            st.rerun()
     
     if uploaded_file:
-        with st.spinner("🔍 Analyse en cours..."):
-            try:
-                # OCR via Mistral Vision
-                texte_extrait = ocr_image_mistral(uploaded_file)
-                
-                if texte_extrait:
-                    st.success("✅ Texte extrait avec succès !")
+        # Étape 1 : OCR
+        if st.session_state.ocr_resultat is None:
+            with st.spinner("🔍 Extraction du texte en cours..."):
+                try:
+                    texte_extrait = ocr_image_mistral(uploaded_file)
                     
-                    # Affichage du texte brut
-                    with st.expander("📄 Texte extrait (brut)"):
-                        st.text(texte_extrait)
-                    
-                    # Analyse IA structurée
-                    if st.button("🤖 Analyser avec IA", type="primary"):
+                    if texte_extrait:
+                        st.session_state.ocr_resultat = texte_extrait
+                        st.rerun()
+                    else:
+                        st.error("❌ Impossible d'extraire le texte de la facture")
+                        
+                except Exception as e:
+                    st.error(f"❌ Erreur : {str(e)}")
+        
+        # Affichage du résultat OCR
+        if st.session_state.ocr_resultat:
+            st.success("✅ Texte extrait avec succès !")
+            
+            # Texte brut dans un expander
+            with st.expander("📄 Voir le texte extrait (brut)", expanded=False):
+                st.code(st.session_state.ocr_resultat, language="text")
+            
+            st.divider()
+            
+            # Étape 2 : Analyse IA
+            if st.session_state.ocr_analyse_ia is None:
+                if st.button("🤖 Analyser avec IA", type="primary", use_container_width=True):
+                    with st.spinner("🤖 Analyse intelligente en cours..."):
                         prompt = f"""Analyse cette facture de manière structurée :
 
-{texte_extrait}
+{st.session_state.ocr_resultat}
 
 Fournis une analyse détaillée avec :
 1. Informations générales (fournisseur, client, n° facture, date)
@@ -231,24 +271,34 @@ Fournis une analyse détaillée avec :
                         result = appel_mistral(prompt)
                         
                         if result["success"]:
-                            st.markdown("### 📋 Analyse IA")
-                            st.write(result["content"])
-                            
-                            # Sauvegarde
-                            sauvegarder_analyse(
-                                type_analyse="Facture OCR",
-                                resultat=result["content"]
-                            )
-                            
-                            # Bouton export Word
-                            generer_bouton_word("Analyse_Facture", result["content"])
+                            st.session_state.ocr_analyse_ia = result["content"]
+                            st.rerun()
                         else:
                             st.error(f"❌ Erreur IA : {result['error']}")
-                else:
-                    st.error("❌ Impossible d'extraire le texte de la facture")
-                    
-            except Exception as e:
-                st.error(f"❌ Erreur : {str(e)}")
+            
+            # Affichage de l'analyse IA
+            if st.session_state.ocr_analyse_ia:
+                st.markdown("### 📋 Analyse IA Structurée")
+                st.markdown(st.session_state.ocr_analyse_ia)
+                
+                st.divider()
+                
+                # Actions
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if st.button("💾 Sauvegarder l'analyse", use_container_width=True):
+                        sauvegarder_analyse(
+                            type_analyse="Facture OCR",
+                            resultat=st.session_state.ocr_analyse_ia
+                        )
+                        st.success("✅ Analyse sauvegardée !")
+                
+                with col2:
+                    try:
+                        generer_bouton_word("Analyse_Facture", st.session_state.ocr_analyse_ia)
+                    except Exception as e:
+                        st.error(f"Erreur export : {e}")
 
 
 # -----------------------------------------------------------------------------
@@ -263,23 +313,18 @@ elif page == "📊 Audit Balance":
     
     if uploaded_file:
         try:
-            # Chargement
             df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('xlsx') else pd.read_csv(uploaded_file)
             
             st.success(f"✅ Fichier chargé : {len(df)} lignes")
             afficher_stats_rapides(df)
             
-            # Aperçu
             with st.expander("👀 Aperçu des données"):
                 st.dataframe(df.head(20))
             
-            # Audit automatique
             if st.button("🔍 Lancer l'audit", type="primary"):
                 with st.spinner("Analyse en cours..."):
-                    # Vérifications basiques
                     st.subheader("📋 Vérifications")
                     
-                    # 1. Équilibre Débit/Crédit
                     if 'Debit' in df.columns and 'Credit' in df.columns:
                         total_debit = df['Debit'].sum()
                         total_credit = df['Credit'].sum()
@@ -299,7 +344,6 @@ elif page == "📊 Audit Balance":
                         else:
                             st.error(f"❌ Déséquilibre détecté : {ecart:,.2f} €")
                     
-                    # 2. Analyse IA
                     st.subheader("🤖 Analyse IA Approfondie")
                     
                     prompt = f"""Analyse cette balance comptable :
@@ -323,14 +367,7 @@ Fournis :
                     
                     if result["success"]:
                         st.markdown(result["content"])
-                        
-                        # Sauvegarde
-                        sauvegarder_analyse(
-                            type_analyse="Audit Balance",
-                            resultat=result["content"]
-                        )
-                        
-                        # Export
+                        sauvegarder_analyse(type_analyse="Audit Balance", resultat=result["content"])
                         generer_bouton_word("Audit_Balance", result["content"])
                     else:
                         st.error(f"Erreur IA : {result['error']}")
@@ -351,7 +388,6 @@ elif page == "📂 Traitement FEC":
     
     if uploaded_file:
         try:
-            # Chargement avec séparateur pipe ou tabulation
             try:
                 df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
             except:
@@ -360,14 +396,11 @@ elif page == "📂 Traitement FEC":
             st.success(f"✅ FEC chargé : {len(df):,} écritures")
             afficher_stats_rapides(df)
             
-            # Aperçu
             with st.expander("👀 Aperçu du FEC"):
                 st.dataframe(df.head(20))
             
-            # Validation
             if st.button("✅ Valider le FEC", type="primary"):
                 with st.spinner("Validation en cours..."):
-                    # Appel fonction de validation
                     resultats_validation = valider_fec(df)
                     
                     st.subheader("📋 Résultats de validation")
@@ -378,16 +411,11 @@ elif page == "📂 Traitement FEC":
                         else:
                             st.error(f"❌ {verif} : {status.get('message', '')}")
                     
-                    # Analyse approfondie
                     st.subheader("🔍 Analyse FEC")
                     analyse = analyser_fec(df)
                     st.write(analyse)
                     
-                    # Sauvegarde
-                    sauvegarder_analyse(
-                        type_analyse="Validation FEC",
-                        resultat=str(resultats_validation)
-                    )
+                    sauvegarder_analyse(type_analyse="Validation FEC", resultat=str(resultats_validation))
                     
         except Exception as e:
             st.error(f"❌ Erreur de lecture du FEC : {str(e)}")
@@ -421,7 +449,6 @@ elif page == "🛡️ Loi de Benford":
                             st.plotly_chart(fig, use_container_width=True)
                             st.markdown(rapport)
                             
-                            # Alerte selon le risque
                             if score_risque == "Élevé":
                                 st.error("🚨 ALERTE : Risque élevé de manipulation détecté")
                             elif score_risque == "Modéré":
@@ -429,12 +456,7 @@ elif page == "🛡️ Loi de Benford":
                             else:
                                 st.success("✅ Données conformes à la loi de Benford")
                             
-                            # Sauvegarde
-                            sauvegarder_analyse(
-                                type_analyse="Loi de Benford",
-                                resultat=rapport
-                            )
-                            
+                            sauvegarder_analyse(type_analyse="Loi de Benford", resultat=rapport)
                         else:
                             st.error(rapport)
                             
@@ -459,7 +481,6 @@ elif page == "📈 Compte de Résultat":
     
     if uploaded_file:
         try:
-            # Chargement
             if uploaded_file.name.endswith('xlsx'):
                 df = pd.read_excel(uploaded_file)
             elif uploaded_file.name.endswith('txt'):
@@ -469,7 +490,6 @@ elif page == "📈 Compte de Résultat":
             
             st.success(f"✅ Fichier chargé : {len(df):,} lignes")
             
-            # Sélection de la période
             col1, col2 = st.columns(2)
             with col1:
                 date_debut = st.date_input("Date de début")
@@ -484,7 +504,6 @@ elif page == "📈 Compte de Résultat":
                         st.subheader("📈 Compte de Résultat")
                         st.dataframe(resultat, use_container_width=True)
                         
-                        # Résumé
                         if 'Montant' in resultat.columns:
                             total_produits = resultat[resultat['Type'] == 'Produits']['Montant'].sum()
                             total_charges = resultat[resultat['Type'] == 'Charges']['Montant'].sum()
@@ -499,11 +518,7 @@ elif page == "📈 Compte de Résultat":
                                 st.metric("Résultat Net", f"{resultat_net:,.2f} €",
                                         delta_color="normal" if resultat_net > 0 else "inverse")
                         
-                        # Sauvegarde
-                        sauvegarder_analyse(
-                            type_analyse="Compte de Résultat",
-                            resultat=resultat.to_string()
-                        )
+                        sauvegarder_analyse(type_analyse="Compte de Résultat", resultat=resultat.to_string())
                         
                     except Exception as e:
                         st.error(f"❌ Erreur : {str(e)}")
@@ -524,7 +539,6 @@ elif page == "📊 Bilan Comptable":
     
     if uploaded_file:
         try:
-            # Chargement
             if uploaded_file.name.endswith('xlsx'):
                 df = pd.read_excel(uploaded_file)
             elif uploaded_file.name.endswith('txt'):
@@ -534,7 +548,6 @@ elif page == "📊 Bilan Comptable":
             
             st.success(f"✅ Fichier chargé : {len(df):,} lignes")
             
-            # Date de clôture
             date_cloture = st.date_input("Date de clôture")
             
             if st.button("📊 Générer le Bilan", type="primary"):
@@ -558,18 +571,13 @@ elif page == "📊 Bilan Comptable":
                             total_passif = bilan['passif']['Montant'].sum()
                             st.metric("Total Passif", f"{total_passif:,.2f} €")
                         
-                        # Vérification équilibre
                         ecart = abs(total_actif - total_passif)
                         if ecart < 0.01:
                             st.success("✅ Bilan équilibré")
                         else:
                             st.error(f"❌ Déséquilibre : {ecart:,.2f} €")
                         
-                        # Sauvegarde
-                        sauvegarder_analyse(
-                            type_analyse="Bilan",
-                            resultat=f"Actif: {total_actif}, Passif: {total_passif}"
-                        )
+                        sauvegarder_analyse(type_analyse="Bilan", resultat=f"Actif: {total_actif}, Passif: {total_passif}")
                         
                     except Exception as e:
                         st.error(f"❌ Erreur : {str(e)}")
@@ -598,7 +606,6 @@ elif page == "🔄 Rapprochement Bancaire":
     
     if releve and ecritures:
         try:
-            # Chargement
             df_releve = pd.read_excel(releve) if releve.name.endswith('xlsx') else pd.read_csv(releve)
             df_ecritures = pd.read_excel(ecritures) if ecritures.name.endswith('xlsx') else pd.read_csv(ecritures)
             
@@ -620,18 +627,13 @@ elif page == "🔄 Rapprochement Bancaire":
                             taux = (resultats['nb_rapproches'] / len(df_releve) * 100) if len(df_releve) > 0 else 0
                             st.metric("Taux", f"{taux:.1f}%")
                         
-                        # Détails
                         with st.expander("✅ Opérations rapprochées"):
                             st.dataframe(resultats['rapproches'])
                         
                         with st.expander("❌ Opérations non rapprochées"):
                             st.dataframe(resultats['non_rapproches'])
                         
-                        # Sauvegarde
-                        sauvegarder_analyse(
-                            type_analyse="Rapprochement Bancaire",
-                            resultat=f"Taux: {taux:.1f}%"
-                        )
+                        sauvegarder_analyse(type_analyse="Rapprochement Bancaire", resultat=f"Taux: {taux:.1f}%")
                         
                     except Exception as e:
                         st.error(f"❌ Erreur : {str(e)}")
@@ -648,7 +650,6 @@ elif page == "📋 Rapport Client":
     st.title("📋 Rapport Client")
     st.markdown("Génération de rapports personnalisés pour vos clients")
     
-    # Informations client
     st.subheader("👤 Informations Client")
     col1, col2 = st.columns(2)
     
@@ -660,7 +661,6 @@ elif page == "📋 Rapport Client":
         periode = st.selectbox("Période", ["Mensuel", "Trimestriel", "Annuel"])
         exercice = st.number_input("Exercice", min_value=2020, max_value=2030, value=2026)
     
-    # Upload des données
     st.subheader("📂 Données Comptables")
     uploaded_file = st.file_uploader("FEC ou Balance (CSV, XLSX)", type=["csv", "xlsx"])
     
@@ -682,14 +682,8 @@ elif page == "📋 Rapport Client":
                         st.markdown("### 📄 Rapport Généré")
                         st.markdown(rapport)
                         
-                        # Export Word
                         generer_bouton_word(f"Rapport_{nom_client}_{periode}", rapport)
-                        
-                        # Sauvegarde
-                        sauvegarder_analyse(
-                            type_analyse="Rapport Client",
-                            resultat=rapport
-                        )
+                        sauvegarder_analyse(type_analyse="Rapport Client", resultat=rapport)
                         
                     except Exception as e:
                         st.error(f"❌ Erreur : {str(e)}")
@@ -710,7 +704,6 @@ elif page == "⚠️ Alertes & Anomalies":
     
     if uploaded_file:
         try:
-            # Chargement
             if uploaded_file.name.endswith('xlsx'):
                 df = pd.read_excel(uploaded_file)
             elif uploaded_file.name.endswith('txt'):
@@ -728,7 +721,6 @@ elif page == "⚠️ Alertes & Anomalies":
                         if alertes:
                             st.subheader("🚨 Alertes Détectées")
                             
-                            # Comptage par niveau
                             nb_critique = len([a for a in alertes if a['niveau'] == 'CRITIQUE'])
                             nb_warning = len([a for a in alertes if a['niveau'] == 'WARNING'])
                             nb_info = len([a for a in alertes if a['niveau'] == 'INFO'])
@@ -741,7 +733,6 @@ elif page == "⚠️ Alertes & Anomalies":
                             with col3:
                                 st.metric("🔵 Infos", nb_info)
                             
-                            # Affichage détaillé
                             for alerte in alertes:
                                 if alerte['niveau'] == 'CRITIQUE':
                                     st.error(f"🔴 **{alerte['titre']}** : {alerte['message']}")
@@ -750,11 +741,7 @@ elif page == "⚠️ Alertes & Anomalies":
                                 else:
                                     st.info(f"🔵 **{alerte['titre']}** : {alerte['message']}")
                             
-                            # Sauvegarde
-                            sauvegarder_analyse(
-                                type_analyse="Alertes",
-                                resultat=str(alertes)
-                            )
+                            sauvegarder_analyse(type_analyse="Alertes", resultat=str(alertes))
                         else:
                             st.success("✅ Aucune anomalie détectée")
                             
@@ -777,7 +764,6 @@ elif page == "✅ Cohérence des Données":
     
     if uploaded_file:
         try:
-            # Chargement
             if uploaded_file.name.endswith('xlsx'):
                 df = pd.read_excel(uploaded_file)
             elif uploaded_file.name.endswith('txt'):
@@ -795,7 +781,6 @@ elif page == "✅ Cohérence des Données":
                         
                         st.subheader("📊 Résultats de Vérification")
                         
-                        # Score global
                         score_qualite = resultats.get('score_qualite', 0)
                         
                         col1, col2, col3 = st.columns(3)
@@ -807,7 +792,6 @@ elif page == "✅ Cohérence des Données":
                         with col3:
                             st.metric("Lignes complètes", f"{resultats.get('lignes_completes', 0)}/{len(df)}")
                         
-                        # Détails des vérifications
                         for check, details in resultats.get('verifications', {}).items():
                             if details['status'] == 'OK':
                                 st.success(f"✅ {check} : {details['message']}")
@@ -816,17 +800,12 @@ elif page == "✅ Cohérence des Données":
                             else:
                                 st.error(f"❌ {check} : {details['message']}")
                         
-                        # Recommandations
                         if resultats.get('recommandations'):
                             st.subheader("💡 Recommandations")
                             for reco in resultats['recommandations']:
                                 st.info(reco)
                         
-                        # Sauvegarde
-                        sauvegarder_analyse(
-                            type_analyse="Cohérence",
-                            resultat=str(resultats)
-                        )
+                        sauvegarder_analyse(type_analyse="Cohérence", resultat=str(resultats))
                         
                     except Exception as e:
                         st.error(f"❌ Erreur : {str(e)}")
@@ -858,18 +837,13 @@ elif page == "📰 Veille Fiscale":
                             if article.get('lien'):
                                 st.markdown(f"[🔗 Lire l'article complet]({article['lien']})")
                     
-                    # Sauvegarde
-                    sauvegarder_analyse(
-                        type_analyse="Veille Fiscale",
-                        resultat=str(actualites)
-                    )
+                    sauvegarder_analyse(type_analyse="Veille Fiscale", resultat=str(actualites))
                 else:
                     st.info("ℹ️ Aucune actualité récente disponible")
                     
             except Exception as e:
                 st.error(f"❌ Erreur : {str(e)}")
     
-    # Section manuelle
     st.divider()
     st.subheader("❓ Poser une question fiscale")
     
@@ -892,12 +866,7 @@ Fournis :
             if result["success"]:
                 st.markdown("### 💡 Réponse")
                 st.markdown(result["content"])
-                
-                # Sauvegarde
-                sauvegarder_analyse(
-                    type_analyse="Question Fiscale",
-                    resultat=result["content"]
-                )
+                sauvegarder_analyse(type_analyse="Question Fiscale", resultat=result["content"])
             else:
                 st.error(f"❌ Erreur : {result['error']}")
 
