@@ -1,35 +1,46 @@
+# -*- coding: utf-8 -*-
+"""Module d'authentification - SMD Consulting"""
 import streamlit as st
 
-def login():
-    st.title("🔐 Superviseur IA Comptable")
-    st.markdown("### Accès réservé aux cabinets clients")
+
+def login(email, password):
+    """
+    Authentifie un utilisateur
     
-    email = st.text_input("Email professionnel")
-    password = st.text_input("Mot de passe", type="password")
-    
-    if st.button("Se connecter", type="primary"):
-        # Récupération des identifiants depuis les secrets
-        try:
-            valid_email = st.secrets["USER_EMAIL"]
-            valid_password = st.secrets["USER_PASSWORD"]
-        except:
-            st.error("❌ Configuration manquante. Contactez l'administrateur.")
-            return
+    Args:
+        email: Email de l'utilisateur
+        password: Mot de passe
         
-        if email == valid_email and password == valid_password:
-            st.session_state["authenticated"] = True
-            st.session_state["username"] = email.split("@")[0]
-            st.success("✅ Connexion réussie")
-            st.rerun()
-        else:
-            st.error("❌ Email ou mot de passe incorrect")
+    Returns:
+        True si authentification réussie, False sinon
+    """
+    # Identifiants valides (par défaut)
+    VALID_EMAIL = "smdconsulting@gmail.com"
+    VALID_PASSWORD = "SMDConsulting2026!"
+    
+    # Tentative de récupération depuis secrets (Streamlit Cloud)
+    try:
+        valid_email = st.secrets.get("USER_EMAIL", VALID_EMAIL)
+        valid_password = st.secrets.get("USER_PASSWORD", VALID_PASSWORD)
+    except:
+        valid_email = VALID_EMAIL
+        valid_password = VALID_PASSWORD
+    
+    # Vérification
+    if email == valid_email and password == valid_password:
+        st.session_state["authenticated"] = True
+        st.session_state["user_email"] = email
+        return True
+    else:
+        return False
+
 
 def is_connecte():
     """Vérifie si l'utilisateur est authentifié"""
     return st.session_state.get("authenticated", False)
 
+
 def logout():
-    """Déconnexion"""
-    if st.sidebar.button("🚪 Se déconnecter"):
-        st.session_state["authenticated"] = False
-        st.rerun()
+    """Déconnexion de l'utilisateur"""
+    st.session_state["authenticated"] = False
+    st.session_state["user_email"] = None
