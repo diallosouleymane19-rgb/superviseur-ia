@@ -13,3 +13,4 @@ scipy==1.17.1
 matplotlib
 seaborn
 openpyxl
+openpyxl>=3.0.0
