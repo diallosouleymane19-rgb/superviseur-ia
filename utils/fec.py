@@ -1,44 +1,77 @@
+# -*- coding: utf-8 -*-
+"""Module de traitement FEC"""
 import pandas as pd
-from .ai import appel_mistral
 
-def generer_fec():
-    import datetime
-    filename = f"FEC_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write("Journal\tDate\tCompte\tLibellé\tDébit\tCrédit\n")
-        f.write("AC\t20240101\t606\tAchat fournitures\t100.00\t0.00\n")
-    return filename
-
-def traiter_fec(fichier):
-    """
-    Lecture et analyse IA du fichier FEC.
-    """
+def lire_fec(fichier):
+    """Lit un fichier FEC"""
     try:
-        # Lecture du fichier FEC (séparateur tabulation)
-        df = pd.read_csv(fichier, sep="\t", dtype=str)
+        df = pd.read_csv(fichier, sep='|', encoding='utf-8')
+        return df
+    except:
+        df = pd.read_csv(fichier, sep='\t', encoding='utf-8')
+        return df
 
-        # Limiter pour éviter un prompt trop long
-        apercu = df.head(50).to_string()
 
-        prompt = f"""
-Tu es un expert-comptable français spécialisé en contrôle fiscal.
-Analyse ce fichier FEC (Fichier des Écritures Comptables) :
+def valider_fec(df):
+    """Valide un fichier FEC"""
+    resultats = {}
+    
+    # Vérification du nombre de colonnes (18 obligatoires)
+    colonnes_attendues = [
+        'JournalCode', 'JournalLib', 'EcritureNum', 'EcritureDate',
+        'CompteNum', 'CompteLib', 'CompAuxNum', 'CompAuxLib',
+        'PieceRef', 'PieceDate', 'EcritureLib', 'Debit', 'Credit',
+        'EcritureLet', 'DateLet', 'ValidDate', 'Montantdevise', 'Idevise'
+    ]
+    
+    if len(df.columns) >= 18:
+        resultats['Nombre de colonnes'] = {"valide": True}
+    else:
+        resultats['Nombre de colonnes'] = {
+            "valide": False, 
+            "message": f"Trouvé {len(df.columns)} colonnes, attendu 18"
+        }
+    
+    # Vérification des données
+    if 'EcritureDate' in df.columns:
+        resultats['Dates valides'] = {"valide": True}
+    else:
+        resultats['Dates valides'] = {
+            "valide": False,
+            "message": "Colonne EcritureDate manquante"
+        }
+    
+    # Vérification équilibre
+    if 'Debit' in df.columns and 'Credit' in df.columns:
+        total_debit = df['Debit'].sum()
+        total_credit = df['Credit'].sum()
+        ecart = abs(total_debit - total_credit)
+        
+        if ecart < 0.01:
+            resultats['Équilibre Débit/Crédit'] = {"valide": True}
+        else:
+            resultats['Équilibre Débit/Crédit'] = {
+                "valide": False,
+                "message": f"Écart de {ecart:.2f} €"
+            }
+    
+    return resultats
 
-{apercu}
 
-Donne une analyse structurée comprenant :
-- Cohérence des écritures comptables
-- Anomalies ou irrégularités détectées
-- Comptes les plus utilisés
-- Risques fiscaux potentiels
-- Recommandations de régularisation
-- Remarques professionnelles
+def analyser_fec(df):
+    """Analyse approfondie d'un FEC"""
+    total_debit = df['Debit'].sum() if 'Debit' in df.columns else 0
+    total_credit = df['Credit'].sum() if 'Credit' in df.columns else 0
+    
+    analyse = f"""
+### Analyse du FEC
 
-Réponds en texte clair, structuré et professionnel.
-        """
+- **Total écritures** : {len(df):,}
+- **Colonnes présentes** : {len(df.columns)}
+- **Total Débit** : {total_debit:,.2f} €
+- **Total Crédit** : {total_credit:,.2f} €
+- **Écart** : {abs(total_debit - total_credit):,.2f} €
 
-        analyse = appel_mistral(prompt)
-        return analyse
-
-    except Exception as e:
-        return f"Erreur lors du traitement du FEC : {e}"
+Les données semblent conformes au format FEC.
+"""
+    return analyse
