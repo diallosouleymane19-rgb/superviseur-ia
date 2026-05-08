@@ -6,8 +6,8 @@ import os
 def login(email, password):
     """Authentifie un utilisateur"""
     # Identifiants (depuis .env ou valeurs par défaut)
-    valid_email = os.getenv("USER_EMAIL", "smdconsulting@gmail.com")
-    valid_password = os.getenv("USER_PASSWORD", "SMDConsulting2026!")
+    valid_email = "smdconsulting@gmail.com"
+    valid_password = "SMDConsulting2026!"
 
     if email.strip() == valid_email and password.strip() == valid_password:
         st.session_state["authenticated"] = True
