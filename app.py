@@ -197,108 +197,198 @@ if page == "🏠 Accueil":
 
 
 # -----------------------------------------------------------------------------
-# 2. ANALYSE FACTURE (OCR) - VERSION AMÉLIORÉE
+# 2. ANALYSE FACTURE (OCR) - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
 
 elif page == "🧾 Analyse Facture (OCR)":
     st.title("🧾 Analyse de Facture")
-    st.markdown("**Extraction automatique** des données de factures via OCR + IA")
+    st.markdown("**OCR + IA** : Extraction structurée + Conformité + Comptabilisation")
+    st.caption("✨ Pour Cabinets et Saisie comptable automatisée")
     
-    # Initialisation de l'état
-    if 'ocr_resultat' not in st.session_state:
-        st.session_state.ocr_resultat = None
-    if 'ocr_analyse_ia' not in st.session_state:
-        st.session_state.ocr_analyse_ia = None
+    # Initialisation état
+    if 'fact_ocr' not in st.session_state:
+        st.session_state.fact_ocr = None
+    if 'fact_donnees' not in st.session_state:
+        st.session_state.fact_donnees = None
+    if 'fact_controles' not in st.session_state:
+        st.session_state.fact_controles = None
+    if 'fact_ecritures' not in st.session_state:
+        st.session_state.fact_ecritures = None
+    if 'fact_nom_fichier' not in st.session_state:
+        st.session_state.fact_nom_fichier = None
     
-    # Upload + Bouton Reset
     col1, col2 = st.columns([5, 1])
     with col1:
         uploaded_file = st.file_uploader(
-            "📎 Déposer une facture (PDF, PNG, JPG)", 
+            "📎 Déposer une facture (PDF, PNG, JPG)",
             type=["pdf", "png", "jpg", "jpeg"],
             key="facture_uploader"
         )
     with col2:
         st.write("")
         st.write("")
-        if st.button("🔄", help="Nouvelle analyse"):
-            st.session_state.ocr_resultat = None
-            st.session_state.ocr_analyse_ia = None
+        if st.button("🔄", help="Réinitialiser"):
+            st.session_state.fact_ocr = None
+            st.session_state.fact_donnees = None
+            st.session_state.fact_controles = None
+            st.session_state.fact_ecritures = None
+            st.session_state.fact_nom_fichier = None
             st.rerun()
     
     if uploaded_file:
+        # ✅ CORRECTION CACHE : Réinitialiser si nouveau fichier uploadé
+        if st.session_state.get('fact_nom_fichier') != uploaded_file.name:
+            st.session_state.fact_ocr = None
+            st.session_state.fact_donnees = None
+            st.session_state.fact_controles = None
+            st.session_state.fact_ecritures = None
+            st.session_state['fact_nom_fichier'] = uploaded_file.name
+
         # Étape 1 : OCR
-        if st.session_state.ocr_resultat is None:
-            with st.spinner("🔍 Extraction du texte en cours..."):
+        if st.session_state.fact_ocr is None:
+            with st.spinner("🔍 Extraction OCR en cours..."):
                 try:
-                    texte_extrait = ocr_image_mistral(uploaded_file)
-                    
-                    if texte_extrait:
-                        st.session_state.ocr_resultat = texte_extrait
+                    texte, erreur = ocr_image_mistral(uploaded_file)
+                    if erreur:
+                        st.error(erreur)
+                    elif texte:
+                        st.session_state.fact_ocr = texte
                         st.rerun()
                     else:
-                        st.error("❌ Impossible d'extraire le texte de la facture")
-                        
+                        st.error("❌ Impossible d'extraire le texte")
                 except Exception as e:
-                    st.error(f"❌ Erreur : {str(e)}")
+                    st.error(f"❌ Erreur OCR : {e}")
         
-        # Affichage du résultat OCR
-        if st.session_state.ocr_resultat:
+        if st.session_state.fact_ocr:
             st.success("✅ Texte extrait avec succès !")
             
-            # Texte brut dans un expander
-            with st.expander("📄 Voir le texte extrait (brut)", expanded=False):
-                st.code(st.session_state.ocr_resultat, language="text")
+            with st.expander("📄 Texte brut extrait"):
+                st.code(st.session_state.fact_ocr, language="text")
             
             st.divider()
             
-            # Étape 2 : Analyse IA
-            if st.session_state.ocr_analyse_ia is None:
-                if st.button("🤖 Analyser avec IA", type="primary", use_container_width=True):
-                    with st.spinner("🤖 Analyse intelligente en cours..."):
-                        prompt = f"""Analyse cette facture de manière structurée :
-
-{st.session_state.ocr_resultat}
-
-Fournis une analyse détaillée avec :
-1. Informations générales (fournisseur, client, n° facture, date)
-2. Détails des prestations (description, quantités, prix)
-3. Calculs (HT, TVA, TTC)
-4. Vérifications et conformité
-5. Observations éventuelles"""
-                        
-                        result = appel_mistral(prompt)
-                        
-                        if result["success"]:
-                            st.session_state.ocr_analyse_ia = result["content"]
-                            st.rerun()
-                        else:
-                            st.error(f"❌ Erreur IA : {result['error']}")
+            # Étape 2 : Analyse IA structurée
+            if st.session_state.fact_donnees is None:
+                if st.button("🤖 Analyser avec IA (extraction structurée)", type="primary", use_container_width=True):
+                    with st.spinner("🤖 Analyse structurée en cours..."):
+                        try:
+                            from utils.analyse_facture import extraire_donnees_facture, verifier_conformite_facture, suggerer_comptabilisation
+                            
+                            result = extraire_donnees_facture(st.session_state.fact_ocr)
+                            
+                            if result.get('success'):
+                                st.session_state.fact_donnees = result['data']
+                                st.session_state.fact_controles = verifier_conformite_facture(result['data'])
+                                st.session_state.fact_ecritures = suggerer_comptabilisation(result['data'])
+                                st.rerun()
+                            else:
+                                st.error(f"❌ Erreur analyse : {result.get('error')}")
+                                if result.get('raw'):
+                                    with st.expander("Réponse brute"):
+                                        st.code(result['raw'])
+                        except Exception as e:
+                            st.error(f"❌ Erreur : {e}")
+                            import traceback
+                            with st.expander("Détails"):
+                                st.code(traceback.format_exc())
             
-            # Affichage de l'analyse IA
-            if st.session_state.ocr_analyse_ia:
-                st.markdown("### 📋 Analyse IA Structurée")
-                st.markdown(st.session_state.ocr_analyse_ia)
+            # Affichage des résultats
+            if st.session_state.fact_donnees:
+                donnees = st.session_state.fact_donnees
                 
-                st.divider()
+                st.markdown("## 📋 Données Extraites")
                 
-                # Actions
+                # Informations générales
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    if st.button("💾 Sauvegarder l'analyse", use_container_width=True):
-                        sauvegarder_analyse(
-                            type_analyse="Facture OCR",
-                            resultat=st.session_state.ocr_analyse_ia
-                        )
-                        st.success("✅ Analyse sauvegardée !")
+                    st.markdown("### 🏢 Fournisseur")
+                    fournisseur = donnees.get('fournisseur', {})
+                    st.write(f"**Nom** : {fournisseur.get('nom', 'N/A')}")
+                    st.write(f"**SIRET** : {fournisseur.get('siret', 'N/A')}")
+                    st.write(f"**TVA Intra** : {fournisseur.get('tva_intra', 'N/A')}")
+                    st.write(f"**Adresse** : {fournisseur.get('adresse', 'N/A')}")
                 
                 with col2:
+                    st.markdown("### 👤 Client")
+                    client = donnees.get('client', {})
+                    st.write(f"**Nom** : {client.get('nom', 'N/A')}")
+                    st.write(f"**Adresse** : {client.get('adresse', 'N/A')}")
+                
+                st.divider()
+                
+                # Facture
+                st.markdown("### 📄 Facture")
+                facture = donnees.get('facture', {})
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("N°", facture.get('numero', 'N/A'))
+                with col2:
+                    st.metric("Date", facture.get('date', 'N/A'))
+                with col3:
+                    st.metric("Échéance", facture.get('echeance', 'N/A'))
+                with col4:
+                    st.metric("Paiement", facture.get('mode_paiement', 'N/A'))
+                
+                st.divider()
+                
+                # Montants
+                st.markdown("### 💰 Montants")
+                montants = donnees.get('montants', {})
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total HT", f"{float(montants.get('total_ht', 0)):,.2f} €")
+                with col2:
+                    st.metric(f"TVA ({montants.get('taux_tva', 20)}%)", f"{float(montants.get('total_tva', 0)):,.2f} €")
+                with col3:
+                    st.metric("Total TTC", f"{float(montants.get('total_ttc', 0)):,.2f} €")
+                
+                st.divider()
+                
+                # Conformité
+                if st.session_state.fact_controles:
+                    st.markdown("### ✅ Conformité Légale")
+                    st.caption("*Article 242 nonies A du CGI*")
+                    
+                    for ctrl in st.session_state.fact_controles:
+                        if ctrl['statut'] == 'OK':
+                            st.success(f"✅ {ctrl['mention']}")
+                        elif ctrl['statut'] == 'WARNING':
+                            st.warning(f"⚠️ {ctrl['mention']}")
+                        else:
+                            st.error(f"❌ {ctrl['mention']}")
+                
+                st.divider()
+                
+                # Comptabilisation
+                if st.session_state.fact_ecritures:
+                    st.markdown("### 📚 Comptabilisation Suggérée")
+                    
+                    import pandas as pd
+                    df_ecritures = pd.DataFrame(st.session_state.fact_ecritures)
+                    df_ecritures['debit'] = df_ecritures['debit'].apply(lambda x: f"{x:,.2f} €" if x > 0 else "")
+                    df_ecritures['credit'] = df_ecritures['credit'].apply(lambda x: f"{x:,.2f} €" if x > 0 else "")
+                    df_ecritures.columns = ['Compte', 'Libellé', 'Débit', 'Crédit']
+                    
+                    st.dataframe(df_ecritures, use_container_width=True, hide_index=True)
+                
+                st.divider()
+                
+                # Export
+                from utils.analyse_facture import generer_rapport_facture
+                rapport = generer_rapport_facture(donnees, st.session_state.fact_controles, st.session_state.fact_ecritures)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("💾 Sauvegarder", use_container_width=True):
+                        sauvegarder_analyse(type_analyse="Analyse Facture", resultat=rapport)
+                        st.success("✅ Sauvegardé !")
+                with col2:
                     try:
-                        generer_bouton_word("Analyse_Facture", st.session_state.ocr_analyse_ia)
+                        nom_fact = donnees.get('facture', {}).get('numero', 'inconnu')
+                        generer_bouton_word(f"Facture_{nom_fact}", rapport)
                     except Exception as e:
-                        st.error(f"Erreur export : {e}")
-
+                        st.error(f"Erreur : {e}")
 
 # -----------------------------------------------------------------------------
 # 3. AUDIT BALANCE - VERSION UNIVERSELLE
@@ -509,9 +599,7 @@ elif page == "📊 Audit Balance":
             st.error(f"❌ Erreur : {str(e)}")
             import traceback
             with st.expander("Détails techniques"):
-                st.code(traceback.format_exc())# -----------------------------------------------------------------------------
-# 4. TRAITEMENT FEC
-# -----------------------------------------------------------------------------
+                st.code(traceback.format_exc())
 
 # -----------------------------------------------------------------------------
 # 4. TRAITEMENT FEC - VERSION PROFESSIONNELLE CABINET
@@ -530,7 +618,6 @@ elif page == "📂 Traitement FEC":
     if uploaded_file:
         from utils.fec import lire_fec, valider_fec, analyser_fec, detecter_anomalies_fec
         
-        # Lecture intelligente
         with st.spinner("📖 Lecture du FEC..."):
             df, sep, enc = lire_fec(uploaded_file)
         
@@ -539,7 +626,6 @@ elif page == "📂 Traitement FEC":
         else:
             st.success(f"✅ FEC chargé : **{len(df):,} écritures** | Séparateur : `{sep}` | Encodage : `{enc}`")
             
-            # KPIs en haut
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("📝 Écritures", f"{len(df):,}")
@@ -553,18 +639,15 @@ elif page == "📂 Traitement FEC":
                 if 'JournalCode' in df.columns:
                     st.metric("📚 Journaux", f"{df['JournalCode'].nunique()}")
             
-            # Aperçu
             with st.expander("👀 Aperçu des données (20 premières lignes)"):
                 st.dataframe(df.head(20), use_container_width=True)
             
             st.divider()
             
-            # ===== VALIDATION DGFiP =====
             if st.button("🛡️ Lancer la validation DGFiP complète", type="primary", use_container_width=True):
                 with st.spinner("Validation en cours selon Article A.47 A-1 du LPF..."):
                     resultats = valider_fec(df)
                     
-                    # SCORE GLOBAL
                     meta = resultats.pop('_meta', {})
                     score = meta.get('score_conformite', 0)
                     niveau = meta.get('niveau', 'Inconnu')
@@ -573,7 +656,6 @@ elif page == "📂 Traitement FEC":
                     
                     col1, col2, col3 = st.columns([1, 2, 1])
                     with col2:
-                        # Couleur selon score
                         if score >= 90:
                             st.success(f"### {niveau} : {score}% ✅")
                         elif score >= 75:
@@ -588,7 +670,6 @@ elif page == "📂 Traitement FEC":
                     
                     st.divider()
                     
-                    # DÉTAIL DES VÉRIFICATIONS
                     st.markdown("## 📋 Détail des Contrôles")
                     
                     for verif, status in resultats.items():
@@ -599,14 +680,12 @@ elif page == "📂 Traitement FEC":
                     
                     st.divider()
                     
-                    # ANALYSE APPROFONDIE
                     st.markdown("## 🔍 Analyse Approfondie")
                     analyse = analyser_fec(df)
                     st.markdown(analyse)
                     
                     st.divider()
                     
-                    # ANOMALIES
                     st.markdown("## ⚠️ Détection d'Anomalies")
                     anomalies = detecter_anomalies_fec(df)
                     
@@ -635,7 +714,6 @@ elif page == "📂 Traitement FEC":
                     
                     st.divider()
                     
-                    # SAUVEGARDE & EXPORT
                     col1, col2 = st.columns(2)
                     with col1:
                         if st.button("💾 Sauvegarder le rapport", use_container_width=True):
@@ -709,7 +787,6 @@ elif page == "🛡️ Loi de Benford":
             with st.expander("👀 Aperçu des données"):
                 st.dataframe(df.head(10), use_container_width=True)
             
-            # Détection automatique des colonnes numériques
             colonnes_num = []
             for col in df.columns:
                 try:
@@ -736,7 +813,6 @@ elif page == "🛡️ Loi de Benford":
                     try:
                         fig, rapport, score_risque = analyse_benford_complete(df, col_choix)
                         
-                        # SCORE DE RISQUE
                         st.markdown("## 🎯 Score de Risque")
                         
                         col1, col2, col3 = st.columns([1, 2, 1])
@@ -753,18 +829,15 @@ elif page == "🛡️ Loi de Benford":
                         
                         st.divider()
                         
-                        # GRAPHIQUE
                         if fig:
                             st.plotly_chart(fig, use_container_width=True)
                         
                         st.divider()
                         
-                        # RAPPORT DÉTAILLÉ
                         st.markdown(rapport)
                         
                         st.divider()
                         
-                        # EXPORT
                         col1, col2 = st.columns(2)
                         with col1:
                             if st.button("💾 Sauvegarder", use_container_width=True):
@@ -1081,236 +1154,578 @@ elif page == "📊 Bilan Comptable":
                 st.code(traceback.format_exc())
 
 # -----------------------------------------------------------------------------
-# 8. RAPPROCHEMENT BANCAIRE
+# 8. RAPPROCHEMENT BANCAIRE - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
 
 elif page == "🔄 Rapprochement Bancaire":
     st.title("🔄 Rapprochement Bancaire")
-    st.markdown("Rapprochement automatique entre relevé bancaire et écritures comptables")
+    st.markdown("**Matching intelligent** entre relevé bancaire et écritures comptables")
+    st.caption("✨ Matching automatique par montant + date + libellé")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("📥 Relevé Bancaire")
-        releve = st.file_uploader("Relevé bancaire (CSV, XLSX)", type=["csv", "xlsx"], key="releve")
+        st.markdown("### 📥 Relevé Bancaire")
+        releve = st.file_uploader(
+            "Fichier relevé (CSV, XLSX)",
+            type=["csv", "xlsx"],
+            key="releve",
+            help="Colonnes attendues : Date, Libellé, Montant"
+        )
     
     with col2:
-        st.subheader("📚 Écritures Comptables")
-        ecritures = st.file_uploader("Écritures comptables (CSV, XLSX)", type=["csv", "xlsx"], key="ecritures")
+        st.markdown("### 📚 Écritures Comptables")
+        ecritures = st.file_uploader(
+            "Fichier écritures (CSV, XLSX)",
+            type=["csv", "xlsx"],
+            key="ecritures",
+            help="Colonnes attendues : Date, Libellé, Débit, Crédit"
+        )
     
     if releve and ecritures:
+        from utils.rapprochement import rapprocher_bancaire, generer_rapport_rapprochement
+        
         try:
-            df_releve = pd.read_excel(releve) if releve.name.endswith('xlsx') else pd.read_csv(releve)
-            df_ecritures = pd.read_excel(ecritures) if ecritures.name.endswith('xlsx') else pd.read_csv(ecritures)
+            df_releve = pd.read_excel(releve) if releve.name.endswith('xlsx') else pd.read_csv(releve, sep=None, engine='python')
+            df_ecritures = pd.read_excel(ecritures) if ecritures.name.endswith('xlsx') else pd.read_csv(ecritures, sep=None, engine='python')
             
-            st.success(f"✅ Relevé : {len(df_releve)} opérations | Écritures : {len(df_ecritures)} lignes")
+            st.success(f"✅ Relevé : **{len(df_releve)} opérations** | Écritures : **{len(df_ecritures)} lignes**")
             
-            if st.button("🔄 Lancer le rapprochement", type="primary"):
-                with st.spinner("Rapprochement en cours..."):
-                    try:
-                        resultats = rapprocher_bancaire(df_releve, df_ecritures)
-                        
-                        st.subheader("📊 Résultats du Rapprochement")
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("Rapprochés", resultats['nb_rapproches'])
-                        with col2:
-                            st.metric("Non rapprochés", resultats['nb_non_rapproches'])
-                        with col3:
-                            taux = (resultats['nb_rapproches'] / len(df_releve) * 100) if len(df_releve) > 0 else 0
-                            st.metric("Taux", f"{taux:.1f}%")
-                        
-                        with st.expander("✅ Opérations rapprochées"):
-                            st.dataframe(resultats['rapproches'])
-                        
-                        with st.expander("❌ Opérations non rapprochées"):
-                            st.dataframe(resultats['non_rapproches'])
-                        
-                        sauvegarder_analyse(type_analyse="Rapprochement Bancaire", resultat=f"Taux: {taux:.1f}%")
-                        
-                    except Exception as e:
-                        st.error(f"❌ Erreur : {str(e)}")
-                        
+            with st.expander("👀 Aperçu des fichiers"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("**Relevé bancaire**")
+                    st.dataframe(df_releve.head(5), use_container_width=True)
+                with col2:
+                    st.markdown("**Écritures comptables**")
+                    st.dataframe(df_ecritures.head(5), use_container_width=True)
+            
+            st.divider()
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                nom_compte = st.text_input("🏦 Nom du compte", value="Compte bancaire principal")
+            with col2:
+                tolerance = st.slider("⏱️ Tolérance jours", 0, 10, 3,
+                                     help="Écart maximum entre date relevé et écriture")
+            
+            if st.button("🔄 Lancer le rapprochement", type="primary", use_container_width=True):
+                with st.spinner("Matching intelligent en cours..."):
+                    resultats = rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=tolerance)
+                    
+                    st.markdown("## 📊 Résultats du Rapprochement")
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("✅ Rapprochés", resultats['nb_rapproches'])
+                    with col2:
+                        st.metric("❌ Non rapp. relevé", resultats['nb_non_rapproches_releve'])
+                    with col3:
+                        st.metric("❌ Non rapp. écritures", resultats['nb_non_rapproches_ecritures'])
+                    with col4:
+                        taux = resultats['taux_rapprochement']
+                        st.metric("📈 Taux", f"{taux:.1f}%",
+                                 delta="Excellent" if taux >= 90 else "Bon" if taux >= 70 else "À vérifier",
+                                 delta_color="normal" if taux >= 70 else "inverse")
+                    
+                    st.progress(int(taux))
+                    
+                    if taux >= 90:
+                        st.success("✅ **Excellent rapprochement** - Quasi-complet")
+                    elif taux >= 70:
+                        st.info("ℹ️ **Bon rapprochement** - Satisfaisant")
+                    elif taux >= 50:
+                        st.warning("⚠️ **Rapprochement moyen** - Investigations nécessaires")
+                    else:
+                        st.error("🚨 **Rapprochement faible** - Anomalies importantes")
+                    
+                    st.divider()
+                    
+                    if not resultats['rapproches'].empty:
+                        with st.expander(f"✅ Opérations rapprochées ({resultats['nb_rapproches']})"):
+                            st.dataframe(resultats['rapproches'], use_container_width=True, hide_index=True)
+                    
+                    if not resultats['non_rapproches_releve'].empty:
+                        with st.expander(f"❌ Relevé non rapproché ({resultats['nb_non_rapproches_releve']})", expanded=True):
+                            st.warning("Opérations bancaires sans contrepartie comptable")
+                            st.dataframe(resultats['non_rapproches_releve'], use_container_width=True, hide_index=True)
+                    
+                    if not resultats['non_rapproches_ecritures'].empty:
+                        with st.expander(f"❌ Écritures non rapprochées ({resultats['nb_non_rapproches_ecritures']})", expanded=True):
+                            st.warning("Écritures sans contrepartie bancaire")
+                            st.dataframe(resultats['non_rapproches_ecritures'], use_container_width=True, hide_index=True)
+                    
+                    st.divider()
+                    
+                    rapport = generer_rapport_rapprochement(resultats, nom_compte)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder", use_container_width=True):
+                            sauvegarder_analyse(type_analyse="Rapprochement Bancaire", resultat=rapport)
+                            st.success("✅ Sauvegardé !")
+                    with col2:
+                        try:
+                            generer_bouton_word(f"Rapprochement_{nom_compte}", rapport)
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+                    
         except Exception as e:
-            st.error(f"❌ Erreur de chargement : {str(e)}")
-
+            st.error(f"❌ Erreur : {str(e)}")
+            import traceback
+            with st.expander("Détails techniques"):
+                st.code(traceback.format_exc())
 
 # -----------------------------------------------------------------------------
-# 9. RAPPORT CLIENT
+# 9. RAPPORT CLIENT - VERSION PRO AVEC MODE MANUEL
 # -----------------------------------------------------------------------------
 
 elif page == "📋 Rapport Client":
     st.title("📋 Rapport Client")
-    st.markdown("Génération de rapports personnalisés pour vos clients")
+    st.markdown("**Livrable professionnel** pour vos clients")
+    st.caption("✨ Synthèse + KPIs + Analyse + Recommandations")
     
-    st.subheader("👤 Informations Client")
+    st.markdown("### 👤 Informations Client")
+    
     col1, col2 = st.columns(2)
-    
     with col1:
-        nom_client = st.text_input("Nom du client")
-        siret = st.text_input("SIRET")
+        nom_client = st.text_input("🏢 Nom du client", placeholder="Ex: SARL DARLING")
+        siret = st.text_input("🆔 SIRET")
+        secteur = st.text_input("🏭 Secteur d'activité")
     
     with col2:
-        periode = st.selectbox("Période", ["Mensuel", "Trimestriel", "Annuel"])
-        exercice = st.number_input("Exercice", min_value=2020, max_value=2030, value=2026)
+        periode = st.selectbox("📆 Période", ["Mensuel", "Trimestriel", "Semestriel", "Annuel"])
+        exercice = st.number_input("📅 Exercice", min_value=2020, max_value=2030, value=2026)
+        date_rapport = st.date_input("📋 Date du rapport")
     
-    st.subheader("📂 Données Comptables")
-    uploaded_file = st.file_uploader("FEC ou Balance (CSV, XLSX)", type=["csv", "xlsx"])
+    st.divider()
     
-    if uploaded_file and nom_client:
-        try:
-            df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('xlsx') else pd.read_csv(uploaded_file)
+    st.markdown("### 📂 Données Comptables")
+    
+    uploaded_file = st.file_uploader(
+        "📎 Balance ou FEC du client",
+        type=["csv", "xlsx", "txt"]
+    )
+    
+    df = None
+    if uploaded_file:
+        from utils.intelligent_parser import parser_balance_intelligent
+        
+        mode_lecture = st.radio(
+            "🔧 Mode de lecture",
+            ["🤖 Auto-détection", "📋 Mode manuel"],
+            horizontal=True,
+            key="rc_mode"
+        )
+        
+        if mode_lecture == "🤖 Auto-détection":
+            try:
+                with st.spinner("🤖 Analyse..."):
+                    if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                        df, info = parser_balance_intelligent(uploaded_file)
+                        st.success(f"✅ {info['format_detecte']} | {len(df):,} comptes")
+                        if info['colonnes_manquantes']:
+                            st.warning(f"⚠️ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
+                    else:
+                        df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                        st.success(f"✅ FEC chargé : {len(df):,} lignes")
+            except Exception as e:
+                st.error(f"Erreur : {e}")
+        
+        else:
+            col1, col2 = st.columns(2)
+            with col1:
+                a_un_entete = st.checkbox("✅ Fichier a une ligne d'en-tête", value=True, key="rc_entete")
+            with col2:
+                ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0, key="rc_ligne") if a_un_entete else None
             
-            if st.button("📋 Générer le Rapport", type="primary"):
-                with st.spinner("Génération du rapport..."):
-                    try:
-                        rapport = generer_rapport_client(
-                            nom_client=nom_client,
-                            siret=siret,
-                            periode=periode,
-                            exercice=exercice,
-                            donnees=df
-                        )
+            try:
+                if uploaded_file.name.endswith('xlsx'):
+                    df = pd.read_excel(uploaded_file, header=ligne_entete if a_un_entete else None)
+                else:
+                    df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
+                
+                st.success(f"✅ Fichier chargé : {len(df):,} lignes")
+                
+                with st.expander("👀 Aperçu"):
+                    st.dataframe(df.head(15), use_container_width=True)
+                
+                st.markdown("#### 🎯 Mapping des colonnes")
+                colonnes_disponibles = ["-- Aucune --"] + [str(c) for c in df.columns]
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    col_compte = st.selectbox("🔢 Compte", colonnes_disponibles, index=1 if len(df.columns) > 0 else 0, key="rc_cc")
+                    col_debit = st.selectbox("📥 Débit", colonnes_disponibles, index=3 if len(df.columns) > 2 else 0, key="rc_cd")
+                with col2:
+                    col_libelle = st.selectbox("📝 Libellé", colonnes_disponibles, index=2 if len(df.columns) > 1 else 0, key="rc_cl")
+                    col_credit = st.selectbox("📤 Crédit", colonnes_disponibles, index=4 if len(df.columns) > 3 else 0, key="rc_cre")
+                
+                renommage = {}
+                if col_compte != "-- Aucune --":
+                    renommage[col_compte] = 'CompteNum'
+                if col_libelle != "-- Aucune --":
+                    renommage[col_libelle] = 'CompteLib'
+                if col_debit != "-- Aucune --":
+                    renommage[col_debit] = 'Debit'
+                if col_credit != "-- Aucune --":
+                    renommage[col_credit] = 'Credit'
+                
+                df = df.rename(columns=renommage)
+                
+            except Exception as e:
+                st.error(f"Erreur : {e}")
+    
+    st.divider()
+    
+    st.markdown("### ✍️ Personnalisation")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        observations = st.text_area(
+            "📝 Observations particulières",
+            placeholder="Évènements marquants, points d'attention...",
+            height=120
+        )
+    with col2:
+        objectifs = st.text_area(
+            "🎯 Objectifs prochaine période",
+            placeholder="Objectifs de croissance, plans d'action...",
+            height=120
+        )
+    
+    st.divider()
+    
+    if st.button("📋 Générer le Rapport Client", type="primary", use_container_width=True):
+        if not nom_client:
+            st.error("⚠️ Veuillez renseigner le nom du client")
+        else:
+            from utils.rapport_client import generer_rapport_client, analyser_donnees_client
+            
+            df_analyse = df if df is not None else pd.DataFrame()
+            
+            with st.spinner("Génération du rapport..."):
+                rapport = generer_rapport_client(
+                    nom_client=nom_client,
+                    siret=siret,
+                    periode=periode,
+                    exercice=exercice,
+                    donnees=df_analyse,
+                    observations=observations,
+                    objectifs=objectifs
+                )
+                
+                if df is not None and 'CompteNum' in df.columns:
+                    kpis = analyser_donnees_client(df)
+                    
+                    if kpis.get('chiffre_affaires', 0) > 0:
+                        st.markdown("## 📊 Aperçu KPIs Client")
                         
-                        st.markdown("### 📄 Rapport Généré")
-                        st.markdown(rapport)
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("CA", f"{kpis['chiffre_affaires']:,.0f} €")
+                        with col2:
+                            rn = kpis['resultat_net']
+                            st.metric("Résultat Net", f"{rn:,.0f} €",
+                                     delta="Bénéfice" if rn > 0 else "Déficit",
+                                     delta_color="normal" if rn > 0 else "inverse")
+                        with col3:
+                            st.metric("EBE", f"{kpis['ebe']:,.0f} €")
+                        with col4:
+                            st.metric("Trésorerie", f"{kpis['tresorerie']:,.0f} €")
                         
-                        generer_bouton_word(f"Rapport_{nom_client}_{periode}", rapport)
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("Marge nette", f"{kpis['taux_rentabilite']:.1f}%")
+                        with col2:
+                            st.metric("Marge brute", f"{kpis['taux_marge_brute']:.1f}%")
+                        with col3:
+                            st.metric("Taux VA", f"{kpis['taux_va']:.1f}%")
+                        with col4:
+                            st.metric("Poids personnel", f"{kpis['poids_charges_personnel']:.1f}%")
+                        
+                        st.divider()
+                
+                st.markdown("## 📄 Rapport Généré")
+                with st.container():
+                    st.markdown(rapport)
+                
+                st.divider()
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("💾 Sauvegarder", use_container_width=True):
                         sauvegarder_analyse(type_analyse="Rapport Client", resultat=rapport)
-                        
+                        st.success("✅ Sauvegardé !")
+                
+                with col2:
+                    try:
+                        nom_fichier = f"Rapport_{nom_client.replace(' ', '_')}_{periode}_{exercice}"
+                        generer_bouton_word(nom_fichier, rapport)
                     except Exception as e:
-                        st.error(f"❌ Erreur : {str(e)}")
-                        
-        except Exception as e:
-            st.error(f"❌ Erreur : {str(e)}")
-
+                        st.error(f"Erreur : {e}")
 
 # -----------------------------------------------------------------------------
-# 10. ALERTES & ANOMALIES
+# 10. ALERTES & ANOMALIES - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
 
 elif page == "⚠️ Alertes & Anomalies":
     st.title("⚠️ Alertes & Anomalies")
-    st.markdown("Détection automatique d'anomalies et situations à risque")
+    st.markdown("**Détection automatique** d'anomalies multi-niveaux")
+    st.caption("✨ 10 contrôles automatiques pour cabinets et DAF")
     
-    uploaded_file = st.file_uploader("Données comptables (CSV, XLSX, FEC)", type=["csv", "xlsx", "txt"])
+    with st.expander("ℹ️ Quels contrôles sont effectués ?"):
+        st.markdown("""
+        Le module détecte automatiquement :
+        
+        🔴 **CRITIQUE**
+        - Déséquilibre Débit/Crédit
+        
+        🟡 **WARNING**
+        - Doublons exacts
+        - Montants ronds suspects (>30%)
+        - Écritures sans libellé
+        - Montants négatifs
+        - Débit ET Crédit simultanés
+        - Numéros de comptes invalides
+        
+        🔵 **INFO**
+        - Écritures montant nul
+        - Montants très répétés
+        - Écritures week-end
+        - Montants très élevés (>10x P95)
+        - Charges créditrices
+        """)
+    
+    uploaded_file = st.file_uploader(
+        "📎 Données comptables (FEC, Balance, CSV, XLSX)",
+        type=["csv", "xlsx", "txt"]
+    )
     
     if uploaded_file:
+        from utils.alertes import detecter_alertes, generer_rapport_alertes
+        from utils.intelligent_parser import parser_balance_intelligent
+        
         try:
-            if uploaded_file.name.endswith('xlsx'):
-                df = pd.read_excel(uploaded_file)
-            elif uploaded_file.name.endswith('txt'):
-                df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-            else:
-                df = pd.read_csv(uploaded_file)
-            
-            st.success(f"✅ Fichier chargé : {len(df):,} lignes")
-            
-            if st.button("🔍 Détecter les anomalies", type="primary"):
-                with st.spinner("Analyse en cours..."):
+            with st.spinner("🤖 Analyse..."):
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
                     try:
-                        alertes = detecter_alertes(df)
-                        
-                        if alertes:
-                            st.subheader("🚨 Alertes Détectées")
-                            
-                            nb_critique = len([a for a in alertes if a['niveau'] == 'CRITIQUE'])
-                            nb_warning = len([a for a in alertes if a['niveau'] == 'WARNING'])
-                            nb_info = len([a for a in alertes if a['niveau'] == 'INFO'])
-                            
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("🔴 Critiques", nb_critique)
-                            with col2:
-                                st.metric("🟡 Warnings", nb_warning)
-                            with col3:
-                                st.metric("🔵 Infos", nb_info)
-                            
-                            for alerte in alertes:
-                                if alerte['niveau'] == 'CRITIQUE':
-                                    st.error(f"🔴 **{alerte['titre']}** : {alerte['message']}")
-                                elif alerte['niveau'] == 'WARNING':
-                                    st.warning(f"🟡 **{alerte['titre']}** : {alerte['message']}")
-                                else:
-                                    st.info(f"🔵 **{alerte['titre']}** : {alerte['message']}")
-                            
-                            sauvegarder_analyse(type_analyse="Alertes", resultat=str(alertes))
+                        df, info = parser_balance_intelligent(uploaded_file)
+                        st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} lignes**")
+                    except:
+                        if uploaded_file.name.endswith('xlsx'):
+                            df = pd.read_excel(uploaded_file)
                         else:
-                            st.success("✅ Aucune anomalie détectée")
-                            
-                    except Exception as e:
-                        st.error(f"❌ Erreur : {str(e)}")
+                            df = pd.read_csv(uploaded_file, sep=None, engine='python')
+                        st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                else:
+                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
+            
+            with st.expander("👀 Aperçu"):
+                st.dataframe(df.head(10), use_container_width=True)
+            
+            st.divider()
+            
+            nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+            
+            if st.button("🔍 Détecter les anomalies", type="primary", use_container_width=True):
+                with st.spinner("Analyse en cours..."):
+                    alertes = detecter_alertes(df)
+                    
+                    nb_critique = len([a for a in alertes if a['niveau'] == 'CRITIQUE'])
+                    nb_warning = len([a for a in alertes if a['niveau'] == 'WARNING'])
+                    nb_info = len([a for a in alertes if a['niveau'] == 'INFO'])
+                    
+                    st.markdown("## 📊 Résumé des Alertes")
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("🔴 Critiques", nb_critique,
+                                 delta_color="inverse" if nb_critique > 0 else "normal")
+                    with col2:
+                        st.metric("🟡 Warnings", nb_warning)
+                    with col3:
+                        st.metric("🔵 Infos", nb_info)
+                    with col4:
+                        st.metric("📊 Total", len(alertes))
+                    
+                    if nb_critique > 0:
+                        st.error("🚨 **ATTENTION** : Anomalies critiques détectées - Investigation urgente !")
+                    elif nb_warning > 0:
+                        st.warning("⚠️ **Vigilance** : Alertes à investiguer")
+                    elif len(alertes) == 0:
+                        st.success("✅ **Aucune anomalie majeure détectée** - Données saines")
+                    else:
+                        st.info("ℹ️ **Points à surveiller** identifiés")
+                    
+                    st.divider()
+                    
+                    if alertes:
+                        alertes_critiques = [a for a in alertes if a['niveau'] == 'CRITIQUE']
+                        if alertes_critiques:
+                            st.markdown("### 🔴 Alertes CRITIQUES")
+                            for a in alertes_critiques:
+                                st.error(f"**{a['titre']}** ({a['count']}) : {a['message']}")
                         
+                        alertes_warning = [a for a in alertes if a['niveau'] == 'WARNING']
+                        if alertes_warning:
+                            st.markdown("### 🟡 Alertes WARNING")
+                            for a in alertes_warning:
+                                st.warning(f"**{a['titre']}** ({a['count']}) : {a['message']}")
+                        
+                        alertes_info = [a for a in alertes if a['niveau'] == 'INFO']
+                        if alertes_info:
+                            st.markdown("### 🔵 Alertes INFO")
+                            for a in alertes_info:
+                                st.info(f"**{a['titre']}** ({a['count']}) : {a['message']}")
+                    
+                    st.divider()
+                    
+                    rapport = generer_rapport_alertes(alertes, nom_entreprise)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder", use_container_width=True):
+                            sauvegarder_analyse(type_analyse="Alertes", resultat=rapport)
+                            st.success("✅ Sauvegardé !")
+                    with col2:
+                        try:
+                            generer_bouton_word(f"Alertes_{nom_entreprise}", rapport)
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+                            
         except Exception as e:
             st.error(f"❌ Erreur : {str(e)}")
-
+            import traceback
+            with st.expander("Détails techniques"):
+                st.code(traceback.format_exc())
 
 # -----------------------------------------------------------------------------
-# 11. COHÉRENCE DES DONNÉES
+# 11. COHÉRENCE DES DONNÉES - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
 
 elif page == "✅ Cohérence des Données":
     st.title("✅ Cohérence des Données")
-    st.markdown("Vérification de la cohérence et de la qualité des données comptables")
+    st.markdown("**Audit qualité** des données comptables")
+    st.caption("✨ 7 contrôles automatiques + Score qualité")
     
-    uploaded_file = st.file_uploader("Données comptables (CSV, XLSX, FEC)", type=["csv", "xlsx", "txt"])
+    with st.expander("ℹ️ Quels contrôles ?"):
+        st.markdown("""
+        1. **Complétude des données** (20 pts)
+        2. **Unicité / Doublons** (15 pts)
+        3. **Équilibre Débit/Crédit** (25 pts)
+        4. **Format des comptes** (15 pts)
+        5. **Format des dates** (15 pts)
+        6. **Libellés renseignés** (10 pts)
+        
+        **Total : 100 points**
+        """)
+    
+    uploaded_file = st.file_uploader(
+        "📎 Données comptables",
+        type=["csv", "xlsx", "txt"]
+    )
     
     if uploaded_file:
+        from utils.coherence import verifier_coherence, generer_rapport_coherence
+        from utils.intelligent_parser import parser_balance_intelligent
+        
         try:
-            if uploaded_file.name.endswith('xlsx'):
-                df = pd.read_excel(uploaded_file)
-            elif uploaded_file.name.endswith('txt'):
-                df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-            else:
-                df = pd.read_csv(uploaded_file)
-            
-            st.success(f"✅ Fichier chargé : {len(df):,} lignes")
-            afficher_stats_rapides(df)
-            
-            if st.button("🔍 Vérifier la cohérence", type="primary"):
-                with st.spinner("Vérification en cours..."):
+            with st.spinner("🤖 Analyse..."):
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
                     try:
-                        resultats = verifier_coherence(df)
+                        df, info = parser_balance_intelligent(uploaded_file)
+                        st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} lignes**")
+                    except:
+                        if uploaded_file.name.endswith('xlsx'):
+                            df = pd.read_excel(uploaded_file)
+                        else:
+                            df = pd.read_csv(uploaded_file, sep=None, engine='python')
+                        st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                else:
+                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                    st.success(f"✅ FEC : **{len(df):,} lignes**")
+            
+            with st.expander("👀 Aperçu"):
+                st.dataframe(df.head(10), use_container_width=True)
+            
+            st.divider()
+            
+            nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+            
+            if st.button("🔍 Vérifier la cohérence", type="primary", use_container_width=True):
+                with st.spinner("Vérifications en cours..."):
+                    resultat = verifier_coherence(df)
+                    
+                    st.markdown("## 🎯 Score de Qualité")
+                    
+                    score = resultat['score_qualite']
+                    niveau = resultat.get('niveau', 'N/A')
+                    
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        if score >= 90:
+                            st.success(f"### {niveau} : {score}% ✅")
+                        elif score >= 75:
+                            st.info(f"### {niveau} : {score}% ℹ️")
+                        elif score >= 50:
+                            st.warning(f"### {niveau} : {score}% ⚠️")
+                        else:
+                            st.error(f"### {niveau} : {score}% ❌")
                         
-                        st.subheader("📊 Résultats de Vérification")
-                        
-                        score_qualite = resultats.get('score_qualite', 0)
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("Score Qualité", f"{score_qualite}%",
-                                    delta_color="normal" if score_qualite > 80 else "inverse")
-                        with col2:
-                            st.metric("Champs valides", f"{resultats.get('champs_valides', 0)}/{len(df.columns)}")
-                        with col3:
-                            st.metric("Lignes complètes", f"{resultats.get('lignes_completes', 0)}/{len(df)}")
-                        
-                        for check, details in resultats.get('verifications', {}).items():
-                            if details['status'] == 'OK':
-                                st.success(f"✅ {check} : {details['message']}")
-                            elif details['status'] == 'WARNING':
-                                st.warning(f"⚠️ {check} : {details['message']}")
-                            else:
-                                st.error(f"❌ {check} : {details['message']}")
-                        
-                        if resultats.get('recommandations'):
-                            st.subheader("💡 Recommandations")
-                            for reco in resultats['recommandations']:
-                                st.info(reco)
-                        
-                        sauvegarder_analyse(type_analyse="Cohérence", resultat=str(resultats))
-                        
-                    except Exception as e:
-                        st.error(f"❌ Erreur : {str(e)}")
-                        
+                        st.progress(int(score))
+                    
+                    st.divider()
+                    
+                    kpis = resultat.get('kpis', {})
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("📝 Lignes", f"{kpis.get('nb_lignes', 0):,}")
+                    with col2:
+                        st.metric("📊 Colonnes", kpis.get('nb_colonnes', 0))
+                    with col3:
+                        st.metric("✅ Complétude", f"{kpis.get('completude', 0):.1f}%")
+                    with col4:
+                        st.metric("⚠️ Doublons", kpis.get('doublons', 0),
+                                 delta_color="inverse" if kpis.get('doublons', 0) > 0 else "normal")
+                    
+                    st.divider()
+                    
+                    st.markdown("## 🔍 Vérifications Effectuées")
+                    
+                    for nom, ctrl in resultat['verifications'].items():
+                        if ctrl['status'] == 'OK':
+                            st.success(f"✅ **{nom}** : {ctrl['message']}")
+                        elif ctrl['status'] == 'WARNING':
+                            st.warning(f"⚠️ **{nom}** : {ctrl['message']}")
+                        else:
+                            st.error(f"❌ **{nom}** : {ctrl['message']}")
+                    
+                    st.divider()
+                    
+                    if resultat['recommandations']:
+                        st.markdown("## 💡 Recommandations")
+                        for reco in resultat['recommandations']:
+                            st.info(f"💼 {reco}")
+                    
+                    st.divider()
+                    
+                    rapport = generer_rapport_coherence(resultat, nom_entreprise)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder", use_container_width=True):
+                            sauvegarder_analyse(type_analyse="Cohérence", resultat=rapport)
+                            st.success("✅ Sauvegardé !")
+                    with col2:
+                        try:
+                            generer_bouton_word(f"Coherence_{nom_entreprise}", rapport)
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+                            
         except Exception as e:
             st.error(f"❌ Erreur : {str(e)}")
-
-
-# -----------------------------------------------------------------------------
-# 12. VEILLE FISCALE
-# -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
 # 12. VEILLE FISCALE
@@ -1329,7 +1744,6 @@ elif page == "📰 Veille Fiscale":
                     st.subheader("📰 Dernières Actualités")
                     
                     for idx, article in enumerate(actualites):
-                        # Vérification que article est bien un dict
                         if isinstance(article, dict):
                             titre = article.get('titre', 'Sans titre')
                             date = article.get('date', 'Date inconnue')
@@ -1345,7 +1759,6 @@ elif page == "📰 Veille Fiscale":
                         else:
                             st.warning(f"Article {idx}: Format incorrect")
                     
-                    # Sauvegarde
                     sauvegarder_analyse(type_analyse="Veille Fiscale", resultat=str(actualites))
                 else:
                     st.info("ℹ️ Aucune actualité récente disponible")

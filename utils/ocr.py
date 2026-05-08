@@ -1,123 +1,110 @@
+# -*- coding: utf-8 -*-
+"""Module OCR Autonome - SMD Consulting"""
 import base64
-import tempfile
-from io import BytesIO
-from pdf2image import convert_from_bytes
-from PyPDF2 import PdfReader
-from .ai import appel_mistral_vision, extraire_contenu_mistral
+import os
+import io
+import requests
+from dotenv import load_dotenv
 
-# ---------------------------------------------------------
-# 1) Limitation de taille (5 Mo)
-# ---------------------------------------------------------
-MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024  # 5 Mo
+load_dotenv()
 
-def _taille_valide(file_bytes):
-    if len(file_bytes) > MAX_FILE_SIZE_BYTES:
-        return False
-    return True
+# Taille max image : 4 Mo
+MAX_IMAGE_SIZE = 4 * 1024 * 1024
 
-# ---------------------------------------------------------
-# 2) Extraction directe du texte (PDF texte)
-# ---------------------------------------------------------
-def _extract_pdf_text(pdf_bytes):
+def pdf_to_image_bytes(file_bytes):
+    """Convertit la première page d'un PDF en image PNG via PyMuPDF (sans Poppler)"""
     try:
-        reader = PdfReader(BytesIO(pdf_bytes))
-        texte = ""
-        for page in reader.pages:
-            contenu = page.extract_text() or ""
-            texte += contenu + "\n"
-        texte = texte.strip()
-        if len(texte) > 10:
-            return texte
-        return None
-    except Exception:
-        return None
+        import fitz  # PyMuPDF
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        page = doc[0]
+        mat = fitz.Matrix(2.0, 2.0)  # zoom x2 pour meilleure qualité
+        pix = page.get_pixmap(matrix=mat)
+        buf = io.BytesIO(pix.tobytes("png"))
+        return buf.getvalue(), None
+    except ImportError:
+        return None, "❌ PyMuPDF non installé. Lancez : pip install pymupdf"
+    except Exception as e:
+        return None, f"❌ Erreur conversion PDF : {e}"
 
-# ---------------------------------------------------------
-# 3) Conversion PDF → images
-# ---------------------------------------------------------
-def _pdf_to_images(pdf_bytes):
-    try:
-        images = convert_from_bytes(pdf_bytes)
-        return images
-    except Exception:
-        return None
-
-# ---------------------------------------------------------
-# 4) PIL → base64
-# ---------------------------------------------------------
-def _pil_image_to_base64(img):
-    try:
-        with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
-            img.save(tmp.name, format="PNG")
-            with open(tmp.name, "rb") as f:
-                return base64.b64encode(f.read()).decode()
-    except Exception:
-        return None
-
-# ---------------------------------------------------------
-# 5) OCR via Mistral (Pixtral-Vision)
-# ---------------------------------------------------------
-def _ocr_image_base64(base64_data, mime="image/png"):
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "Extrais tout le texte de cette image."},
-                {"type": "input_image", "image_url": f"data:{mime};base64,{base64_data}"}
-            ]
-        }
-    ]
-    result = appel_mistral_vision(messages)
-    return extraire_contenu_mistral(result)
-
-# ---------------------------------------------------------
-# 6) Fonction principale (OCR)
-# ---------------------------------------------------------
 def ocr_image_mistral(uploaded_file):
-    """
-    OCR complet :
-    - PDF texte → extraction directe
-    - PDF image → conversion en images + OCR
-    - PNG/JPG → OCR direct
-    """
-    filename = uploaded_file.name.lower()
-    file_bytes = uploaded_file.read()
+    """Extrait le texte d'une image/PDF via Mistral Vision (Pixtral)"""
+    try:
+        api_key = os.getenv('MISTRAL_API_KEY')
+        if not api_key:
+            return None, "❌ Clé API Mistral manquante dans le fichier .env"
 
-    # Vérification de la taille
-    if not _taille_valide(file_bytes):
-        return "❌ Fichier trop volumineux (limite 5 Mo). Veuillez compresser l'image ou le PDF."
+        # Lire le fichier
+        uploaded_file.seek(0)
+        file_bytes = uploaded_file.read()
+        nom = uploaded_file.name.lower()
 
-    # -------------------------------------------------
-    # Cas PDF
-    # -------------------------------------------------
-    if filename.endswith(".pdf"):
-        # Essai extraction directe
-        texte = _extract_pdf_text(file_bytes)
-        if texte:
-            return texte
+        # --- Conversion PDF → image (PyMuPDF, sans Poppler) ---
+        if nom.endswith('.pdf'):
+            file_bytes, erreur = pdf_to_image_bytes(file_bytes)
+            if erreur:
+                return None, erreur
+            media_type = "image/png"
 
-        # Sinon : conversion en images
-        images = _pdf_to_images(file_bytes)
-        if images is None:
-            return "❌ Erreur : impossible de convertir le PDF en images."
+        # --- Détection type image ---
+        elif nom.endswith('.png'):
+            media_type = "image/png"
+        elif nom.endswith(('.jpg', '.jpeg')):
+            media_type = "image/jpeg"
+        else:
+            media_type = "image/png"
 
-        texte_total = ""
-        for i, img in enumerate(images):
-            base64_img = _pil_image_to_base64(img)
-            if base64_img is None:
-                texte_total += f"\n\n--- Page {i+1} ---\n⚠️ Conversion échouée"
-                continue
-            texte_page = _ocr_image_base64(base64_img)
-            texte_total += f"\n\n--- Page {i+1} ---\n{texte_page}"
+        # --- Vérification taille ---
+        if len(file_bytes) > MAX_IMAGE_SIZE:
+            return None, f"❌ Fichier trop volumineux ({len(file_bytes) // 1024} Ko). Maximum : 4 Mo."
 
-        return texte_total.strip()
+        # --- Encodage base64 ---
+        image_base64 = base64.b64encode(file_bytes).decode('utf-8')
 
-    # -------------------------------------------------
-    # Cas image directe (PNG, JPG, JPEG)
-    # -------------------------------------------------
-    else:
-        mime = "image/png"
-        if filename.endswith(".jpg") or filename.endswith(".jpeg"):
-            mime = "image/jpeg"
-        base64_data = base64.b64encode(file_bytes).decode()
-        return _ocr_image_base64(base64_data, mime=mime)
+        # --- Appel API Mistral (Pixtral) ---
+        url = "https://api.mistral.ai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": "pixtral-12b-2409",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "Tu es un assistant comptable expert. "
+                                "Extrais tout le texte de ce document en respectant "
+                                "la mise en forme originale (tableaux, montants, dates, "
+                                "numéros de facture, TVA, totaux). "
+                                "Retourne uniquement le texte extrait, sans commentaire."
+                            )
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{media_type};base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "max_tokens": 4000
+        }
+
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+
+        if response.status_code == 200:
+            data = response.json()
+            texte = data['choices'][0]['message']['content']
+            return texte, None
+        else:
+            return None, f"❌ Erreur API Mistral ({response.status_code}) : {response.text}"
+
+    except requests.exceptions.Timeout:
+        return None, "❌ Délai d'attente dépassé (60s). Réessayez avec un fichier plus léger."
+    except Exception as e:
+        return None, f"❌ Erreur inattendue : {e}"
