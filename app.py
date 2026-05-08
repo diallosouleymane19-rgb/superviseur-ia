@@ -72,7 +72,6 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
                 st.error("❌ Email ou mot de passe incorrect")
         
         st.markdown("---")
-        st.info("💡 **Identifiants de test** :\n- Email : `smdconsulting@gmail.com`\n- Mot de passe : `SMDConsulting2026!`")
     
     st.divider()
     st.caption("SMD Consulting © 2026 - Comptable IA Augmenté")
