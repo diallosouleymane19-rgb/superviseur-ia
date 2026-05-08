@@ -45,7 +45,7 @@ init_db()
 # AUTHENTIFICATION
 # =============================================================================
 
-if False:  # AUTHENTIFICATION DÉSACTIVÉE TEMPORAIREMENT
+if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
     st.title("🔒 Superviseur IA Comptable")
     st.subheader("Accès réservé aux cabinets clients")
     
