@@ -16,16 +16,22 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------
-# Charger le fichier .env depuis la RACINE du projet
+# Chargement sécurisé de la clé API
+# st.secrets (Streamlit Cloud) en priorité, .env en fallback
 # ---------------------------------------------------------
 ROOT_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = ROOT_DIR / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
-# ---------------------------------------------------------
-# Configuration & Constantes
-# ---------------------------------------------------------
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+def _get_mistral_key() -> str:
+    """Récupère la clé API Mistral depuis st.secrets ou .env"""
+    try:
+        import streamlit as st
+        return st.secrets.get("MISTRAL_API_KEY", os.getenv("MISTRAL_API_KEY", ""))
+    except Exception:
+        return os.getenv("MISTRAL_API_KEY", "")
+
+MISTRAL_API_KEY = _get_mistral_key()
 MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 DEFAULT_MODEL = "mistral-large-latest"
 DEFAULT_TEMPERATURE = 0.2
