@@ -72,6 +72,17 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
                 st.error("❌ Email ou mot de passe incorrect")
         
         st.markdown("---")
+        
+        st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
+        if st.button("👀 Accès Démonstration", use_container_width=True):
+            st.session_state["connecte"] = True
+            st.session_state["user_email"] = "demo@smdconsulting.pro"
+            st.session_state["role"] = "demo"
+            st.info("✅ Mode démonstration activé — Données fictives uniquement")
+            st.rerun()
+        
+        st.caption("📧 Demander un accès : contact@smdconsulting.pro")
+        st.markdown("---")
     
     st.divider()
     st.caption("SMD Consulting © 2026 - Comptable IA Augmenté")
@@ -129,8 +140,20 @@ def generer_bouton_word(titre, contenu):
             use_container_width=True
         )
     except Exception as e:
-        st.error(f"Erreur lors de la génération du fichier Word : {e}")
+        st.warning("⚠️ Export Word temporairement indisponible. Copiez le contenu manuellement.")
 
+def appel_mistral_securise(prompt, temperature=0.3, label="analyse"):
+    """Appel Mistral avec fallback et message utilisateur clair"""
+    try:
+        result = appel_mistral(prompt, temperature=temperature)
+        if result["success"]:
+            return result
+        else:
+            st.warning(f"⚠️ L'IA est momentanément indisponible pour {label}. Réessayez dans quelques instants.")
+            return {"success": False, "content": "", "error": result.get("error", "")}
+    except Exception as e:
+        st.warning(f"⚠️ Connexion IA interrompue pour {label}. Vérifiez votre connexion.")
+        return {"success": False, "content": "", "error": str(e)}
 
 def afficher_stats_rapides(df):
     """Affiche des statistiques rapides sur un DataFrame"""
@@ -196,7 +219,7 @@ if page == "🏠 Accueil":
     with col1:
         st.metric("Connecté en tant que", st.session_state.get('user_email', 'Utilisateur'))
     with col2:
-        st.metric("Modules disponibles", "12")
+        st.metric("Modules disponibles", "13")
     with col3:
         st.metric("Statut", "✅ Opérationnel")
     
@@ -1750,67 +1773,144 @@ elif page == "✅ Cohérence des Données":
 
 elif page == "📰 Veille Fiscale":
     st.title("📰 Veille Fiscale")
-    st.markdown("Dernières actualités fiscales et réglementaires")
-    
-    if st.button("🔄 Actualiser la veille", type="primary"):
-        with st.spinner("Récupération des actualités..."):
-            try:
-                actualites = obtenir_veille_fiscale()
-                
-                if actualites and len(actualites) > 0:
-                    st.subheader("📰 Dernières Actualités")
-                    
-                    for idx, article in enumerate(actualites):
-                        if isinstance(article, dict):
-                            titre = article.get('titre', 'Sans titre')
-                            date = article.get('date', 'Date inconnue')
-                            resume = article.get('resume', '')
-                            lien = article.get('lien', '')
-                            
-                            with st.expander(f"📄 {titre}"):
-                                st.caption(f"🗓️ {date}")
-                                if resume:
-                                    st.markdown(resume)
-                                if lien:
-                                    st.markdown(f"[🔗 Lire l'article complet]({lien})")
-                        else:
-                            st.warning(f"Article {idx}: Format incorrect")
-                    
-                    sauvegarder_analyse(type_analyse="Veille Fiscale", resultat=str(actualites))
-                else:
-                    st.info("ℹ️ Aucune actualité récente disponible")
-                    
-            except Exception as e:
-                st.error(f"❌ Erreur : {str(e)}")
-                import traceback
-                st.code(traceback.format_exc())
-    
-    st.divider()
-    st.subheader("❓ Poser une question fiscale")
-    
-    question = st.text_area("Votre question sur la fiscalité française")
-    
-    if st.button("🤖 Obtenir une réponse IA") and question:
-        with st.spinner("Recherche en cours..."):
-            prompt = f"""En tant qu'expert fiscal français, réponds à cette question :
+    st.markdown("**Actualités fiscales officielles** — France")
+    st.caption("✨ Sources : DGFiP, BOFiP, Légifrance")
+
+    onglet1, onglet2 = st.tabs([
+        "🇫🇷 Fiscalité France",
+        "❓ Question Fiscale IA"
+    ])
+
+    with onglet1:
+        st.markdown("### 📡 Sources Officielles Françaises")
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.info("**DGFiP**\nDirection Générale des Finances Publiques")
+            st.markdown("[🔗 impots.gouv.fr](https://www.impots.gouv.fr)")
+        with col2:
+            st.info("**BOFiP**\nBulletin Officiel des Finances Publiques")
+            st.markdown("[🔗 bofip.impots.gouv.fr](https://bofip.impots.gouv.fr)")
+        with col3:
+            st.info("**Légifrance**\nTextes législatifs et réglementaires")
+            st.markdown("[🔗 legifrance.gouv.fr](https://www.legifrance.gouv.fr)")
+
+        st.divider()
+
+        if st.button("🔄 Actualiser la veille France", type="primary", use_container_width=True):
+            with st.spinner("Récupération des actualités fiscales françaises..."):
+                try:
+                    actualites = obtenir_veille_fiscale()
+
+                    if actualites and len(actualites) > 0:
+                        st.success(f"✅ {len(actualites)} actualité(s) récupérée(s)")
+
+                        for idx, article in enumerate(actualites):
+                            if isinstance(article, dict):
+                                titre = article.get('titre', 'Sans titre')
+                                date = article.get('date', 'Date inconnue')
+                                resume = article.get('resume', '')
+                                lien = article.get('lien', '')
+                                source = article.get('source', 'Source officielle')
+
+                                with st.expander(f"📄 {titre}"):
+                                    col1, col2 = st.columns([2, 1])
+                                    with col1:
+                                        st.caption(f"🗓️ {date} | 📡 {source}")
+                                    with col2:
+                                        if lien:
+                                            st.markdown(f"[🔗 Article complet]({lien})")
+                                    if resume:
+                                        st.markdown(resume)
+
+                                    if st.button(f"🤖 Analyser avec IA", key=f"ia_{idx}"):
+                                        with st.spinner("Analyse IA..."):
+                                            prompt = f"""En tant qu'expert fiscal français, analyse cette actualité :
+
+Titre : {titre}
+Résumé : {resume}
+
+Fournis :
+1. Impact pour les TPE/PME françaises
+2. Actions à entreprendre
+3. Délais à respecter
+4. Références légales (CGI, BOFiP)"""
+                                            result = appel_mistral_securise(prompt, temperature=0.2, label="analyse fiscale")
+                                            if result["success"]:
+                                                st.markdown("#### 💡 Analyse Cabinet")
+                                                st.markdown(result["content"])
+
+                        sauvegarder_analyse(type_analyse="Veille Fiscale France", resultat=str(actualites))
+
+                    else:
+                        st.info("ℹ️ Aucune actualité récente. Consultez directement les sources officielles.")
+
+                except Exception as e:
+                    st.error(f"❌ Erreur de récupération : {str(e)}")
+
+        st.divider()
+
+        st.markdown("### 📅 Calendrier Fiscal France 2026")
+
+        echeances = [
+            {"Échéance": "15 janvier", "Obligation": "TVA mensuelle — décembre N-1", "Concerne": "Régime réel normal"},
+            {"Échéance": "31 janvier", "Obligation": "DSN mensuelle", "Concerne": "Employeurs"},
+            {"Échéance": "15 février", "Obligation": "TVA mensuelle — janvier", "Concerne": "Régime réel normal"},
+            {"Échéance": "31 mars", "Obligation": "Liasse fiscale IS — clôture 31/12", "Concerne": "Sociétés IS"},
+            {"Échéance": "30 avril", "Obligation": "Déclaration revenus 2025", "Concerne": "Particuliers"},
+            {"Échéance": "15 juin", "Obligation": "Acompte IS — 1er versement", "Concerne": "Sociétés IS"},
+            {"Échéance": "30 juin", "Obligation": "Liasse fiscale IS — clôture 31/03", "Concerne": "Sociétés IS"},
+            {"Échéance": "15 septembre", "Obligation": "Acompte IS — 2ème versement", "Concerne": "Sociétés IS"},
+            {"Échéance": "15 décembre", "Obligation": "Acompte IS — 4ème versement", "Concerne": "Sociétés IS"},
+        ]
+
+        df_echeances = pd.DataFrame(echeances)
+        st.dataframe(df_echeances, use_container_width=True, hide_index=True)
+
+    with onglet2:
+        st.markdown("### 🤖 Posez votre question fiscale à l'IA")
+        st.caption("Fiscalité française — CGI, BOFiP, LPF")
+
+        question = st.text_area(
+            "📝 Votre question",
+            placeholder="Ex: Quel est le taux de TVA applicable aux prestations de services ?",
+            height=120
+        )
+
+        if st.button("🤖 Obtenir une réponse IA", type="primary", use_container_width=True) and question:
+            with st.spinner("Analyse fiscale en cours..."):
+                prompt = f"""En tant qu'expert en fiscalité française (CGI, BOFiP, LPF), réponds à cette question professionnelle :
 
 {question}
 
-Fournis :
-1. Une réponse claire et précise
-2. Les références légales (CGI, BOFiP, etc.)
-3. Des exemples si pertinent
-4. Les points d'attention"""
-            
-            result = appel_mistral(prompt, temperature=0.2)
-            
-            if result["success"]:
-                st.markdown("### 💡 Réponse")
-                st.markdown(result["content"])
-                sauvegarder_analyse(type_analyse="Question Fiscale", resultat=result["content"])
-            else:
-                st.error(f"❌ Erreur : {result['error']}")
+Structure ta réponse ainsi :
+1. **Réponse directe et précise**
+2. **Références légales** (articles CGI, BOFiP)
+3. **Exemple chiffré** si pertinent
+4. **Points d'attention** et risques à éviter
+5. **Recommandation cabinet**"""
 
+                result = appel_mistral_securise(prompt, temperature=0.2, label="question fiscale")
+
+                if result["success"]:
+                    st.markdown("### 💡 Réponse Expert")
+                    st.markdown(result["content"])
+
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder", use_container_width=True):
+                            sauvegarder_analyse(
+                                type_analyse="Question Fiscale IA",
+                                resultat=result["content"]
+                            )
+                            st.success("✅ Sauvegardé !")
+                    with col2:
+                        try:
+                            generer_bouton_word("Reponse_Fiscale", result["content"])
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+
+                    st.caption("⚠️ Réponse à titre informatif. Consultez un expert pour validation.")
 
 
 # -----------------------------------------------------------------------------
@@ -1867,7 +1967,7 @@ Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est con
         """)
 
     st.divider()
-    st.markdown("📧 **Contact** : smdconsulting@gmail.com")
+    st.markdown("📧 **Contact** : contact@smdconsulting.pro")
     st.caption("SMD Consulting © 2026 - Comptable IA Augmenté")
 
 # =============================================================================
