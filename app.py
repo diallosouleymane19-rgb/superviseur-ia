@@ -64,6 +64,13 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
         email = st.text_input("📧 Email professionnel", placeholder="contact@cabinet.com")
         password = st.text_input("🔑 Mot de passe", type="password")
         
+        if st.button("🚀 Se connecter", type="primary", use_container_width=True):
+            if login(email, password):
+                st.success("✅ Connexion réussie !")
+                st.rerun()
+            else:
+                st.error("❌ Email ou mot de passe incorrect")
+        
         st.markdown("---")
        
         st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
