@@ -66,28 +66,19 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
         
         st.markdown("---")
 
-st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
-if st.button("👀 Accès Démonstration", use_container_width=True, key="btn_demo"):
-    st.session_state["authenticated"] = True
-    st.session_state["user_email"] = "demo@smdconsulting.pro"
-    st.session_state["role"] = "demo"
-    st.session_state["nom"] = "Démonstration"
-    st.session_state["login_time"] = datetime.now().isoformat()
-    st.rerun()
-
-st.caption("📧 Demander un accès : contact@smdconsulting.pro")
 st.markdown("---")
         
         st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
-        if st.button("👀 Accès Démonstration", use_container_width=True):
-            st.session_state["connecte"] = True
+        if st.button("👀 Accès Démonstration", use_container_width=True, key="btn_demo"):
+            st.session_state["authenticated"] = True
             st.session_state["user_email"] = "demo@smdconsulting.pro"
             st.session_state["role"] = "demo"
-            st.info("✅ Mode démonstration activé — Données fictives uniquement")
+            st.session_state["nom"] = "Démonstration"
+            st.session_state["login_time"] = datetime.now().isoformat()
             st.rerun()
         
         st.caption("📧 Demander un accès : contact@smdconsulting.pro")
-        st.markdown("---")
+        st.markdown("---")        
     
     st.divider()
     st.caption("SMD Consulting © 2026 - Comptable IA Augmenté")
