@@ -842,13 +842,7 @@ elif page == "🛡️ Loi de Benford":
         - 🎯 **Z-score** par chiffre : détection des anomalies à 99% de confiance
         """)
     
-    uploaded_file = st.file_uploader(
-        "📎 Données comptables (CSV, XLSX)",
-        type=["csv", "xlsx"],
-        help="FEC, balance, ou tout fichier avec une colonne de montants"
-    )
-    
-    if uploaded_file:
+if uploaded_file:
         df, erreur = charger_fichier(uploaded_file)
         if erreur:
             st.error(f"❌ Erreur lecture fichier : {erreur}")
@@ -858,77 +852,69 @@ elif page == "🛡️ Loi de Benford":
         
         with st.expander("👀 Aperçu des données"):
             st.dataframe(df.head(10), use_container_width=True)
-            
-            colonnes_num = []
-            for col in df.columns:
+        
+        colonnes_num = []
+        for col in df.columns:
+            try:
+                test = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce')
+                if test.notna().sum() > len(df) * 0.5:
+                    colonnes_num.append(col)
+            except:
+                pass
+        
+        if colonnes_num:
+            col_choix = st.selectbox(
+                "🔢 Sélectionnez la colonne des montants",
+                colonnes_num,
+                help="Colonnes numériques détectées automatiquement"
+            )
+        else:
+            col_choix = st.selectbox(
+                "🔢 Sélectionnez la colonne des montants",
+                df.columns
+            )
+        
+        if st.button("🔍 Lancer l'audit Benford", type="primary", use_container_width=True):
+            with st.spinner("Analyse statistique en cours..."):
                 try:
-                    test = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce')
-                    if test.notna().sum() > len(df) * 0.5:
-                        colonnes_num.append(col)
-                except:
-                    pass
-            
-            if colonnes_num:
-                col_choix = st.selectbox(
-                    "🔢 Sélectionnez la colonne des montants",
-                    colonnes_num,
-                    help="Colonnes numériques détectées automatiquement"
-                )
-            else:
-                col_choix = st.selectbox(
-                    "🔢 Sélectionnez la colonne des montants",
-                    df.columns
-                )
-            
-            if st.button("🔍 Lancer l'audit Benford", type="primary", use_container_width=True):
-                with st.spinner("Analyse statistique en cours..."):
-                    try:
-                        fig, rapport, score_risque = analyse_benford_complete(df, col_choix)
-                        
-                        st.markdown("## 🎯 Score de Risque")
-                        
-                        col1, col2, col3 = st.columns([1, 2, 1])
-                        with col2:
-                            if score_risque == "Faible":
-                                st.success(f"### ✅ Risque {score_risque}")
-                                st.info("**Conformité Benford** - Pas d'anomalie statistique majeure")
-                            elif score_risque == "Modere":
-                                st.warning(f"### ⚠️ Risque {score_risque}")
-                                st.warning("**Écarts détectés** - Investigation recommandée")
-                            else:
-                                st.error(f"### 🚨 Risque {score_risque}")
-                                st.error("**Anomalies significatives** - Audit approfondi nécessaire")
-                        
-                        st.divider()
-                        
-                        if fig:
-                            st.plotly_chart(fig, use_container_width=True)
-                        
-                        st.divider()
-                        
-                        st.markdown(rapport)
-                        
-                        st.divider()
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            if st.button("💾 Sauvegarder", use_container_width=True):
-                                sauvegarder_analyse(type_analyse="Loi de Benford", resultat=rapport)
-                                st.success("✅ Sauvegardé !")
-                        with col2:
-                            try:
-                                generer_bouton_word("Audit_Benford", rapport)
-                            except Exception as e:
-                                st.error(f"Erreur : {e}")
+                    fig, rapport, score_risque = analyse_benford_complete(df, col_choix)
+                    
+                    st.markdown("## 🎯 Score de Risque")
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        if score_risque == "Faible":
+                            st.success(f"### ✅ Risque {score_risque}")
+                            st.info("**Conformité Benford** - Pas d'anomalie statistique majeure")
+                        elif score_risque == "Modere":
+                            st.warning(f"### ⚠️ Risque {score_risque}")
+                            st.warning("**Écarts détectés** - Investigation recommandée")
+                        else:
+                            st.error(f"### 🚨 Risque {score_risque}")
+                            st.error("**Anomalies significatives** - Audit approfondi nécessaire")
+                    
+                    st.divider()
+                    if fig:
+                        st.plotly_chart(fig, use_container_width=True)
+                    st.divider()
+                    st.markdown(rapport)
+                    st.divider()
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder", use_container_width=True):
+                            sauvegarder_si_autorise(type_analyse="Loi de Benford", resultat=rapport)
+                            st.success("✅ Sauvegardé !")
+                    with col2:
+                        try:
+                            generer_bouton_word("Audit_Benford", rapport)
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
                             
-                    except Exception as e:
-                        st.error(f"❌ Erreur : {str(e)}")
-                        import traceback
-                        with st.expander("Détails techniques"):
-                            st.code(traceback.format_exc())
-                        
-        except Exception as e:
-            st.error(f"❌ Erreur : {str(e)}")
+                except Exception as e:
+                    st.error(f"❌ Erreur : {str(e)}")
+                    import traceback
+                    with st.expander("Détails techniques"):
+                        st.code(traceback.format_exc())                        
 
 # -----------------------------------------------------------------------------
 # 6. COMPTE DE RÉSULTAT - VERSION PROFESSIONNELLE CABINET
