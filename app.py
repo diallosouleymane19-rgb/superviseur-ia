@@ -64,12 +64,13 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
         email = st.text_input("📧 Email professionnel", placeholder="contact@cabinet.com")
         password = st.text_input("🔑 Mot de passe", type="password")
         
-        if st.button("🚀 Se connecter", type="primary", use_container_width=True):
-            if login(email, password):
-                st.success("✅ Connexion réussie !")
-                st.rerun()
-            else:
-                st.error("❌ Email ou mot de passe incorrect")
+        if st.button("👀 Accès Démonstration", use_container_width=True):
+    st.session_state["authenticated"] = True
+    st.session_state["user_email"] = "demo@smdconsulting.pro"
+    st.session_state["role"] = "demo"
+    st.session_state["nom"] = "Démonstration"
+    st.session_state["login_time"] = datetime.now().isoformat()
+    st.rerun()
         
         st.markdown("---")
         
