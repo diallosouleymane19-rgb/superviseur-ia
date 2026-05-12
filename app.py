@@ -139,6 +139,22 @@ if st.sidebar.button("🚪 Déconnexion", use_container_width=True):
 # FONCTIONS UTILITAIRES
 # =============================================================================
 
+def is_demo():
+    """Vérifie si l'utilisateur est en mode démonstration"""
+    return st.session_state.get("role") == "demo"
+
+def banniere_demo():
+    """Affiche une bannière demo si applicable"""
+    if is_demo():
+        st.warning("👀 **Mode Démonstration** — Données fictives uniquement. Sauvegarde désactivée.")
+
+def sauvegarder_si_autorise(type_analyse, resultat):
+    """Sauvegarde uniquement si pas en mode démo"""
+    if is_demo():
+        st.info("💡 Sauvegarde désactivée en mode démonstration.")
+    else:
+        sauvegarder_analyse(type_analyse=type_analyse, resultat=resultat)
+
 def generer_bouton_word(titre, contenu):
     """Génère un bouton de téléchargement Word sécurisé"""
     try:
@@ -182,7 +198,6 @@ def afficher_stats_rapides(df):
     with col4:
         st.metric("Complet à", f"{100 - (df.isnull().sum().sum() / (len(df) * len(df.columns)) * 100):.1f}%")
 
-
 # =============================================================================
 # PAGES / MODULES
 # =============================================================================
@@ -194,6 +209,7 @@ def afficher_stats_rapides(df):
 if page == "🏠 Accueil":
     st.title("🏠 Superviseur IA Comptable")
     st.subheader("Plateforme d'audit et de supervision comptable augmentée par Intelligence Artificielle")
+    banniere_demo()  # ← ajouter ici
     
     st.markdown("""
     ### 🎯 Bienvenue dans votre outil de comptabilité augmentée
