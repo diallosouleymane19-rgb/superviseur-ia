@@ -65,9 +65,7 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
         password = st.text_input("🔑 Mot de passe", type="password")
         
         st.markdown("---")
-
-st.markdown("---")
-        
+       
         st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
         if st.button("👀 Accès Démonstration", use_container_width=True, key="btn_demo"):
             st.session_state["authenticated"] = True
