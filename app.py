@@ -939,7 +939,7 @@ elif page == "📈 Compte de Résultat":
     if uploaded_file:
         from utils.compte_resultat import calculer_compte_resultat, generer_rapport_compte_resultat
         
-            try:
+        try:
             with st.spinner("🤖 Analyse de la balance..."):
                 df, erreur = charger_fichier(uploaded_file)
                 if erreur:
@@ -966,11 +966,10 @@ elif page == "📈 Compte de Résultat":
                     if 'erreur' in resultat:
                         st.error(f"❌ {resultat['erreur']}")
                     else:
-                        st.markdown(f"## 📊 Soldes Intermédiaires de Gestion")
+                        st.markdown("## 📊 Soldes Intermédiaires de Gestion")
                         st.caption(f"{nom_entreprise} - Exercice {exercice}")
                         
                         sig = resultat['sig']
-                        
                         col1, col2, col3, col4 = st.columns(4)
                         with col1:
                             st.metric("💰 CA", f"{sig['Chiffre d\'affaires']:,.0f} €")
@@ -985,31 +984,25 @@ elif page == "📈 Compte de Résultat":
                                      delta_color="normal" if rn > 0 else "inverse")
                         
                         st.divider()
-                        
                         st.markdown("### 📋 Détail des Soldes Intermédiaires")
                         df_sig = pd.DataFrame([
                             {'Indicateur': nom, 'Montant (€)': f"{val:,.2f}"} 
                             for nom, val in sig.items()
                         ])
                         st.dataframe(df_sig, use_container_width=True, hide_index=True)
-                        
-                        df_sig_chart = pd.DataFrame([
+                        st.bar_chart(pd.DataFrame([
                             {'Indicateur': nom, 'Montant': val} 
                             for nom, val in sig.items()
-                        ])
-                        st.bar_chart(df_sig_chart.set_index('Indicateur'))
+                        ]).set_index('Indicateur'))
                         
                         st.divider()
-                        
                         if resultat['ratios']:
                             st.markdown("## 📈 Ratios de Performance")
                             ratios = resultat['ratios']
-                            
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
                                 if 'Taux de valeur ajoutee (%)' in ratios:
-                                    val = ratios['Taux de valeur ajoutee (%)']
-                                    st.metric("Taux VA", f"{val:.1f}%")
+                                    st.metric("Taux VA", f"{ratios['Taux de valeur ajoutee (%)']:.1f}%")
                             with col2:
                                 if 'Taux de marge brute - EBE (%)' in ratios:
                                     st.metric("Marge EBE", f"{ratios['Taux de marge brute - EBE (%)']:.1f}%")
@@ -1019,34 +1012,23 @@ elif page == "📈 Compte de Résultat":
                             with col4:
                                 if 'Taux de rentabilite nette (%)' in ratios:
                                     st.metric("Rentab. Nette", f"{ratios['Taux de rentabilite nette (%)']:.1f}%")
-                            
-                            df_ratios = pd.DataFrame([
-                                {'Ratio': nom, 'Valeur': f"{val:.2f}{'%' if '€' not in nom else ' €'}"} 
-                                for nom, val in ratios.items()
-                            ])
-                            st.dataframe(df_ratios, use_container_width=True, hide_index=True)
                         
                         st.divider()
-                        
                         col1, col2 = st.columns(2)
                         with col1:
                             st.markdown("### 💰 PRODUITS")
-                            df_prod = pd.DataFrame([
+                            st.dataframe(pd.DataFrame([
                                 {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
                                 for k, v in resultat['produits'].items() if v != 0
-                            ])
-                            st.dataframe(df_prod, use_container_width=True, hide_index=True)
-                        
+                            ]), use_container_width=True, hide_index=True)
                         with col2:
                             st.markdown("### 💸 CHARGES")
-                            df_ch = pd.DataFrame([
+                            st.dataframe(pd.DataFrame([
                                 {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
                                 for k, v in resultat['charges'].items() if v != 0
-                            ])
-                            st.dataframe(df_ch, use_container_width=True, hide_index=True)
+                            ]), use_container_width=True, hide_index=True)
                         
                         st.divider()
-                        
                         if resultat['analyse']:
                             st.markdown("## 💡 Analyse Cabinet")
                             for item in resultat['analyse']:
@@ -1058,13 +1040,11 @@ elif page == "📈 Compte de Résultat":
                                     st.error(f"🔴 {item['message']}")
                         
                         st.divider()
-                        
                         rapport = generer_rapport_compte_resultat(resultat, nom_entreprise, exercice)
-                        
                         col1, col2 = st.columns(2)
                         with col1:
                             if st.button("💾 Sauvegarder", use_container_width=True):
-                                sauvegarder_analyse(type_analyse="Compte de Résultat", resultat=rapport)
+                                sauvegarder_si_autorise(type_analyse="Compte de Résultat", resultat=rapport)
                                 st.success("✅ Sauvegardé !")
                         with col2:
                             try:
@@ -1077,7 +1057,6 @@ elif page == "📈 Compte de Résultat":
             import traceback
             with st.expander("Détails techniques"):
                 st.code(traceback.format_exc())
-
 # -----------------------------------------------------------------------------
 # 7. BILAN COMPTABLE - VERSION PROFESSIONNELLE CABINET
 # -----------------------------------------------------------------------------
