@@ -101,19 +101,6 @@ if st.session_state.get("role") == "demo":
 
 st.sidebar.divider()
 
-
-# Navigation unifiée avec groupes visuels
-toutes_options = (
-    ["── Analyse & Audit ──"]
-    + options_analyse
-    + ["── États Financiers ──"]
-    + options_etats
-    + ["── Supervision & Reporting ──"]
-    + options_supervision
-    + ["── Accueil & Paramètres ──"]
-    + options_params
-)
-
 page = st.sidebar.selectbox(
     "Navigation",
     [
@@ -147,7 +134,8 @@ if page in separateurs:
 st.sidebar.divider()
 
 if st.sidebar.button("🚪 Déconnexion", use_container_width=True):
-    logout()# =============================================================================
+    logout()
+# =============================================================================
 # FONCTIONS UTILITAIRES
 # =============================================================================
 
