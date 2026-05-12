@@ -65,12 +65,12 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
         password = st.text_input("🔑 Mot de passe", type="password")
         
         if st.button("👀 Accès Démonstration", use_container_width=True):
-    st.session_state["authenticated"] = True
-    st.session_state["user_email"] = "demo@smdconsulting.pro"
-    st.session_state["role"] = "demo"
-    st.session_state["nom"] = "Démonstration"
-    st.session_state["login_time"] = datetime.now().isoformat()
-    st.rerun()
+            st.session_state["authenticated"] = True
+            st.session_state["user_email"] = "demo@smdconsulting.pro"
+            st.session_state["role"] = "demo"
+            st.session_state["nom"] = "Démonstration"
+            st.session_state["login_time"] = datetime.now().isoformat()
+            st.rerun()
         
         st.markdown("---")
         
