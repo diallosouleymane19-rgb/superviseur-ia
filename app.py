@@ -842,7 +842,13 @@ elif page == "🛡️ Loi de Benford":
         - 🎯 **Z-score** par chiffre : détection des anomalies à 99% de confiance
         """)
     
-if uploaded_file:
+    uploaded_file = st.file_uploader(
+        "📎 Données comptables (CSV, XLSX)",
+        type=["csv", "xlsx"],
+        help="FEC, balance, ou tout fichier avec une colonne de montants"
+    )
+    
+    if uploaded_file:
         df, erreur = charger_fichier(uploaded_file)
         if erreur:
             st.error(f"❌ Erreur lecture fichier : {erreur}")
@@ -914,8 +920,7 @@ if uploaded_file:
                     st.error(f"❌ Erreur : {str(e)}")
                     import traceback
                     with st.expander("Détails techniques"):
-                        st.code(traceback.format_exc())                        
-
+                        st.code(traceback.format_exc())
 # -----------------------------------------------------------------------------
 # 6. COMPTE DE RÉSULTAT - VERSION PROFESSIONNELLE CABINET
 # -----------------------------------------------------------------------------
