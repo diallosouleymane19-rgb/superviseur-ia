@@ -101,40 +101,6 @@ if st.session_state.get("role") == "demo":
 
 st.sidebar.divider()
 
-# --- Groupe 1 ---
-st.sidebar.caption("🔍 ANALYSE & AUDIT")
-page = None
-
-options_analyse = [
-    "🧾 Analyse Facture (OCR)",
-    "📊 Audit Balance",
-    "🛡️ Loi de Benford",
-    "⚠️ Alertes & Anomalies",
-    "✅ Cohérence des Données",
-]
-
-# --- Groupe 2 ---
-st.sidebar.caption("📈 ÉTATS FINANCIERS")
-options_etats = [
-    "📈 Compte de Résultat",
-    "📊 Bilan Comptable",
-    "🔄 Rapprochement Bancaire",
-]
-
-# --- Groupe 3 ---
-st.sidebar.caption("📁 SUPERVISION & REPORTING")
-options_supervision = [
-    "📂 Traitement FEC",
-    "📋 Rapport Client",
-    "📰 Veille Fiscale",
-]
-
-# --- Groupe 4 ---
-st.sidebar.caption("⚙️ PARAMÈTRES")
-options_params = [
-    "🏠 Accueil",
-    "🔒 Confidentialité & Sécurité",
-]
 
 # Navigation unifiée avec groupes visuels
 toutes_options = (
@@ -148,24 +114,40 @@ toutes_options = (
     + options_params
 )
 
-selection = st.sidebar.radio(
+page = st.sidebar.selectbox(
     "Navigation",
-    toutes_options,
+    [
+        "🏠 Accueil",
+        "─── Analyse & Audit ───",
+        "🧾 Analyse Facture (OCR)",
+        "📊 Audit Balance",
+        "🛡️ Loi de Benford",
+        "⚠️ Alertes & Anomalies",
+        "✅ Cohérence des Données",
+        "─── États Financiers ───",
+        "📈 Compte de Résultat",
+        "📊 Bilan Comptable",
+        "🔄 Rapprochement Bancaire",
+        "─── Supervision & Reporting ───",
+        "📂 Traitement FEC",
+        "📋 Rapport Client",
+        "📰 Veille Fiscale",
+        "─── Paramètres ───",
+        "🔒 Confidentialité & Sécurité",
+    ],
     label_visibility="collapsed"
 )
 
-# Ignorer les séparateurs de groupe
-separateurs = [o for o in toutes_options if o.startswith("──")]
-if selection in separateurs:
+# Neutraliser les séparateurs
+separateurs = ["─── Analyse & Audit ───", "─── États Financiers ───",
+               "─── Supervision & Reporting ───", "─── Paramètres ───"]
+if page in separateurs:
     page = "🏠 Accueil"
-else:
-    page = selection
 
 st.sidebar.divider()
 
 if st.sidebar.button("🚪 Déconnexion", use_container_width=True):
-    logout()
-# =============================================================================
+    logout()# =============================================================================
 # FONCTIONS UTILITAIRES
 # =============================================================================
 
