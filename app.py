@@ -518,10 +518,10 @@ elif page == "📊 Audit Balance":
                 with col2:
                     ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else None
                 
-                df, erreur = charger_fichier(uploaded_file)
-                if erreur:
-                   st.error(f"❌ Erreur lecture fichier : {erreur}")
-                   st.stop()
+                if uploaded_file.name.endswith('xlsx'):
+                    df = pd.read_excel(uploaded_file, header=ligne_entete if a_un_entete else None)
+                else:
+                    df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
                 
                 st.success(f"✅ Balance chargée : **{len(df):,} lignes**")
                 
@@ -849,78 +849,88 @@ elif page == "🛡️ Loi de Benford":
     )
     
     if uploaded_file:
-        df, erreur = charger_fichier(uploaded_file)
-        if erreur:
-            st.error(f"❌ Erreur lecture fichier : {erreur}")
-            st.stop()
-        
-        st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
-        
-        with st.expander("👀 Aperçu des données"):
-            st.dataframe(df.head(10), use_container_width=True)
-        
-        colonnes_num = []
-        for col in df.columns:
-            try:
-                test = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce')
-                if test.notna().sum() > len(df) * 0.5:
-                    colonnes_num.append(col)
-            except:
-                pass
-        
-        if colonnes_num:
-            col_choix = st.selectbox(
-                "🔢 Sélectionnez la colonne des montants",
-                colonnes_num,
-                help="Colonnes numériques détectées automatiquement"
-            )
-        else:
-            col_choix = st.selectbox(
-                "🔢 Sélectionnez la colonne des montants",
-                df.columns
-            )
-        
-        if st.button("🔍 Lancer l'audit Benford", type="primary", use_container_width=True):
-            with st.spinner("Analyse statistique en cours..."):
+        try:
+            if uploaded_file.name.endswith('xlsx'):
+                df = pd.read_excel(uploaded_file)
+            else:
+                df = pd.read_csv(uploaded_file, sep=';' if ';' in uploaded_file.getvalue().decode('utf-8', errors='ignore')[:1000] else ',', encoding='utf-8')
+            
+            st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+            
+            with st.expander("👀 Aperçu des données"):
+                st.dataframe(df.head(10), use_container_width=True)
+            
+            colonnes_num = []
+            for col in df.columns:
                 try:
-                    fig, rapport, score_risque = analyse_benford_complete(df, col_choix)
-                    
-                    st.markdown("## 🎯 Score de Risque")
-                    col1, col2, col3 = st.columns([1, 2, 1])
-                    with col2:
-                        if score_risque == "Faible":
-                            st.success(f"### ✅ Risque {score_risque}")
-                            st.info("**Conformité Benford** - Pas d'anomalie statistique majeure")
-                        elif score_risque == "Modere":
-                            st.warning(f"### ⚠️ Risque {score_risque}")
-                            st.warning("**Écarts détectés** - Investigation recommandée")
-                        else:
-                            st.error(f"### 🚨 Risque {score_risque}")
-                            st.error("**Anomalies significatives** - Audit approfondi nécessaire")
-                    
-                    st.divider()
-                    if fig:
-                        st.plotly_chart(fig, use_container_width=True)
-                    st.divider()
-                    st.markdown(rapport)
-                    st.divider()
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("💾 Sauvegarder", use_container_width=True):
-                            sauvegarder_si_autorise(type_analyse="Loi de Benford", resultat=rapport)
-                            st.success("✅ Sauvegardé !")
-                    with col2:
-                        try:
-                            generer_bouton_word("Audit_Benford", rapport)
-                        except Exception as e:
-                            st.error(f"Erreur : {e}")
+                    test = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce')
+                    if test.notna().sum() > len(df) * 0.5:
+                        colonnes_num.append(col)
+                except:
+                    pass
+            
+            if colonnes_num:
+                col_choix = st.selectbox(
+                    "🔢 Sélectionnez la colonne des montants",
+                    colonnes_num,
+                    help="Colonnes numériques détectées automatiquement"
+                )
+            else:
+                col_choix = st.selectbox(
+                    "🔢 Sélectionnez la colonne des montants",
+                    df.columns
+                )
+            
+            if st.button("🔍 Lancer l'audit Benford", type="primary", use_container_width=True):
+                with st.spinner("Analyse statistique en cours..."):
+                    try:
+                        fig, rapport, score_risque = analyse_benford_complete(df, col_choix)
+                        
+                        st.markdown("## 🎯 Score de Risque")
+                        
+                        col1, col2, col3 = st.columns([1, 2, 1])
+                        with col2:
+                            if score_risque == "Faible":
+                                st.success(f"### ✅ Risque {score_risque}")
+                                st.info("**Conformité Benford** - Pas d'anomalie statistique majeure")
+                            elif score_risque == "Modere":
+                                st.warning(f"### ⚠️ Risque {score_risque}")
+                                st.warning("**Écarts détectés** - Investigation recommandée")
+                            else:
+                                st.error(f"### 🚨 Risque {score_risque}")
+                                st.error("**Anomalies significatives** - Audit approfondi nécessaire")
+                        
+                        st.divider()
+                        
+                        if fig:
+                            st.plotly_chart(fig, use_container_width=True)
+                        
+                        st.divider()
+                        
+                        st.markdown(rapport)
+                        
+                        st.divider()
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("💾 Sauvegarder", use_container_width=True):
+                                sauvegarder_analyse(type_analyse="Loi de Benford", resultat=rapport)
+                                st.success("✅ Sauvegardé !")
+                        with col2:
+                            try:
+                                generer_bouton_word("Audit_Benford", rapport)
+                            except Exception as e:
+                                st.error(f"Erreur : {e}")
                             
-                except Exception as e:
-                    st.error(f"❌ Erreur : {str(e)}")
-                    import traceback
-                    with st.expander("Détails techniques"):
-                        st.code(traceback.format_exc())
+                    except Exception as e:
+                        st.error(f"❌ Erreur : {str(e)}")
+                        import traceback
+                        with st.expander("Détails techniques"):
+                            st.code(traceback.format_exc())
+                        
+        except Exception as e:
+            st.error(f"❌ Erreur : {str(e)}")
+
 # -----------------------------------------------------------------------------
 # 6. COMPTE DE RÉSULTAT - VERSION PROFESSIONNELLE CABINET
 # -----------------------------------------------------------------------------
@@ -938,14 +948,16 @@ elif page == "📈 Compte de Résultat":
     
     if uploaded_file:
         from utils.compte_resultat import calculer_compte_resultat, generer_rapport_compte_resultat
+        from utils.intelligent_parser import parser_balance_intelligent
         
         try:
             with st.spinner("🤖 Analyse de la balance..."):
-                df, erreur = charger_fichier(uploaded_file)
-                if erreur:
-                    st.error(f"❌ Erreur lecture fichier : {erreur}")
-                    st.stop()
-                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                    df, info = parser_balance_intelligent(uploaded_file)
+                    st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} comptes**")
+                else:
+                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
             
             st.divider()
             col1, col2, col3 = st.columns(3)
@@ -966,10 +978,11 @@ elif page == "📈 Compte de Résultat":
                     if 'erreur' in resultat:
                         st.error(f"❌ {resultat['erreur']}")
                     else:
-                        st.markdown("## 📊 Soldes Intermédiaires de Gestion")
+                        st.markdown(f"## 📊 Soldes Intermédiaires de Gestion")
                         st.caption(f"{nom_entreprise} - Exercice {exercice}")
                         
                         sig = resultat['sig']
+                        
                         col1, col2, col3, col4 = st.columns(4)
                         with col1:
                             st.metric("💰 CA", f"{sig['Chiffre d\'affaires']:,.0f} €")
@@ -984,25 +997,31 @@ elif page == "📈 Compte de Résultat":
                                      delta_color="normal" if rn > 0 else "inverse")
                         
                         st.divider()
+                        
                         st.markdown("### 📋 Détail des Soldes Intermédiaires")
                         df_sig = pd.DataFrame([
                             {'Indicateur': nom, 'Montant (€)': f"{val:,.2f}"} 
                             for nom, val in sig.items()
                         ])
                         st.dataframe(df_sig, use_container_width=True, hide_index=True)
-                        st.bar_chart(pd.DataFrame([
+                        
+                        df_sig_chart = pd.DataFrame([
                             {'Indicateur': nom, 'Montant': val} 
                             for nom, val in sig.items()
-                        ]).set_index('Indicateur'))
+                        ])
+                        st.bar_chart(df_sig_chart.set_index('Indicateur'))
                         
                         st.divider()
+                        
                         if resultat['ratios']:
                             st.markdown("## 📈 Ratios de Performance")
                             ratios = resultat['ratios']
+                            
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
                                 if 'Taux de valeur ajoutee (%)' in ratios:
-                                    st.metric("Taux VA", f"{ratios['Taux de valeur ajoutee (%)']:.1f}%")
+                                    val = ratios['Taux de valeur ajoutee (%)']
+                                    st.metric("Taux VA", f"{val:.1f}%")
                             with col2:
                                 if 'Taux de marge brute - EBE (%)' in ratios:
                                     st.metric("Marge EBE", f"{ratios['Taux de marge brute - EBE (%)']:.1f}%")
@@ -1012,23 +1031,34 @@ elif page == "📈 Compte de Résultat":
                             with col4:
                                 if 'Taux de rentabilite nette (%)' in ratios:
                                     st.metric("Rentab. Nette", f"{ratios['Taux de rentabilite nette (%)']:.1f}%")
+                            
+                            df_ratios = pd.DataFrame([
+                                {'Ratio': nom, 'Valeur': f"{val:.2f}{'%' if '€' not in nom else ' €'}"} 
+                                for nom, val in ratios.items()
+                            ])
+                            st.dataframe(df_ratios, use_container_width=True, hide_index=True)
                         
                         st.divider()
+                        
                         col1, col2 = st.columns(2)
                         with col1:
                             st.markdown("### 💰 PRODUITS")
-                            st.dataframe(pd.DataFrame([
+                            df_prod = pd.DataFrame([
                                 {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
                                 for k, v in resultat['produits'].items() if v != 0
-                            ]), use_container_width=True, hide_index=True)
+                            ])
+                            st.dataframe(df_prod, use_container_width=True, hide_index=True)
+                        
                         with col2:
                             st.markdown("### 💸 CHARGES")
-                            st.dataframe(pd.DataFrame([
+                            df_ch = pd.DataFrame([
                                 {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
                                 for k, v in resultat['charges'].items() if v != 0
-                            ]), use_container_width=True, hide_index=True)
+                            ])
+                            st.dataframe(df_ch, use_container_width=True, hide_index=True)
                         
                         st.divider()
+                        
                         if resultat['analyse']:
                             st.markdown("## 💡 Analyse Cabinet")
                             for item in resultat['analyse']:
@@ -1040,11 +1070,13 @@ elif page == "📈 Compte de Résultat":
                                     st.error(f"🔴 {item['message']}")
                         
                         st.divider()
+                        
                         rapport = generer_rapport_compte_resultat(resultat, nom_entreprise, exercice)
+                        
                         col1, col2 = st.columns(2)
                         with col1:
                             if st.button("💾 Sauvegarder", use_container_width=True):
-                                sauvegarder_si_autorise(type_analyse="Compte de Résultat", resultat=rapport)
+                                sauvegarder_analyse(type_analyse="Compte de Résultat", resultat=rapport)
                                 st.success("✅ Sauvegardé !")
                         with col2:
                             try:
@@ -1057,6 +1089,7 @@ elif page == "📈 Compte de Résultat":
             import traceback
             with st.expander("Détails techniques"):
                 st.code(traceback.format_exc())
+
 # -----------------------------------------------------------------------------
 # 7. BILAN COMPTABLE - VERSION PROFESSIONNELLE CABINET
 # -----------------------------------------------------------------------------
@@ -1073,14 +1106,16 @@ elif page == "📊 Bilan Comptable":
     
     if uploaded_file:
         from utils.bilan import calculer_bilan, generer_rapport_bilan
+        from utils.intelligent_parser import parser_balance_intelligent
         
         try:
             with st.spinner("🤖 Analyse..."):
-                df, erreur = charger_fichier(uploaded_file)
-                if erreur:
-                    st.error(f"❌ Erreur lecture fichier : {erreur}")
-                    st.stop()
-                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                    df, info = parser_balance_intelligent(uploaded_file)
+                    st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} comptes**")
+                else:
+                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
             
             st.divider()
             col1, col2, col3 = st.columns(3)
@@ -1542,14 +1577,23 @@ elif page == "⚠️ Alertes & Anomalies":
     
     if uploaded_file:
         from utils.alertes import detecter_alertes, generer_rapport_alertes
+        from utils.intelligent_parser import parser_balance_intelligent
         
-       try:
+        try:
             with st.spinner("🤖 Analyse..."):
-                df, erreur = charger_fichier(uploaded_file)
-                if erreur:
-                    st.error(f"❌ Erreur lecture fichier : {erreur}")
-                    st.stop()
-                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                    try:
+                        df, info = parser_balance_intelligent(uploaded_file)
+                        st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} lignes**")
+                    except:
+                        if uploaded_file.name.endswith('xlsx'):
+                            df = pd.read_excel(uploaded_file)
+                        else:
+                            df = pd.read_csv(uploaded_file, sep=None, engine='python')
+                        st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                else:
+                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
             
             with st.expander("👀 Aperçu"):
                 st.dataframe(df.head(10), use_container_width=True)
@@ -1658,14 +1702,23 @@ elif page == "✅ Cohérence des Données":
     
     if uploaded_file:
         from utils.coherence import verifier_coherence, generer_rapport_coherence
-                
+        from utils.intelligent_parser import parser_balance_intelligent
+        
         try:
             with st.spinner("🤖 Analyse..."):
-                df, erreur = charger_fichier(uploaded_file)
-                if erreur:
-                    st.error(f"❌ Erreur lecture fichier : {erreur}")
-                    st.stop()
-                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                    try:
+                        df, info = parser_balance_intelligent(uploaded_file)
+                        st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} lignes**")
+                    except:
+                        if uploaded_file.name.endswith('xlsx'):
+                            df = pd.read_excel(uploaded_file)
+                        else:
+                            df = pd.read_csv(uploaded_file, sep=None, engine='python')
+                        st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                else:
+                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                    st.success(f"✅ FEC : **{len(df):,} lignes**")
             
             with st.expander("👀 Aperçu"):
                 st.dataframe(df.head(10), use_container_width=True)
