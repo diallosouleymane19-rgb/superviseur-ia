@@ -848,12 +848,12 @@ elif page == "🛡️ Loi de Benford":
         help="FEC, balance, ou tout fichier avec une colonne de montants"
     )
     
-    df, erreur = charger_fichier(uploaded_file)
-if erreur:
-    st.error(f"❌ Erreur lecture fichier : {erreur}")
-    st.stop()
+                df, erreur = charger_fichier(uploaded_file)
+                if erreur:
+                    st.error(f"❌ Erreur lecture fichier : {erreur}")
+                    st.stop()
             
-            st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
             
             with st.expander("👀 Aperçu des données"):
                 st.dataframe(df.head(10), use_container_width=True)
