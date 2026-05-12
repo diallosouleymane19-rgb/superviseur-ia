@@ -519,9 +519,9 @@ elif page == "📊 Audit Balance":
                     ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else None
                 
                df, erreur = charger_fichier(uploaded_file)
-if erreur:
-    st.error(f"❌ Erreur lecture fichier : {erreur}")
-    st.stop()
+               if erreur:
+                   st.error(f"❌ Erreur lecture fichier : {erreur}")
+                   st.stop()
                 
                 st.success(f"✅ Balance chargée : **{len(df):,} lignes**")
                 
