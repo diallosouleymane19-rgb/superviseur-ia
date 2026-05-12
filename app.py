@@ -191,6 +191,17 @@ def afficher_stats_rapides(df):
             st.metric("Total montants", f"{total:,.2f} €")
     with col4:
         st.metric("Complet à", f"{100 - (df.isnull().sum().sum() / (len(df) * len(df.columns)) * 100):.1f}%")
+def charger_fichier(uploaded_file, header=0):
+    """Charge un fichier CSV ou XLSX en DataFrame"""
+    try:
+        if uploaded_file.name.endswith('xlsx'):
+            return pd.read_excel(uploaded_file, header=header), None
+        elif uploaded_file.name.endswith('txt'):
+            return pd.read_csv(uploaded_file, sep='|', encoding='utf-8', header=header), None
+        else:
+            return pd.read_csv(uploaded_file, sep=None, engine='python', header=header), None
+    except Exception as e:
+        return None, str(e)
 
 # =============================================================================
 # PAGES / MODULES
