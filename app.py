@@ -64,15 +64,19 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
         email = st.text_input("📧 Email professionnel", placeholder="contact@cabinet.com")
         password = st.text_input("🔑 Mot de passe", type="password")
         
-        if st.button("👀 Accès Démonstration", use_container_width=True, key="btn_demo"):
-            st.session_state["authenticated"] = True
-            st.session_state["user_email"] = "demo@smdconsulting.pro"
-            st.session_state["role"] = "demo"
-            st.session_state["nom"] = "Démonstration"
-            st.session_state["login_time"] = datetime.now().isoformat()
-            st.rerun()
-        
         st.markdown("---")
+
+st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
+if st.button("👀 Accès Démonstration", use_container_width=True, key="btn_demo"):
+    st.session_state["authenticated"] = True
+    st.session_state["user_email"] = "demo@smdconsulting.pro"
+    st.session_state["role"] = "demo"
+    st.session_state["nom"] = "Démonstration"
+    st.session_state["login_time"] = datetime.now().isoformat()
+    st.rerun()
+
+st.caption("📧 Demander un accès : contact@smdconsulting.pro")
+st.markdown("---")
         
         st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
         if st.button("👀 Accès Démonstration", use_container_width=True):
