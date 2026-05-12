@@ -518,10 +518,10 @@ elif page == "📊 Audit Balance":
                 with col2:
                     ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else None
                 
-                if uploaded_file.name.endswith('xlsx'):
-                    df = pd.read_excel(uploaded_file, header=ligne_entete if a_un_entete else None)
-                else:
-                    df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
+               df, erreur = charger_fichier(uploaded_file)
+if erreur:
+    st.error(f"❌ Erreur lecture fichier : {erreur}")
+    st.stop()
                 
                 st.success(f"✅ Balance chargée : **{len(df):,} lignes**")
                 
@@ -848,12 +848,10 @@ elif page == "🛡️ Loi de Benford":
         help="FEC, balance, ou tout fichier avec une colonne de montants"
     )
     
-    if uploaded_file:
-        try:
-            if uploaded_file.name.endswith('xlsx'):
-                df = pd.read_excel(uploaded_file)
-            else:
-                df = pd.read_csv(uploaded_file, sep=';' if ';' in uploaded_file.getvalue().decode('utf-8', errors='ignore')[:1000] else ',', encoding='utf-8')
+    df, erreur = charger_fichier(uploaded_file)
+if erreur:
+    st.error(f"❌ Erreur lecture fichier : {erreur}")
+    st.stop()
             
             st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
             
@@ -948,16 +946,14 @@ elif page == "📈 Compte de Résultat":
     
     if uploaded_file:
         from utils.compte_resultat import calculer_compte_resultat, generer_rapport_compte_resultat
-        from utils.intelligent_parser import parser_balance_intelligent
         
-        try:
+            try:
             with st.spinner("🤖 Analyse de la balance..."):
-                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
-                    df, info = parser_balance_intelligent(uploaded_file)
-                    st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} comptes**")
-                else:
-                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
+                df, erreur = charger_fichier(uploaded_file)
+                if erreur:
+                    st.error(f"❌ Erreur lecture fichier : {erreur}")
+                    st.stop()
+                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
             
             st.divider()
             col1, col2, col3 = st.columns(3)
@@ -1106,16 +1102,14 @@ elif page == "📊 Bilan Comptable":
     
     if uploaded_file:
         from utils.bilan import calculer_bilan, generer_rapport_bilan
-        from utils.intelligent_parser import parser_balance_intelligent
         
         try:
             with st.spinner("🤖 Analyse..."):
-                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
-                    df, info = parser_balance_intelligent(uploaded_file)
-                    st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} comptes**")
-                else:
-                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
+                df, erreur = charger_fichier(uploaded_file)
+                if erreur:
+                    st.error(f"❌ Erreur lecture fichier : {erreur}")
+                    st.stop()
+                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
             
             st.divider()
             col1, col2, col3 = st.columns(3)
@@ -1577,23 +1571,14 @@ elif page == "⚠️ Alertes & Anomalies":
     
     if uploaded_file:
         from utils.alertes import detecter_alertes, generer_rapport_alertes
-        from utils.intelligent_parser import parser_balance_intelligent
         
-        try:
+       try:
             with st.spinner("🤖 Analyse..."):
-                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
-                    try:
-                        df, info = parser_balance_intelligent(uploaded_file)
-                        st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} lignes**")
-                    except:
-                        if uploaded_file.name.endswith('xlsx'):
-                            df = pd.read_excel(uploaded_file)
-                        else:
-                            df = pd.read_csv(uploaded_file, sep=None, engine='python')
-                        st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
-                else:
-                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
+                df, erreur = charger_fichier(uploaded_file)
+                if erreur:
+                    st.error(f"❌ Erreur lecture fichier : {erreur}")
+                    st.stop()
+                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
             
             with st.expander("👀 Aperçu"):
                 st.dataframe(df.head(10), use_container_width=True)
@@ -1702,23 +1687,14 @@ elif page == "✅ Cohérence des Données":
     
     if uploaded_file:
         from utils.coherence import verifier_coherence, generer_rapport_coherence
-        from utils.intelligent_parser import parser_balance_intelligent
-        
+                
         try:
             with st.spinner("🤖 Analyse..."):
-                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
-                    try:
-                        df, info = parser_balance_intelligent(uploaded_file)
-                        st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} lignes**")
-                    except:
-                        if uploaded_file.name.endswith('xlsx'):
-                            df = pd.read_excel(uploaded_file)
-                        else:
-                            df = pd.read_csv(uploaded_file, sep=None, engine='python')
-                        st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
-                else:
-                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-                    st.success(f"✅ FEC : **{len(df):,} lignes**")
+                df, erreur = charger_fichier(uploaded_file)
+                if erreur:
+                    st.error(f"❌ Erreur lecture fichier : {erreur}")
+                    st.stop()
+                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
             
             with st.expander("👀 Aperçu"):
                 st.dataframe(df.head(10), use_container_width=True)
