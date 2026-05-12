@@ -518,8 +518,8 @@ elif page == "📊 Audit Balance":
                 with col2:
                     ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else None
                 
-               df, erreur = charger_fichier(uploaded_file)
-               if erreur:
+                df, erreur = charger_fichier(uploaded_file)
+                if erreur:
                    st.error(f"❌ Erreur lecture fichier : {erreur}")
                    st.stop()
                 
