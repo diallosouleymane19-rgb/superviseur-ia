@@ -94,35 +94,77 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
 
 st.sidebar.title("SMD Consulting")
 st.sidebar.caption(f"👤 {st.session_state.get('user_email', 'Utilisateur')}")
+
+# Indicateur mode démo
+if st.session_state.get("role") == "demo":
+    st.sidebar.warning("👀 Mode Démonstration")
+
 st.sidebar.divider()
 
-st.sidebar.subheader("Modules de supervision")
+# --- Groupe 1 ---
+st.sidebar.caption("🔍 ANALYSE & AUDIT")
+page = None
 
-# Menu de navigation avec TOUS les modules
-page = st.sidebar.radio(
-    "Navigation",
-    [
-        "🏠 Accueil",
-        "🧾 Analyse Facture (OCR)",
-        "📊 Audit Balance",
-        "📂 Traitement FEC",
-        "🛡️ Loi de Benford",
-        "📈 Compte de Résultat",
-        "📊 Bilan Comptable",
-        "🔄 Rapprochement Bancaire",
-        "📋 Rapport Client",
-        "⚠️ Alertes & Anomalies",
-        "✅ Cohérence des Données",
-        "📰 Veille Fiscale",
-        "🔒 Confidentialité & Sécurité"
-    ]
+options_analyse = [
+    "🧾 Analyse Facture (OCR)",
+    "📊 Audit Balance",
+    "🛡️ Loi de Benford",
+    "⚠️ Alertes & Anomalies",
+    "✅ Cohérence des Données",
+]
+
+# --- Groupe 2 ---
+st.sidebar.caption("📈 ÉTATS FINANCIERS")
+options_etats = [
+    "📈 Compte de Résultat",
+    "📊 Bilan Comptable",
+    "🔄 Rapprochement Bancaire",
+]
+
+# --- Groupe 3 ---
+st.sidebar.caption("📁 SUPERVISION & REPORTING")
+options_supervision = [
+    "📂 Traitement FEC",
+    "📋 Rapport Client",
+    "📰 Veille Fiscale",
+]
+
+# --- Groupe 4 ---
+st.sidebar.caption("⚙️ PARAMÈTRES")
+options_params = [
+    "🏠 Accueil",
+    "🔒 Confidentialité & Sécurité",
+]
+
+# Navigation unifiée avec groupes visuels
+toutes_options = (
+    ["── Analyse & Audit ──"]
+    + options_analyse
+    + ["── États Financiers ──"]
+    + options_etats
+    + ["── Supervision & Reporting ──"]
+    + options_supervision
+    + ["── Accueil & Paramètres ──"]
+    + options_params
 )
+
+selection = st.sidebar.radio(
+    "Navigation",
+    toutes_options,
+    label_visibility="collapsed"
+)
+
+# Ignorer les séparateurs de groupe
+separateurs = [o for o in toutes_options if o.startswith("──")]
+if selection in separateurs:
+    page = "🏠 Accueil"
+else:
+    page = selection
 
 st.sidebar.divider()
 
 if st.sidebar.button("🚪 Déconnexion", use_container_width=True):
     logout()
-
 # =============================================================================
 # FONCTIONS UTILITAIRES
 # =============================================================================
