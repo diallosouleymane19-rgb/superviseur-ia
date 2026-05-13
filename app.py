@@ -1841,7 +1841,7 @@ Fournis :
         st.divider()
 
        annee = datetime.now().year
-st.markdown(f"### 📅 Calendrier Fiscal France {annee}")
+       st.markdown(f"### 📅 Calendrier Fiscal France {annee}")
 
 echeances = [
     {"Échéance": f"15 janvier", "Obligation": "TVA mensuelle — décembre N-1", "Concerne": "Régime réel normal"},
