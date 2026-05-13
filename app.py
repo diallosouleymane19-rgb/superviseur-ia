@@ -1840,19 +1840,41 @@ Fournis :
 
         st.divider()
 
-        st.markdown("### 📅 Calendrier Fiscal France 2026")
+       annee = datetime.now().year
+st.markdown(f"### 📅 Calendrier Fiscal France {annee}")
 
-        echeances = [
-            {"Échéance": "15 janvier", "Obligation": "TVA mensuelle — décembre N-1", "Concerne": "Régime réel normal"},
-            {"Échéance": "31 janvier", "Obligation": "DSN mensuelle", "Concerne": "Employeurs"},
-            {"Échéance": "15 février", "Obligation": "TVA mensuelle — janvier", "Concerne": "Régime réel normal"},
-            {"Échéance": "31 mars", "Obligation": "Liasse fiscale IS — clôture 31/12", "Concerne": "Sociétés IS"},
-            {"Échéance": "30 avril", "Obligation": "Déclaration revenus 2025", "Concerne": "Particuliers"},
-            {"Échéance": "15 juin", "Obligation": "Acompte IS — 1er versement", "Concerne": "Sociétés IS"},
-            {"Échéance": "30 juin", "Obligation": "Liasse fiscale IS — clôture 31/03", "Concerne": "Sociétés IS"},
-            {"Échéance": "15 septembre", "Obligation": "Acompte IS — 2ème versement", "Concerne": "Sociétés IS"},
-            {"Échéance": "15 décembre", "Obligation": "Acompte IS — 4ème versement", "Concerne": "Sociétés IS"},
-        ]
+echeances = [
+    {"Échéance": f"15 janvier", "Obligation": "TVA mensuelle — décembre N-1", "Concerne": "Régime réel normal"},
+    {"Échéance": f"31 janvier", "Obligation": "DSN mensuelle", "Concerne": "Employeurs"},
+    {"Échéance": f"15 février", "Obligation": "TVA mensuelle — janvier", "Concerne": "Régime réel normal"},
+    {"Échéance": f"31 mars", "Obligation": f"Liasse fiscale IS — clôture 31/12/{annee-1}", "Concerne": "Sociétés IS"},
+    {"Échéance": f"30 avril", "Obligation": f"Déclaration revenus {annee-1}", "Concerne": "Particuliers"},
+    {"Échéance": f"15 juin", "Obligation": "Acompte IS — 1er versement", "Concerne": "Sociétés IS"},
+    {"Échéance": f"30 juin", "Obligation": f"Liasse fiscale IS — clôture 31/03/{annee}", "Concerne": "Sociétés IS"},
+    {"Échéance": f"15 septembre", "Obligation": "Acompte IS — 2ème versement", "Concerne": "Sociétés IS"},
+    {"Échéance": f"15 décembre", "Obligation": "Acompte IS — 4ème versement", "Concerne": "Sociétés IS"},
+]
+
+# Mise en évidence des échéances proches
+aujourd_hui = datetime.now()
+echeances_enrichies = []
+for e in echeances:
+    try:
+        date_str = f"{e['Échéance']} {annee}"
+        date_echeance = datetime.strptime(date_str, "%d %B %Y")
+        jours_restants = (date_echeance - aujourd_hui).days
+        if 0 <= jours_restants <= 30:
+            e['Statut'] = f"⚠️ Dans {jours_restants} jours"
+        elif jours_restants < 0:
+            e['Statut'] = "✅ Passée"
+        else:
+            e['Statut'] = f"📅 Dans {jours_restants} jours"
+    except:
+        e['Statut'] = "📅"
+    echeances_enrichies.append(e)
+
+df_echeances = pd.DataFrame(echeances_enrichies)
+st.dataframe(df_echeances, use_container_width=True, hide_index=True)
 
         df_echeances = pd.DataFrame(echeances)
         st.dataframe(df_echeances, use_container_width=True, hide_index=True)
