@@ -1080,16 +1080,14 @@ elif page == "📊 Bilan Comptable":
     
     if uploaded_file:
         from utils.bilan import calculer_bilan, generer_rapport_bilan
-        from utils.intelligent_parser import parser_balance_intelligent
         
         try:
             with st.spinner("🤖 Analyse..."):
-                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
-                    df, info = parser_balance_intelligent(uploaded_file)
-                    st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} comptes**")
-                else:
-                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
+                df, erreur = charger_fichier(uploaded_file)
+                if erreur:
+                    st.error(f"❌ Erreur lecture fichier : {erreur}")
+                    st.stop()
+                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
             
             st.divider()
             col1, col2, col3 = st.columns(3)
@@ -1128,30 +1126,24 @@ elif page == "📊 Bilan Comptable":
                             st.warning(f"⚠️ Bilan déséquilibré de {ecart:,.2f} €")
                         
                         st.divider()
-                        
                         col1, col2 = st.columns(2)
                         with col1:
                             st.markdown("### 📦 ACTIF")
-                            df_actif = pd.DataFrame([
+                            st.dataframe(pd.DataFrame([
                                 {'Poste': k, 'Montant (€)': f"{v:,.2f}"} 
                                 for k, v in bilan['actif'].items() if v != 0
-                            ])
-                            st.dataframe(df_actif, use_container_width=True, hide_index=True)
-                        
+                            ]), use_container_width=True, hide_index=True)
                         with col2:
                             st.markdown("### 💼 PASSIF")
-                            df_passif = pd.DataFrame([
+                            st.dataframe(pd.DataFrame([
                                 {'Poste': k, 'Montant (€)': f"{v:,.2f}"} 
                                 for k, v in bilan['passif'].items() if v != 0
-                            ])
-                            st.dataframe(df_passif, use_container_width=True, hide_index=True)
+                            ]), use_container_width=True, hide_index=True)
                         
                         st.divider()
-                        
                         if bilan['ratios']:
                             st.markdown("## 📈 Ratios Financiers")
                             ratios = bilan['ratios']
-                            
                             col1, col2, col3 = st.columns(3)
                             with col1:
                                 st.metric("Autonomie", f"{ratios['Autonomie financiere (%)']:.1f}%")
@@ -1159,7 +1151,6 @@ elif page == "📊 Bilan Comptable":
                                 st.metric("FDR", f"{ratios['Fonds de roulement FDR']:,.0f} €")
                             with col3:
                                 st.metric("Trésorerie nette", f"{ratios['Tresorerie nette']:,.0f} €")
-                            
                             col1, col2, col3 = st.columns(3)
                             with col1:
                                 st.metric("Endettement", f"{ratios['Endettement (%)']:.1f}%")
@@ -1169,7 +1160,6 @@ elif page == "📊 Bilan Comptable":
                                 st.metric("Liquidité", f"{ratios['Liquidite generale (%)']:.1f}%")
                         
                         st.divider()
-                        
                         if bilan['analyse']:
                             st.markdown("## 💡 Analyse Cabinet")
                             for item in bilan['analyse']:
@@ -1181,12 +1171,11 @@ elif page == "📊 Bilan Comptable":
                                     st.error(f"🔴 {item['message']}")
                         
                         st.divider()
-                        
                         rapport = generer_rapport_bilan(bilan, nom_entreprise, exercice)
                         col1, col2 = st.columns(2)
                         with col1:
                             if st.button("💾 Sauvegarder", use_container_width=True):
-                                sauvegarder_analyse(type_analyse="Bilan", resultat=rapport)
+                                sauvegarder_si_autorise(type_analyse="Bilan", resultat=rapport)
                                 st.success("✅ Sauvegardé !")
                         with col2:
                             try:
@@ -1199,7 +1188,6 @@ elif page == "📊 Bilan Comptable":
             import traceback
             with st.expander("Détails techniques"):
                 st.code(traceback.format_exc())
-
 # -----------------------------------------------------------------------------
 # 8. RAPPROCHEMENT BANCAIRE - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
