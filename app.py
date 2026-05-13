@@ -1875,9 +1875,6 @@ Fournis :
         df_echeances = pd.DataFrame(echeances_enrichies)
         st.dataframe(df_echeances, use_container_width=True, hide_index=True)
 
-        df_echeances = pd.DataFrame(echeances)
-        st.dataframe(df_echeances, use_container_width=True, hide_index=True)
-
     with onglet2:
         st.markdown("### 🤖 Posez votre question fiscale à l'IA")
         st.caption("Fiscalité française — CGI, BOFiP, LPF")
