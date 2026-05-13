@@ -945,14 +945,19 @@ elif page == "📈 Compte de Résultat":
     
     if uploaded_file:
         from utils.compte_resultat import calculer_compte_resultat, generer_rapport_compte_resultat
+        from utils.intelligent_parser import parser_balance_intelligent
         
         try:
             with st.spinner("🤖 Analyse de la balance..."):
-                df, erreur = charger_fichier(uploaded_file)
-                if erreur:
-                    st.error(f"❌ Erreur lecture fichier : {erreur}")
-                    st.stop()
-                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                    df, info = parser_balance_intelligent(uploaded_file)
+                    st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} comptes**")
+                else:
+                    df, erreur = charger_fichier(uploaded_file)
+                    if erreur:
+                        st.error(f"❌ Erreur : {erreur}")
+                        st.stop()
+                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
             
             st.divider()
             col1, col2, col3 = st.columns(3)
@@ -1080,14 +1085,19 @@ elif page == "📊 Bilan Comptable":
     
     if uploaded_file:
         from utils.bilan import calculer_bilan, generer_rapport_bilan
+        from utils.intelligent_parser import parser_balance_intelligent
         
         try:
             with st.spinner("🤖 Analyse..."):
-                df, erreur = charger_fichier(uploaded_file)
-                if erreur:
-                    st.error(f"❌ Erreur lecture fichier : {erreur}")
-                    st.stop()
-                st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                    df, info = parser_balance_intelligent(uploaded_file)
+                    st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} comptes**")
+                else:
+                    df, erreur = charger_fichier(uploaded_file)
+                    if erreur:
+                        st.error(f"❌ Erreur : {erreur}")
+                        st.stop()
+                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
             
             st.divider()
             col1, col2, col3 = st.columns(3)
