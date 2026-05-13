@@ -116,6 +116,7 @@ page = st.sidebar.selectbox(
         "📈 Compte de Résultat",
         "📊 Bilan Comptable",
         "🔄 Rapprochement Bancaire",
+        "📦 Immobilisations",
         "─── Supervision & Reporting ───",
         "📂 Traitement FEC",
         "📋 Rapport Client",
@@ -1305,6 +1306,183 @@ elif page == "🔄 Rapprochement Bancaire":
             import traceback
             with st.expander("Détails techniques"):
                 st.code(traceback.format_exc())
+# -----------------------------------------------------------------------------
+# IMMOBILISATIONS - AMORTISSEMENTS & CESSIONS
+# -----------------------------------------------------------------------------
+
+elif page == "📦 Immobilisations":
+    st.title("📦 Gestion des Immobilisations")
+    st.markdown("**Amortissements, Cessions et Plan d'investissement**")
+    st.caption("✨ Linéaire, Dégressif, Plus/Moins-value de cession")
+
+    from utils.immobilisations import (
+        calculer_amortissement_lineaire,
+        calculer_amortissement_degressif,
+        calculer_cession,
+        generer_rapport_immobilisation
+    )
+
+    onglet1, onglet2, onglet3 = st.tabs([
+        "📋 Tableau d'amortissement",
+        "🔄 Cession / Sortie",
+        "📊 Plan d'investissement"
+    ])
+
+    # ── ONGLET 1 : TABLEAU D'AMORTISSEMENT ──
+    with onglet1:
+        st.markdown("### 📋 Tableau d'amortissement")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            nom_bien = st.text_input("🏷️ Désignation du bien", placeholder="Ex: Véhicule utilitaire")
+            valeur_origine = st.number_input("💰 Valeur d'origine (€)", min_value=0.0, value=10000.0, step=100.0)
+            duree_ans = st.number_input("⏱️ Durée d'amortissement (ans)", min_value=1, max_value=50, value=5)
+        with col2:
+            date_acquisition = st.date_input("📅 Date d'acquisition")
+            mode = st.selectbox("⚙️ Mode d'amortissement", ["Linéaire", "Dégressif"])
+            categorie = st.selectbox("🏭 Catégorie", [
+                "Matériel et outillage (5 ans)",
+                "Véhicules (4-5 ans)",
+                "Mobilier (10 ans)",
+                "Matériel informatique (3 ans)",
+                "Constructions (20-50 ans)",
+                "Agencements (10 ans)",
+                "Autre"
+            ])
+
+        if st.button("📊 Générer le tableau", type="primary", use_container_width=True):
+            if not nom_bien:
+                st.error("⚠️ Veuillez renseigner la désignation du bien")
+            else:
+                with st.spinner("Calcul en cours..."):
+                    from datetime import datetime
+                    date_acq = datetime.combine(date_acquisition, datetime.min.time())
+
+                    if mode == "Linéaire":
+                        tableau = calculer_amortissement_lineaire(valeur_origine, duree_ans, date_acq)
+                    else:
+                        tableau = calculer_amortissement_degressif(valeur_origine, duree_ans, date_acq)
+
+                    st.markdown(f"## 📋 {nom_bien} — Amortissement {mode}")
+
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("💰 Valeur origine", f"{valeur_origine:,.2f} €")
+                    with col2:
+                        st.metric("⏱️ Durée", f"{duree_ans} ans")
+                    with col3:
+                        taux = 100 / duree_ans
+                        st.metric("📊 Taux", f"{taux:.2f}%")
+                    with col4:
+                        dotation = tableau['Dotation (€)'].iloc[0]
+                        st.metric("📅 Dotation/an", f"{dotation:,.2f} €")
+
+                    st.divider()
+                    st.dataframe(tableau, use_container_width=True, hide_index=True)
+
+                    # Graphique VNC
+                    st.markdown("### 📈 Évolution de la VNC")
+                    col_vnc = 'VNC (€)' if 'VNC (€)' in tableau.columns else 'VNC Fin (€)'
+                    st.line_chart(tableau.set_index('Année')[col_vnc])
+
+                    st.divider()
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder", use_container_width=True):
+                            rapport = generer_rapport_immobilisation(nom_bien, tableau, mode)
+                            sauvegarder_si_autorise(type_analyse="Immobilisation", resultat=rapport)
+                            st.success("✅ Sauvegardé !")
+                    with col2:
+                        rapport = generer_rapport_immobilisation(nom_bien, tableau, mode)
+                        try:
+                            generer_bouton_word(f"Amortissement_{nom_bien}", rapport)
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+
+    # ── ONGLET 2 : CESSION / SORTIE ──
+    with onglet2:
+        st.markdown("### 🔄 Calcul de Cession / Sortie d'immobilisation")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            nom_bien_c = st.text_input("🏷️ Désignation", placeholder="Ex: Véhicule X", key="cess_nom")
+            valeur_origine_c = st.number_input("💰 Valeur d'origine (€)", min_value=0.0, value=10000.0, key="cess_vo")
+            amort_cumule = st.number_input("📉 Amortissements cumulés (€)", min_value=0.0, value=6000.0, key="cess_amort")
+        with col2:
+            prix_cession = st.number_input("💵 Prix de cession (€)", min_value=0.0, value=5000.0, key="cess_prix")
+            date_cession = st.date_input("📅 Date de cession", key="cess_date")
+            taux_is = st.number_input("🏛️ Taux IS (%)", min_value=0, max_value=100, value=25, key="cess_is")
+
+        if st.button("🔄 Calculer la cession", type="primary", use_container_width=True):
+            with st.spinner("Calcul en cours..."):
+                result = calculer_cession(valeur_origine_c, amort_cumule, prix_cession, date_cession, taux_is)
+
+                st.markdown(f"## 🔄 Cession — {nom_bien_c}")
+
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("📦 Valeur origine", f"{result['valeur_origine']:,.2f} €")
+                with col2:
+                    st.metric("📉 VNC", f"{result['vnc']:,.2f} €")
+                with col3:
+                    delta_color = "normal" if result['resultat_cession'] > 0 else "inverse"
+                    st.metric(
+                        result['type_resultat'],
+                        f"{abs(result['resultat_cession']):,.2f} €",
+                        delta=result['type_resultat'],
+                        delta_color=delta_color
+                    )
+                with col4:
+                    st.metric("🏛️ IS estimé", f"{result['impot_estime']:,.2f} €")
+
+                if result['resultat_cession'] > 0:
+                    st.success(f"✅ **Plus-value de cession** : {result['resultat_cession']:,.2f} €")
+                else:
+                    st.warning(f"⚠️ **Moins-value de cession** : {abs(result['resultat_cession']):,.2f} €")
+
+                st.divider()
+                st.markdown("### 📚 Écritures Comptables")
+                st.dataframe(result['ecritures'], use_container_width=True, hide_index=True)
+
+                st.divider()
+                if st.button("💾 Sauvegarder la cession", use_container_width=True):
+                    rapport_c = f"Cession {nom_bien_c} : {result['type_resultat']} {result['resultat_cession']:,.2f} €"
+                    sauvegarder_si_autorise(type_analyse="Cession Immobilisation", resultat=rapport_c)
+                    st.success("✅ Sauvegardé !")
+
+    # ── ONGLET 3 : PLAN D'INVESTISSEMENT ──
+    with onglet3:
+        st.markdown("### 📊 Plan d'investissement — Suivi du parc")
+        st.caption("Uploadez un fichier Excel avec vos immobilisations")
+
+        uploaded_file = st.file_uploader(
+            "📎 Fichier immobilisations (CSV, XLSX)",
+            type=["csv", "xlsx"],
+            help="Colonnes attendues : Désignation, Valeur, Date acquisition, Durée, Amort. cumulé"
+        )
+
+        if uploaded_file:
+            df, erreur = charger_fichier(uploaded_file)
+            if erreur:
+                st.error(f"❌ Erreur : {erreur}")
+            else:
+                st.success(f"✅ {len(df)} immobilisation(s) chargée(s)")
+                st.dataframe(df, use_container_width=True, hide_index=True)
+
+                st.divider()
+                st.markdown("### 📊 Analyse du parc")
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("📦 Nombre de biens", len(df))
+                with col2:
+                    if 'Valeur' in df.columns:
+                        st.metric("💰 Valeur totale", f"{pd.to_numeric(df['Valeur'], errors='coerce').sum():,.2f} €")
+                with col3:
+                    if 'Amort. cumulé' in df.columns:
+                        st.metric("📉 Amort. total", f"{pd.to_numeric(df['Amort. cumulé'], errors='coerce').sum():,.2f} €")
+        else:
+            st.info("💡 Vous pouvez aussi saisir vos immobilisations manuellement via l'onglet Tableau d'amortissement.")
 
 # -----------------------------------------------------------------------------
 # 9. RAPPORT CLIENT - VERSION PRO AVEC MODE MANUEL
