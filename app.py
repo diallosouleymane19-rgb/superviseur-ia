@@ -1092,6 +1092,7 @@ elif page == "📊 Bilan Comptable":
                 if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
                     df, info = parser_balance_intelligent(uploaded_file)
                     st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} comptes**")
+                    st.write("Colonnes détectées :", list(df.columns))
                 else:
                     df, erreur = charger_fichier(uploaded_file)
                     if erreur:
