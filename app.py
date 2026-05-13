@@ -208,49 +208,66 @@ def charger_fichier(uploaded_file, header=0):
 if page == "🏠 Accueil":
     st.title("🏠 Superviseur IA Comptable")
     st.subheader("Plateforme d'audit et de supervision comptable augmentée par Intelligence Artificielle")
-    banniere_demo()  # ← ajouter ici
+    banniere_demo()
     
     st.markdown("""
     ### 🎯 Bienvenue dans votre outil de comptabilité augmentée
     
     Le **Superviseur IA Comptable** de SMD Consulting vous permet de :
     
-    #### 📊 Analyse & Audit
+    #### 🔍 Analyse & Audit
     - **Analyse automatique de factures** via OCR (PDF, images)
     - **Détection de fraude** avec la Loi de Benford
     - **Vérification de cohérence** des écritures comptables
-    - **Audit de balance** automatisé
+    - **Audit de balance** automatisé avec score qualité
+    - **Alertes intelligentes** sur anomalies comptables
     
     #### 📈 États Financiers
-    - **Compte de résultat** automatique
-    - **Bilan comptable** généré depuis FEC
+    - **Compte de résultat** avec SIG automatiques (PCG)
+    - **Bilan comptable** avec ratios financiers (FDR, BFR, Trésorerie)
     - **Rapprochements bancaires** intelligents
     
-    #### 🔍 Supervision
-    - **Traitement FEC** conforme DGFiP
-    - **Alertes intelligentes** sur anomalies
-    - **Rapports clients** personnalisés
-    - **Veille fiscale** automatique
+    #### 📦 Immobilisations & Inventaire
+    - **Tableaux d'amortissement** linéaire et dégressif
+    - **Cessions / Sorties** avec calcul plus/moins-value
+    - **Provisions** pour créances douteuses et risques
+    - **Régularisations** CCA, PCA, Charges à payer, Produits à recevoir
+    - **Ajustement des stocks** avec écritures automatiques
+    - **Check-list de clôture** d'exercice complète
+    
+    #### 📁 Supervision & Reporting
+    - **Traitement FEC** conforme DGFiP (Article L.47 A du LPF)
+    - **Rapports clients** personnalisés avec KPIs
+    - **Veille fiscale** automatique avec calendrier dynamique
     
     ### 🚀 Commencer
-    
-    Sélectionnez un module dans le menu latéral pour démarrer votre analyse.
+    Sélectionnez un module dans le menu latéral pour démarrer.
     """)
     
     st.divider()
     
-    # Statistiques d'utilisation
     st.subheader("📊 Votre Session")
-    col1, col2, col3 = st.columns(3)
-    
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Connecté en tant que", st.session_state.get('user_email', 'Utilisateur'))
+        st.metric("👤 Connecté", st.session_state.get('user_email', 'Utilisateur'))
     with col2:
-        st.metric("Modules disponibles", "13")
+        st.metric("📦 Modules", "17")
     with col3:
-        st.metric("Statut", "✅ Opérationnel")
+        st.metric("🆕 Nouveaux", "4")
+    with col4:
+        st.metric("✅ Statut", "Opérationnel")
     
     st.divider()
+    
+    st.markdown("### 🆕 Modules récemment ajoutés")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info("📦 **Immobilisations**\n\nAmortissements linéaire/dégressif, cessions, plan d'investissement")
+    with col2:
+        st.info("📋 **Inventaire & Clôture**\n\nProvisions, régularisations, stocks, check-list clôture")
+    
+    st.divider()
+    
     st.markdown("### 🔒 Vos Données Sont Protégées")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -259,9 +276,9 @@ if page == "🏠 Accueil":
         st.success("✅ **Non stockées**\n\nAucune conservation après analyse")
     with col3:
         st.success("✅ **IA éthique**\n\nDonnées non utilisées pour entraîner Mistral")
+    
     st.divider()
     st.caption("**SMD Consulting** - Comptable IA Augmenté © 2026")
-
 
 # -----------------------------------------------------------------------------
 # 2. ANALYSE FACTURE (OCR) - VERSION PROFESSIONNELLE
