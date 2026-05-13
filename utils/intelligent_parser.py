@@ -7,7 +7,6 @@ import pandas as pd
 import numpy as np
 
 
-# Mots-cles pour identifier les colonnes (multi-langues, multi-logiciels)
 MOTS_CLES = {
     'CompteNum': [
         'compte', 'numero compte', 'n° compte', 'n°compte', 'compte num',
@@ -39,9 +38,6 @@ MOTS_CLES = {
 
 
 def detecter_format(df_raw):
-    """
-    Detecte automatiquement le format de la balance
-    """
     formats_indicateurs = {
         'Sage': ['sage', 'darling sarl'],
         'Cegid': ['cegid', 'quadratus', 'expert'],
@@ -53,7 +49,6 @@ def detecter_format(df_raw):
         'QuickBooks': ['quickbooks', 'intuit']
     }
     
-    # Verifier les 10 premieres lignes
     contenu_debut = ""
     for idx in range(min(10, len(df_raw))):
         contenu_debut += " ".join(str(v).lower() for v in df_raw.iloc[idx].fillna('').values)
@@ -67,9 +62,6 @@ def detecter_format(df_raw):
 
 
 def detecter_ligne_entete(df_raw, max_lignes=30):
-    """
-    Detecte la ligne d'en-tete en cherchant les mots-cles principaux
-    """
     meilleur_score = 0
     meilleure_ligne = None
     
@@ -77,7 +69,6 @@ def detecter_ligne_entete(df_raw, max_lignes=30):
         ligne = df_raw.iloc[idx].fillna('').astype(str).str.lower()
         contenu_ligne = ' '.join(ligne.values)
         
-        # Compter combien de mots-cles principaux sont presents
         score = 0
         if any(mc in contenu_ligne for mc in MOTS_CLES['CompteNum']):
             score += 3
@@ -96,37 +87,52 @@ def detecter_ligne_entete(df_raw, max_lignes=30):
 
 
 def identifier_colonne(nom_colonne, type_colonne):
-    """
-    Verifie si une colonne correspond a un type donne
-    """
     nom_lower = str(nom_colonne).lower().strip()
-    
     for mot_cle in MOTS_CLES.get(type_colonne, []):
         if mot_cle in nom_lower:
             return True
     return False
 
 
+def detecter_colonnes_numeriques(df, colonnes_utilisees):
+    """
+    Fallback : détecte les colonnes numériques non encore mappées.
+    Retourne une liste triée par score (plus de valeurs numériques = score élevé).
+    """
+    candidats = []
+    for col in df.columns:
+        if col in colonnes_utilisees:
+            continue
+        try:
+            serie = df[col].astype(str).str.replace(' ', '').str.replace(',', '.')
+            nb_numeriques = pd.to_numeric(serie, errors='coerce').notna().sum()
+            ratio = nb_numeriques / max(len(df), 1)
+            if ratio > 0.3:
+                candidats.append((col, nb_numeriques))
+        except:
+            pass
+    candidats.sort(key=lambda x: x[1], reverse=True)
+    return [c[0] for c in candidats]
+
+
 def mapper_colonnes_intelligent(df, info):
     """
-    Mappe intelligemment les colonnes vers le format standard
-    Priorite : Mouvement > Solde
+    Mappe intelligemment les colonnes vers le format standard.
+    Priorité : mots-clés → fallback numérique
     """
     mapping = {}
     colonnes_utilisees = set()
     
-    # 1. CompteNum (priorite haute)
+    # 1. CompteNum
     for col in df.columns:
         if identifier_colonne(col, 'CompteNum') and col not in colonnes_utilisees:
             mapping[col] = 'CompteNum'
             colonnes_utilisees.add(col)
             break
     
-    # Si pas trouve, prendre la 1ere colonne avec des nombres
     if 'CompteNum' not in mapping.values():
         for col in df.columns:
             if col not in colonnes_utilisees:
-                # Verifier si majoritairement numerique
                 test_vals = df[col].astype(str).str.match(r'^\d+').sum()
                 if test_vals > len(df) * 0.5:
                     mapping[col] = 'CompteNum'
@@ -140,26 +146,23 @@ def mapper_colonnes_intelligent(df, info):
             colonnes_utilisees.add(col)
             break
     
-    # Si pas trouve, prendre la colonne suivante apres CompteNum
     if 'CompteLib' not in mapping.values():
-        cols_list = list(df.columns)
-        for i, col in enumerate(cols_list):
+        for col in df.columns:
             if col not in colonnes_utilisees:
-                # Si la colonne contient majoritairement du texte
                 test_text = df[col].astype(str).str.len().mean()
                 if test_text > 5:
                     mapping[col] = 'CompteLib'
                     colonnes_utilisees.add(col)
                     break
     
-    # 3. Debit (priorite Mouvement Debit)
+    # 3. Debit — mots-clés d'abord
     debit_candidats = []
     for col in df.columns:
         if col in colonnes_utilisees:
             continue
         nom_lower = str(col).lower()
         if 'mouvement' in nom_lower and ('débit' in nom_lower or 'debit' in nom_lower):
-            debit_candidats.insert(0, col)  # Priorite
+            debit_candidats.insert(0, col)
         elif identifier_colonne(col, 'Debit') and not identifier_colonne(col, 'SoldeDebiteur'):
             debit_candidats.append(col)
     
@@ -167,7 +170,7 @@ def mapper_colonnes_intelligent(df, info):
         mapping[debit_candidats[0]] = 'Debit'
         colonnes_utilisees.add(debit_candidats[0])
     
-    # 4. Credit
+    # 4. Credit — mots-clés d'abord
     credit_candidats = []
     for col in df.columns:
         if col in colonnes_utilisees:
@@ -182,7 +185,21 @@ def mapper_colonnes_intelligent(df, info):
         mapping[credit_candidats[0]] = 'Credit'
         colonnes_utilisees.add(credit_candidats[0])
     
-    # 5. Soldes
+    # 5. FALLBACK NUMÉRIQUE — si Debit ou Credit non détectés par mots-clés
+    if 'Debit' not in mapping.values() or 'Credit' not in mapping.values():
+        cols_numeriques = detecter_colonnes_numeriques(df, colonnes_utilisees)
+        
+        if 'Debit' not in mapping.values() and len(cols_numeriques) > 0:
+            col_debit = cols_numeriques.pop(0)
+            mapping[col_debit] = 'Debit'
+            colonnes_utilisees.add(col_debit)
+        
+        if 'Credit' not in mapping.values() and len(cols_numeriques) > 0:
+            col_credit = cols_numeriques.pop(0)
+            mapping[col_credit] = 'Credit'
+            colonnes_utilisees.add(col_credit)
+    
+    # 6. Soldes
     for col in df.columns:
         if col in colonnes_utilisees:
             continue
@@ -205,10 +222,9 @@ def mapper_colonnes_intelligent(df, info):
 
 def parser_balance_intelligent(fichier):
     """
-    Parse intelligemment une balance, quel que soit le logiciel
-    
+    Parse intelligemment une balance, quel que soit le logiciel.
     Returns:
-        df_propre: DataFrame standardise
+        df_propre: DataFrame standardisé
         info: Informations sur le parsing
     """
     info = {
@@ -219,7 +235,6 @@ def parser_balance_intelligent(fichier):
         'colonnes_manquantes': []
     }
     
-    # Lecture sans header
     if hasattr(fichier, 'name') and fichier.name.endswith('xlsx'):
         df_raw = pd.read_excel(fichier, header=None)
     else:
@@ -229,22 +244,15 @@ def parser_balance_intelligent(fichier):
             fichier.seek(0)
             df_raw = pd.read_csv(fichier, sep=',', encoding='utf-8', header=None)
     
-    # Detection format
     info['format_detecte'] = detecter_format(df_raw)
     
-    # Detection ligne d'en-tete
     ligne_entete = detecter_ligne_entete(df_raw)
-    
     if ligne_entete is None:
-        # Fallback : essayer header=0
         ligne_entete = 0
-    
     info['ligne_entete'] = ligne_entete
     
-    # Construction du DataFrame avec les bonnes en-tetes
     en_tetes = df_raw.iloc[ligne_entete].fillna('').astype(str).tolist()
     
-    # Si en-tete multi-niveaux : combiner avec ligne precedente
     if ligne_entete > 0:
         ligne_precedente = df_raw.iloc[ligne_entete - 1].fillna('').astype(str).tolist()
         en_tetes_combines = []
@@ -261,24 +269,18 @@ def parser_balance_intelligent(fichier):
                 en_tetes_combines.append(f"col_{len(en_tetes_combines)}")
         en_tetes = en_tetes_combines
     
-    # Donnees a partir de la ligne suivante
     df_donnees = df_raw.iloc[ligne_entete + 1:].copy()
     df_donnees.columns = en_tetes[:len(df_donnees.columns)]
-    
-    # Nettoyer
     df_donnees = df_donnees.dropna(how='all').reset_index(drop=True)
     
-    # Mapping intelligent
     df_propre = mapper_colonnes_intelligent(df_donnees, info)
     
-    # Verifier colonnes manquantes
     colonnes_essentielles = ['CompteNum', 'Debit', 'Credit']
     info['colonnes_manquantes'] = [
         c for c in colonnes_essentielles 
         if c not in df_propre.columns
     ]
     
-    # Nettoyer
     df_propre = nettoyer_balance(df_propre)
     info['nb_lignes_donnees'] = len(df_propre)
     
