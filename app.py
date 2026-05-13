@@ -183,21 +183,6 @@ def appel_mistral_securise(prompt, temperature=0.3, label="analyse"):
     except Exception as e:
         st.warning(f"⚠️ Connexion IA interrompue pour {label}. Vérifiez votre connexion.")
         return {"success": False, "content": "", "error": str(e)}
-
-def afficher_stats_rapides(df):
-    """Affiche des statistiques rapides sur un DataFrame"""
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total lignes", f"{len(df):,}")
-    with col2:
-        st.metric("Colonnes", len(df.columns))
-    with col3:
-        if 'Montant' in df.columns or 'Debit' in df.columns:
-            montant_col = 'Montant' if 'Montant' in df.columns else 'Debit'
-            total = df[montant_col].sum()
-            st.metric("Total montants", f"{total:,.2f} €")
-    with col4:
-        st.metric("Complet à", f"{100 - (df.isnull().sum().sum() / (len(df) * len(df.columns)) * 100):.1f}%")
 def charger_fichier(uploaded_file, header=0):
     """Charge un fichier CSV ou XLSX en DataFrame"""
     try:
