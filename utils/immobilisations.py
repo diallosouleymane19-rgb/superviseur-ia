@@ -193,3 +193,28 @@ def generer_rapport_immobilisation(bien, tableau, mode):
     rapport.append("\n---")
     rapport.append("*SMD Consulting - Superviseur IA Comptable*")
     return "\n".join(rapport)
+def generer_ecritures_amortissement(nom_bien, tableau, exercice_courant=None):
+    """Génère les écritures comptables d'amortissement"""
+    if exercice_courant is None:
+        exercice_courant = datetime.now().year
+    
+    ecritures = []
+    
+    for _, row in tableau.iterrows():
+        annee = int(row['Année'])
+        dotation = row['Dotation (€)']
+        
+        if dotation > 0:
+            ecritures.append({
+                'Année': annee,
+                'Date': f"31/12/{annee}",
+                'Compte Débit': '6811',
+                'Libellé Débit': f"Dotation amort. — {nom_bien}",
+                'Débit (€)': round(dotation, 2),
+                'Compte Crédit': '28xx',
+                'Libellé Crédit': f"Amort. {nom_bien}",
+                'Crédit (€)': round(dotation, 2),
+                'Statut': row['Statut']
+            })
+    
+    return pd.DataFrame(ecritures)
