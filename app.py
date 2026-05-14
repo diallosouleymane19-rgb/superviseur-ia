@@ -1404,6 +1404,35 @@ elif page == "📦 Immobilisations":
                     st.line_chart(tableau.set_index('Année')[col_vnc])
 
                     st.divider()
+                    
+                    # Écritures comptables
+                    st.markdown("### 📚 Écritures Comptables d'Amortissement")
+                    st.caption("Compte 6811 — Dotations aux amortissements / 28xx — Amortissements")
+                    
+                    from utils.immobilisations import generer_ecritures_amortissement
+                    df_ecritures = generer_ecritures_amortissement(nom_bien, tableau)
+                    
+                    annee_courante = datetime.now().year
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        dotation_courante = df_ecritures[
+                            df_ecritures['Année'] == annee_courante
+                        ]['Débit (€)'].sum()
+                        st.metric("📅 Dotation exercice en cours", f"{dotation_courante:,.2f} €")
+                    with col2:
+                        total_amorti = df_ecritures[
+                            df_ecritures['Statut'].str.contains('Passé|cours', na=False)
+                        ]['Débit (€)'].sum()
+                        st.metric("📉 Total amorti à ce jour", f"{total_amorti:,.2f} €")
+                    with col3:
+                        vnc_col = 'VNC (€)' if 'VNC (€)' in tableau.columns else 'VNC Fin (€)'
+                        vnc_actuelle = tableau[tableau['Année'] == annee_courante][vnc_col].values
+                        vnc_val = vnc_actuelle[0] if len(vnc_actuelle) > 0 else 0
+                        st.metric("💼 VNC actuelle", f"{vnc_val:,.2f} €")
+                    
+                    st.dataframe(df_ecritures, use_container_width=True, hide_index=True)
+
+                    st.divider()
                     col1, col2 = st.columns(2)
                     with col1:
                         if st.button("💾 Sauvegarder", use_container_width=True):
