@@ -185,6 +185,7 @@ def appel_mistral_securise(prompt, temperature=0.3, label="analyse"):
     except Exception as e:
         st.warning(f"⚠️ Connexion IA interrompue pour {label}. Vérifiez votre connexion.")
         return {"success": False, "content": "", "error": str(e)}
+@st.cache_data(show_spinner=False)
 def charger_fichier(uploaded_file, header=0):
     """Charge un fichier CSV ou XLSX en DataFrame"""
     try:
@@ -465,7 +466,7 @@ elif page == "🧾 Analyse Facture (OCR)":
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("💾 Sauvegarder", use_container_width=True):
-                        sauvegarder_analyse(type_analyse="Analyse Facture", resultat=rapport)
+                        sauvegarder_si_autorise(type_analyse="Analyse Facture", resultat=rapport)
                         st.success("✅ Sauvegardé !")
                 with col2:
                     try:
@@ -671,7 +672,7 @@ elif page == "📊 Audit Balance":
                     col1, col2 = st.columns(2)
                     with col1:
                         if st.button("💾 Sauvegarder", use_container_width=True):
-                            sauvegarder_analyse(type_analyse="Audit Balance", resultat=rapport)
+                            sauvegarder_si_autorise(type_analyse="Audit Balance", resultat=rapport)
                             st.success("✅ Sauvegardé !")
                     with col2:
                         try:
@@ -801,7 +802,7 @@ elif page == "📂 Traitement FEC":
                     col1, col2 = st.columns(2)
                     with col1:
                         if st.button("💾 Sauvegarder le rapport", use_container_width=True):
-                            sauvegarder_analyse(
+                            sauvegarder_si_autorise(
                                 type_analyse="Audit FEC", 
                                 resultat=f"Score: {score}% - {analyse}"
                             )
@@ -988,11 +989,13 @@ elif page == "📈 Compte de Résultat":
                         sig = resultat['sig']
                         col1, col2, col3, col4 = st.columns(4)
                         with col1:
-                            st.metric("💰 CA", f"{sig['Chiffre d\'affaires']:,.0f} €")
+                            _ca = sig.get("Chiffre d'affaires", 0)
+                            st.metric("💰 CA", f"{_ca:,.0f} €")
                         with col2:
                             st.metric("⚙️ VA", f"{sig['Valeur ajoutée (VA)']:,.0f} €")
                         with col3:
-                            st.metric("📈 EBE", f"{sig['Excedent Brut d\'Exploitation (EBE)']:,.0f} €")
+                            _ebe = sig.get("Excedent Brut d'Exploitation (EBE)", 0)
+                            st.metric("📈 EBE", f"{_ebe:,.0f} €")
                         with col4:
                             rn = sig['Resultat net']
                             st.metric("🎯 Résultat Net", f"{rn:,.0f} €",
@@ -1311,7 +1314,7 @@ elif page == "🔄 Rapprochement Bancaire":
                     col1, col2 = st.columns(2)
                     with col1:
                         if st.button("💾 Sauvegarder", use_container_width=True):
-                            sauvegarder_analyse(type_analyse="Rapprochement Bancaire", resultat=rapport)
+                            sauvegarder_si_autorise(type_analyse="Rapprochement Bancaire", resultat=rapport)
                             st.success("✅ Sauvegardé !")
                     with col2:
                         try:
@@ -1980,7 +1983,7 @@ elif page == "📋 Rapport Client":
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("💾 Sauvegarder", use_container_width=True):
-                        sauvegarder_analyse(type_analyse="Rapport Client", resultat=rapport)
+                        sauvegarder_si_autorise(type_analyse="Rapport Client", resultat=rapport)
                         st.success("✅ Sauvegardé !")
                 
                 with col2:
@@ -2112,7 +2115,7 @@ elif page == "⚠️ Alertes & Anomalies":
                     col1, col2 = st.columns(2)
                     with col1:
                         if st.button("💾 Sauvegarder", use_container_width=True):
-                            sauvegarder_analyse(type_analyse="Alertes", resultat=rapport)
+                            sauvegarder_si_autorise(type_analyse="Alertes", resultat=rapport)
                             st.success("✅ Sauvegardé !")
                     with col2:
                         try:
@@ -2241,7 +2244,7 @@ elif page == "✅ Cohérence des Données":
                     col1, col2 = st.columns(2)
                     with col1:
                         if st.button("💾 Sauvegarder", use_container_width=True):
-                            sauvegarder_analyse(type_analyse="Cohérence", resultat=rapport)
+                            sauvegarder_si_autorise(type_analyse="Cohérence", resultat=rapport)
                             st.success("✅ Sauvegardé !")
                     with col2:
                         try:
@@ -2325,7 +2328,7 @@ Fournis :
                                                 st.markdown("#### 💡 Analyse Cabinet")
                                                 st.markdown(result["content"])
 
-                        sauvegarder_analyse(type_analyse="Veille Fiscale France", resultat=str(actualites))
+                        sauvegarder_si_autorise(type_analyse="Veille Fiscale France", resultat=str(actualites))
 
                     else:
                         st.info("ℹ️ Aucune actualité récente. Consultez directement les sources officielles.")
@@ -2350,21 +2353,36 @@ Fournis :
             {"Échéance": f"15 décembre", "Obligation": "Acompte IS — 4ème versement", "Concerne": "Sociétés IS"},
         ]
 
+        _MOIS_FR = {
+            "janvier": 1, "février": 2, "mars": 3, "avril": 4,
+            "mai": 5, "juin": 6, "juillet": 7, "août": 8,
+            "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12
+        }
+
+        def _parse_echeance(date_str, annee):
+            """Parse une date FR sans dépendance locale."""
+            parts = date_str.strip().split()
+            if len(parts) == 2:
+                jour, mois_str = parts
+                mois_num = _MOIS_FR.get(mois_str.lower())
+                if mois_num:
+                    return datetime(int(annee), mois_num, int(jour))
+            return None
+
         aujourd_hui = datetime.now()
         echeances_enrichies = []
         for e in echeances:
-            try:
-                date_str = f"{e['Échéance']} {annee}"
-                date_echeance = datetime.strptime(date_str, "%d %B %Y")
+            date_echeance = _parse_echeance(e["Échéance"], annee)
+            if date_echeance:
                 jours_restants = (date_echeance - aujourd_hui).days
                 if 0 <= jours_restants <= 30:
-                    e['Statut'] = f"⚠️ Dans {jours_restants} jours"
+                    e["Statut"] = f"⚠️ Dans {jours_restants} jours"
                 elif jours_restants < 0:
-                    e['Statut'] = "✅ Passée"
+                    e["Statut"] = "✅ Passée"
                 else:
-                    e['Statut'] = f"📅 Dans {jours_restants} jours"
-            except:
-                e['Statut'] = "📅"
+                    e["Statut"] = f"📅 Dans {jours_restants} jours"
+            else:
+                e["Statut"] = "📅"
             echeances_enrichies.append(e)
 
         df_echeances = pd.DataFrame(echeances_enrichies)
@@ -2402,7 +2420,7 @@ Structure ta réponse ainsi :
                     col1, col2 = st.columns(2)
                     with col1:
                         if st.button("💾 Sauvegarder", use_container_width=True):
-                            sauvegarder_analyse(
+                            sauvegarder_si_autorise(
                                 type_analyse="Question Fiscale IA",
                                 resultat=result["content"]
                             )
