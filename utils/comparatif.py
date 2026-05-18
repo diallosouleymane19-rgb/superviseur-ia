@@ -66,7 +66,7 @@ def _build_comparatif_df(dict_n: dict, dict_n1: dict, label_n: str, label_n1: st
     return pd.DataFrame(rows)
 
 
-def _style_comparatif(df: pd.DataFrame, col_n: str, col_n1: str) -> pd.io.formats.style.Styler:
+def _style_comparatif(df: pd.DataFrame, col_n: str, col_n1: str):
     """Applique couleurs : vert écart positif, rouge négatif pour totaux."""
     def color_ecart(val):
         if isinstance(val, (int, float)):
