@@ -23,6 +23,7 @@ from utils.rapport_client import generer_rapport_client
 from utils.alertes import detecter_alertes
 from utils.coherence import verifier_coherence
 from utils.plan_financement import page_plan_financement
+from utils.tft import page_tft
 from benford_module import analyse_benford_complete
 
 # Authentification
@@ -120,6 +121,7 @@ page = st.sidebar.selectbox(
         "📦 Immobilisations",
         "📋 Inventaire & Clôture",
         "📐 Plan de Financement",
+        "💹 TFT Trésorerie",
         "─── Supervision & Reporting ───",
         "📂 Traitement FEC",
         "📋 Rapport Client",
@@ -2495,6 +2497,9 @@ Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est con
 
 elif page == "📐 Plan de Financement":
     page_plan_financement()
+
+elif page == "💹 TFT Trésorerie":
+    page_tft()
 
 # =============================================================================
 # FOOTER
