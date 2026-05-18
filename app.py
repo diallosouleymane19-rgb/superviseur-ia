@@ -114,7 +114,6 @@ page = st.sidebar.selectbox(
         "⚠️ Alertes & Anomalies",
         "✅ Cohérence des Données",
         "─── États Financiers ───",
-        "📐 Plan de Financement",
         "📈 Compte de Résultat",
         "📊 Bilan Comptable",
         "🔄 Rapprochement Bancaire",
@@ -132,7 +131,6 @@ page = st.sidebar.selectbox(
 
 # Neutraliser les séparateurs
 separateurs = ["─── Analyse & Audit ───", "─── États Financiers ───",
-        "📐 Plan de Financement",
                "─── Supervision & Reporting ───", "─── Paramètres ───"]
 if page in separateurs:
     page = "🏠 Accueil"
