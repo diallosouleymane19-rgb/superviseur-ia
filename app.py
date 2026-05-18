@@ -2160,7 +2160,6 @@ elif page == "✅ Cohérence des Données":
     
     if uploaded_file:
         from utils.coherence import verifier_coherence
-from utils.plan_financement import page_plan_financement, generer_rapport_coherence
         from utils.intelligent_parser import parser_balance_intelligent
         
         try:
