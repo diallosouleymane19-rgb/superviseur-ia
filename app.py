@@ -214,81 +214,43 @@ def charger_fichier(uploaded_file, header=0):
 # 1. ACCUEIL
 # -----------------------------------------------------------------------------
 
-if page == "🏠 Accueil":
-    st.title("🏠 Superviseur IA Comptable")
-    st.subheader("Plateforme d'audit et de supervision comptable augmentée par Intelligence Artificielle")
+if page == "\U0001f3e0 Accueil":
     banniere_demo()
-    
+
     st.markdown("""
-    ### 🎯 Bienvenue dans votre outil de comptabilité augmentée
-    
-    Le **Superviseur IA Comptable** de SMD Consulting vous permet de :
-    
-    #### 🔍 Analyse & Audit
-    - **Analyse automatique de factures** via OCR (PDF, images)
-    - **Détection de fraude** avec la Loi de Benford
-    - **Vérification de cohérence** des écritures comptables
-    - **Audit de balance** automatisé avec score qualité
-    - **Alertes intelligentes** sur anomalies comptables
-    
-    #### 📈 États Financiers
-    - **Compte de résultat** avec SIG automatiques (PCG)
-    - **Bilan comptable** avec ratios financiers (FDR, BFR, Trésorerie)
-    - **Rapprochements bancaires** intelligents
-    
-    #### 📦 Immobilisations & Inventaire
-    - **Tableaux d'amortissement** linéaire et dégressif
-    - **Cessions / Sorties** avec calcul plus/moins-value
-    - **Provisions** pour créances douteuses et risques
-    - **Régularisations** CCA, PCA, Charges à payer, Produits à recevoir
-    - **Ajustement des stocks** avec écritures automatiques
-    - **Check-list de clôture** d'exercice complète
-    
-    #### 📁 Supervision & Reporting
-    - **Traitement FEC** conforme DGFiP (Article L.47 A du LPF)
-    - **Rapports clients** personnalisés avec KPIs
-    - **Veille fiscale** automatique avec calendrier dynamique
-    
-    ### 🚀 Commencer
-    Sélectionnez un module dans le menu latéral pour démarrer.
-    """)
-    
-    st.divider()
-    
-    st.subheader("📊 Votre Session")
+    <div style="padding:1.5rem 1rem 1rem 1rem; border-bottom:2px solid #1F4E79; margin-bottom:1.5rem;">
+        <h1 style="margin:0; color:#1F4E79; font-size:1.9rem;">Superviseur IA Comptable</h1>
+        <p style="margin:0.4rem 0 0 0; color:#555; font-size:0.95rem;">
+            SMD Consulting &nbsp;&middot;&nbsp; Audit &amp; Finance augment&eacute;s par l'IA
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("👤 Connecté", st.session_state.get('user_email', 'Utilisateur'))
+        st.markdown("**\U0001f50d Analyse & Audit**")
+        st.caption("Factures OCR, Benford, audit balance, alertes anomalies")
     with col2:
-        st.metric("📦 Modules", "17")
+        st.markdown("**\U0001f4ca États Financiers**")
+        st.caption("Bilan, CdR/SIG, TFT, Plan de Financement, Comparatif N/N-1")
     with col3:
-        st.metric("🆕 Nouveaux", "4")
+        st.markdown("**\U0001f4e6 Gestion & Clôture**")
+        st.caption("Immobilisations, amortissements, provisions, inventaire")
     with col4:
-        st.metric("✅ Statut", "Opérationnel")
-    
-    st.divider()
-    
-    st.markdown("### 🆕 Modules récemment ajoutés")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info("📦 **Immobilisations**\n\nAmortissements linéaire/dégressif, cessions, plan d'investissement")
-    with col2:
-        st.info("📋 **Inventaire & Clôture**\n\nProvisions, régularisations, stocks, check-list clôture")
-    
-    st.divider()
-    
-    st.markdown("### 🔒 Vos Données Sont Protégées")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.success("✅ **Anonymisation**\n\nSIRET masqués, noms supprimés avant envoi")
-    with col2:
-        st.success("✅ **Non stockées**\n\nAucune conservation après analyse")
-    with col3:
-        st.success("✅ **IA éthique**\n\nDonnées non utilisées pour entraîner Mistral")
-    
-    st.divider()
-    st.caption("**SMD Consulting** - Comptable IA Augmenté © 2026")
+        st.markdown("**\U0001f4c1 Reporting & Fiscal**")
+        st.caption("FEC DGFiP, TVA CA3/CA12, rapports clients, veille fiscale")
 
+    st.divider()
+
+    user = st.session_state.get("user_email", "—")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("\U0001f464 Session", user.split("@")[0] if "@" in user else user)
+    c2.metric("\U0001f4e6 Modules", "21")
+    c3.metric("✅ Statut", "Opérationnel")
+    c4.metric("\U0001f512 Données", "Non conservées")
+
+    st.divider()
+    st.caption("SMD Consulting © 2026 — PCG France · ANC/CRC 99-02 · Données traitées localement, jamais stockées.")
 # -----------------------------------------------------------------------------
 # 2. ANALYSE FACTURE (OCR) - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
