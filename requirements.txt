@@ -1,29 +1,18 @@
-# ─── Interface ────────────────────────────────────────────
-streamlit>=1.32.0,<2.0.0
-
-# ─── Data ─────────────────────────────────────────────────
-pandas>=2.0.0,<3.0.0
-numpy>=1.26.0,<2.0.0
-openpyxl>=3.1.0
-
-# ─── Visualisation ────────────────────────────────────────
-plotly>=5.18.0,<6.0.0
-matplotlib>=3.7.0
-seaborn>=0.13.0
-
-# ─── IA ───────────────────────────────────────────────────
-mistralai>=1.0.0
-requests>=2.31.0
-
-# ─── Documents ────────────────────────────────────────────
-pypdf>=4.0.0
-python-docx>=1.1.0
-pillow>=10.0.0,<11.0.0
-
-# ─── Utilitaires ──────────────────────────────────────────
-feedparser>=6.0.0
-python-dotenv>=1.0.0
-jinja2>=3.1.0
-
-# ─── Sécurité ─────────────────────────────────────────────
-bcrypt>=4.1.0
+(
+echo streamlit>=1.32.0,^<2.0.0
+echo pandas>=2.0.0,^<3.0.0
+echo numpy>=1.26.0,^<2.0.0
+echo openpyxl>=3.1.0
+echo plotly>=5.18.0,^<6.0.0
+echo matplotlib>=3.7.0
+echo seaborn>=0.13.0
+echo mistralai>=1.0.0
+echo requests>=2.31.0
+echo pypdf>=4.0.0
+echo python-docx>=1.1.0
+echo pillow>=10.0.0,^<11.0.0
+echo feedparser>=6.0.0
+echo python-dotenv>=1.0.0
+echo jinja2>=3.1.0
+echo bcrypt>=4.1.0
+) > requirements.txt
