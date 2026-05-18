@@ -22,6 +22,7 @@ from utils.rapprochement import rapprocher_bancaire
 from utils.rapport_client import generer_rapport_client
 from utils.alertes import detecter_alertes
 from utils.coherence import verifier_coherence
+from utils.plan_financement import page_plan_financement
 from benford_module import analyse_benford_complete
 
 # Authentification
@@ -113,6 +114,7 @@ page = st.sidebar.selectbox(
         "⚠️ Alertes & Anomalies",
         "✅ Cohérence des Données",
         "─── États Financiers ───",
+        "📐 Plan de Financement",
         "📈 Compte de Résultat",
         "📊 Bilan Comptable",
         "🔄 Rapprochement Bancaire",
@@ -130,6 +132,7 @@ page = st.sidebar.selectbox(
 
 # Neutraliser les séparateurs
 separateurs = ["─── Analyse & Audit ───", "─── États Financiers ───",
+        "📐 Plan de Financement",
                "─── Supervision & Reporting ───", "─── Paramètres ───"]
 if page in separateurs:
     page = "🏠 Accueil"
@@ -2156,7 +2159,8 @@ elif page == "✅ Cohérence des Données":
     )
     
     if uploaded_file:
-        from utils.coherence import verifier_coherence, generer_rapport_coherence
+        from utils.coherence import verifier_coherence
+from utils.plan_financement import page_plan_financement, generer_rapport_coherence
         from utils.intelligent_parser import parser_balance_intelligent
         
         try:
@@ -2490,6 +2494,9 @@ Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est con
     st.divider()
     st.markdown("📧 **Contact** : contact@smdconsulting.pro")
     st.caption("SMD Consulting © 2026 - Comptable IA Augmenté")
+
+elif page == "📐 Plan de Financement":
+    page_plan_financement()
 
 # =============================================================================
 # FOOTER
