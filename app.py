@@ -24,6 +24,7 @@ from utils.alertes import detecter_alertes
 from utils.coherence import verifier_coherence
 from utils.plan_financement import page_plan_financement
 from utils.tft import page_tft
+from utils.comparatif import page_comparatif
 from benford_module import analyse_benford_complete
 
 # Authentification
@@ -122,6 +123,7 @@ page = st.sidebar.selectbox(
         "📋 Inventaire & Clôture",
         "📐 Plan de Financement",
         "💹 TFT Trésorerie",
+        "📊 Comparatif N/N-1",
         "─── Supervision & Reporting ───",
         "📂 Traitement FEC",
         "📋 Rapport Client",
@@ -2500,6 +2502,9 @@ elif page == "📐 Plan de Financement":
 
 elif page == "💹 TFT Trésorerie":
     page_tft()
+
+elif page == "📊 Comparatif N/N-1":
+    page_comparatif()
 
 # =============================================================================
 # FOOTER
