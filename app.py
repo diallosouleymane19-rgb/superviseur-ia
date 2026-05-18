@@ -119,6 +119,7 @@ page = st.sidebar.selectbox(
         "🔄 Rapprochement Bancaire",
         "📦 Immobilisations",
         "📋 Inventaire & Clôture",
+        "📐 Plan de Financement",
         "─── Supervision & Reporting ───",
         "📂 Traitement FEC",
         "📋 Rapport Client",
