@@ -27,7 +27,7 @@ from utils.plan_financement import (
     calculer_kpi_financiers, 
     generer_graphique_waterfall, 
     export_excel_complet,
-    generer_conseils_experts
+    generer_conseils_experts,
 )
 from utils.tft import page_tft
 from utils.comparatif import page_comparatif
