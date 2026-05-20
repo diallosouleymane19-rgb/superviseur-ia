@@ -57,12 +57,13 @@ def calculer_kpi_financiers(df_r, df_e, annees):
         solde = total_r - total_e
         cumul += solde
         ratio = round((total_e / total_r * 100), 1) if total_r > 0 else 0
-        kpis[annee] = {
+       kpis[annee] = {
             "total_ressources": total_r,
             "total_emplois": total_e,
             "solde": solde,
             "tresorerie_cumulee": cumul,
             "ratio": ratio,
+            "alerte": solde < 0 or cumul < 0,
         }
     return kpis
 
