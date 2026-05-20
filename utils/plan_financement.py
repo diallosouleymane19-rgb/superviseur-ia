@@ -61,33 +61,32 @@ def calculer_kpi_financiers(df_r, df_e, annees):
     return kpis
 
 
-def generer_graphique_waterfall(kpis, annees):
-    fig = go.Figure()
-    fig.add_bar(
-        x=annees,
-        y=[kpis[a]["total_ressources"] for a in annees],
-        name="Ressources",
-        marker_color="steelblue"
-    )
-    fig.add_bar(
-        x=annees,
-        y=[-kpis[a]["total_emplois"] for a in annees],
-        name="Emplois",
-        marker_color="salmon"
-    )
-    fig.add_scatter(
-        x=annees,
-        y=[kpis[a]["tresorerie_cumulee"] for a in annees],
-        name="Trésorerie cumulée",
-        mode="lines+markers",
-        line=dict(color="green", width=2)
-    )
+def generer_graphique_waterfall(df_r, df_e, annee):
+    """Génère un graphique waterfall pour une année donnée."""
+    labels_r = df_r.index.tolist()
+    vals_r = df_r[annee].tolist() if annee in df_r.columns else [0] * len(labels_r)
+
+    labels_e = df_e.index.tolist()
+    vals_e = [-v for v in (df_e[annee].tolist() if annee in df_e.columns else [0] * len(labels_e))]
+
+    labels = labels_r + labels_e
+    vals = vals_r + vals_e
+    colors = ["steelblue"] * len(labels_r) + ["salmon"] * len(labels_e)
+
+    fig = go.Figure(go.Bar(
+        x=labels,
+        y=vals,
+        marker_color=colors,
+        text=[f"{v:,.0f} €" for v in vals],
+        textposition="outside"
+    ))
+
     fig.update_layout(
-        barmode="overlay",
-        title="Plan de Financement Pluriannuel",
-        xaxis_title="Année",
+        title=f"Ressources vs Emplois — {annee}",
+        xaxis_title="",
         yaxis_title="€",
-        legend=dict(orientation="h", y=-0.2)
+        showlegend=False,
+        height=400
     )
     return fig
 
