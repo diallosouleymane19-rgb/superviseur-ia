@@ -2520,3 +2520,4 @@ st.caption("""
 Comptable Augmenté par Intelligence Artificielle  
 © 2026 - Souleymane Diallo
 """)
+
