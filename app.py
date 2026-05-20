@@ -1520,13 +1520,19 @@ elif page == "📐 Plan de Financement":
     for a in annees:
         st.markdown(f"### 🗓️ Exercice {a}")
         c1, c2, c3 = st.columns(3)
+        
         c1.metric(f"Solde {a}", f"{kpis[a]['solde']:,.0f} €", 
                   delta="Excédent" if kpis[a]['solde'] >= 0 else "Déficit")
         c2.metric("Taux d'investissement", f"{kpis[a]['ratio']:.1f} %")
         
         if kpis[a]['alerte']:
             st.error(f"⚠️ Alerte : Déficit de financement en {a} !")
+            
+        # Intégration de l'analyse narrative IA
+        with st.expander("🤖 Analyse Stratégique par l'IA", expanded=True):
+            st.markdown(generer_conseils_experts(kpis, a))
         
+        # Graphique Waterfall
         st.plotly_chart(generer_graphique_waterfall(df_r.set_index("Libellé"), df_e.set_index("Libellé"), a), use_container_width=True)
         st.divider()
 
