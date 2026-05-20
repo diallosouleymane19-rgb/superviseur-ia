@@ -80,7 +80,7 @@ def generer_graphique_waterfall(df_r, df_e, annee):
 def export_excel_complet(df_r, df_e, annees, entreprise):
     """Génère le fichier Excel avec styles."""
     buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+   def export_excel_complet(df_r, df_e, annees, entreprise):
         df_r.to_excel(writer, sheet_name="Ressources", index=False)
         df_e.to_excel(writer, sheet_name="Emplois", index=False)
     return buf.getvalue()
