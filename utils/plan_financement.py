@@ -77,33 +77,34 @@ def generer_graphique_waterfall(df_r, df_e, annee):
     return fig
 
 # ─── Export Excel ────────────────────────────────────────────────────────────
-
 def export_excel_complet(df_r, df_e, annees, entreprise):
     """Génère le fichier Excel avec styles."""
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df_r.to_excel(writer, sheet_name="Ressources", index=False)
-        def generer_conseils_experts(kpis, annee):
+        df_e.to_excel(writer, sheet_name="Emplois", index=False)
+    return buf.getvalue()
+
+
+def generer_conseils_experts(kpis, annee):
     """Génère une analyse narrative et des conseils stratégiques."""
     data = kpis.get(annee)
-    if not data: return "Données insuffisantes pour l'analyse."
-    
+    if not data:
+        return "Données insuffisantes pour l'analyse."
+
     solde = data['solde']
     ratio = data['ratio']
-    
+
     conseils = []
-    # Analyse de la structure
+
     if solde < 0:
         conseils.append("🔴 **Alerte Solde** : Le plan est en déficit de financement. Il est impératif de restructurer la dette ou de différer les investissements non prioritaires.")
     else:
         conseils.append("🟢 **Autonomie Financière** : La structure génère un surplus permettant de couvrir le BFR et les investissements.")
 
-    # Analyse du taux d'investissement
     if ratio > 80:
         conseils.append("⚠️ **Pression Investissement** : Le taux est très élevé. Assurez-vous que les retours sur investissement (ROI) sont rapides pour éviter un effet de ciseau sur la trésorerie.")
     elif ratio < 15:
         conseils.append("💡 **Potentiel Stratégique** : Le taux est faible. Envisagez de réinvestir les excédents dans la modernisation des outils de production.")
-        
+
     return "\n\n".join(conseils)
-        df_e.to_excel(writer, sheet_name="Emplois", index=False)
-    return buf.getvalue()
