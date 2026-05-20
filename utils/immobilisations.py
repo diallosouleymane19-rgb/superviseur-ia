@@ -8,53 +8,52 @@ import numpy as np
 from datetime import datetime
 
 
-def calculer_amortissement_lineaire(valeur_origine, duree_ans, date_acquisition, date_calcul=None):
-    """Calcule le tableau d'amortissement linéaire"""
-    if date_calcul is None:
-        date_calcul = datetime.now()
-    
-    taux = 100 / duree_ans
-    dotation_annuelle = valeur_origine * taux / 100
-    
-    tableau = []
-    cumul = 0
-    
-    for annee in range(1, duree_ans + 1):
-        date_debut = datetime(date_acquisition.year + annee - 1, date_acquisition.month, date_acquisition.day)
-        
-        # Prorata première année
-        if annee == 1:
-            jours_restants = (datetime(date_acquisition.year + 1, 1, 1) - date_acquisition).days
-            jours_annee = 365
-            dotation = dotation_annuelle * jours_restants / jours_annee
-        else:
-            dotation = dotation_annuelle
-        
-        # Dernière année : solde restant
-        if annee == duree_ans:
-            dotation = valeur_origine - cumul
-        
-        cumul += dotation
-        vnc = valeur_origine - cumul
-        
-        statut = "✅ Actif"
-        if date_calcul.year > date_acquisition.year + annee - 1:
-            statut = "✅ Passé"
-        elif date_calcul.year == date_acquisition.year + annee - 1:
-            statut = "📍 En cours"
-        
-        tableau.append({
-            'Année': date_acquisition.year + annee - 1,
-            'Valeur Origine (€)': round(valeur_origine, 2),
-            'Taux (%)': round(taux, 2),
-            'Dotation (€)': round(dotation, 2),
-            'Amort. Cumulé (€)': round(cumul, 2),
-            'VNC (€)': round(max(vnc, 0), 2),
-            'Statut': statut
-        })
-    
-    return pd.DataFrame(tableau)
+import pandas as pd
+from datetime import datetime
 
+def calculer_amortissement_lineaire(valeur_origine, duree_ans, date_acquisition):
+    """Calcule le tableau d'amortissement linéaire au prorata mensuel"""
+    taux = 100 / duree_ans
+    
+    # 1. Calcul du prorata de la première année (mois d'achat inclus)
+    mois_restants = 12 - date_acquisition.month + 1
+    annuite_an1 = (valeur_origine * (taux / 100)) * (mois_restants / 12)
+    
+    # 2. Préparation du tableau
+    annees = []
+    lignes = []
+    vnc = valeur_origine
+    amort_cumule = 0
+    
+    for i in range(duree_ans + 1):
+        annee = date_acquisition.year + i
+        if i == 0:
+            dotation = annuite_an1
+        elif i == duree_ans:
+            # Solde de la dernière année (ce qui reste pour arriver à 0)
+            dotation = valeur_origine - amort_cumule
+        else:
+            dotation = valeur_origine * (taux / 100)
+            
+        # Arrondir la dotation pour éviter les problèmes de virgules flottantes
+        dotation = round(min(dotation, valeur_origine - amort_cumule), 2)
+        
+        if dotation <= 0: break
+        
+        amort_cumule += dotation
+        vnc -= dotation
+        
+        lignes.append({
+            "Année": annee,
+            "Valeur Origine (€)": valeur_origine,
+            "Taux (%)": round(taux, 2),
+            "Dotation (€)": dotation,
+            "Amort. Cumulé (€)": round(amort_cumule, 2),
+            "VNC (€)": round(max(vnc, 0), 2),
+            "Statut": "Passé" if annee < datetime.now().year else "En cours" if annee == datetime.now().year else "À venir"
+        })
+        
+    return pd.DataFrame(lignes)
 
 def calculer_amortissement_degressif(valeur_origine, duree_ans, date_acquisition, date_calcul=None):
     """Calcule le tableau d'amortissement dégressif"""
