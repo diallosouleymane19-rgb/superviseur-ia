@@ -22,7 +22,12 @@ from utils.rapprochement import rapprocher_bancaire
 from utils.rapport_client import generer_rapport_client
 from utils.alertes import detecter_alertes
 from utils.coherence import verifier_coherence
-from utils.plan_financement import page_plan_financement
+from utils.plan_financement import (
+    extraire_caf_bfr_pcg, 
+    calculer_kpi_financiers, 
+    generer_graphique_waterfall, 
+    export_excel_complet
+)
 from utils.tft import page_tft
 from utils.comparatif import page_comparatif
 from utils.tva import page_tva
