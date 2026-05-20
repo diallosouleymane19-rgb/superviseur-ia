@@ -1,104 +1,135 @@
-# -*- coding: utf-8 -*-
-"""
-Module Plan de Financement PCG France — SMD Consulting
-Version optimisée : KPI, Alertes et Visualisations Waterfall
-"""
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-from io import BytesIO
+elif page == "📐 Plan de Financement":
+    st.subheader("📐 Plan de Financement Pluriannuel")
 
-
-def extraire_caf_bfr_pcg(fichier_bytes: bytes, nom_fichier: str) -> dict:
-    """Extrait CAF et BFR depuis une balance PCG France."""
-    try:
-        if nom_fichier.endswith(".xlsx"):
-            df = pd.read_excel(BytesIO(fichier_bytes))
-        else:
-            df = pd.read_csv(BytesIO(fichier_bytes), sep=None, engine="python")
-
-        df.columns = [str(c).strip().lower() for c in df.columns]
-        col_cpte = next((c for c in df.columns if any(k in c for k in ["compte", "cpte", "n°"])), None)
-        col_sol = next((c for c in df.columns if any(k in c for k in ["solde", "credit", "crédit", "montant"])), None)
-        if not col_cpte or not col_sol:
-            return {}
-
-        df[col_cpte] = df[col_cpte].astype(str).str.strip()
-        df[col_sol] = pd.to_numeric(df[col_sol], errors="coerce").fillna(0)
-
-        def somme(prefixes):
-            return df[df[col_cpte].str.startswith(tuple(prefixes), na=False)][col_sol].sum()
-
-        resultat_net = somme(["120", "121"]) - somme(["129"])
-        dotations = somme(["681", "682", "686", "687"])
-        reprises = somme(["781", "786", "787"])
-        caf = resultat_net + dotations - reprises
-
-        actif_circ = somme(["3", "411", "409"])
-        passif_circ = somme(["401", "403", "421", "431", "441", "445"])
-        bfr = actif_circ - passif_circ
-
-        return {"CAF estimée": max(caf, 0), "Variation BFR estimée": bfr}
-    except Exception:
-        return {}
-
-
-def calculer_kpi_financiers(df_r, df_e, annees):
-    """Calcule les ratios et détecte les déficits."""
-    kpis = {}
-    for a in annees:
-        tr, te = df_r[a].sum(), df_e[a].sum()
-        solde = tr - te
-        ratio = (te / tr * 100) if tr != 0 else 0
-        kpis[a] = {"solde": solde, "ratio": ratio, "alerte": solde < 0}
-    return kpis
-
-
-def generer_graphique_waterfall(df_r, df_e, annee):
-    """Génère le graphique cascade de financement."""
-    fig = go.Figure(go.Waterfall(
-        name="Plan", orientation="v",
-        measure=["relative", "relative", "total", "relative", "relative", "total"],
-        x=["CAF", "Emprunts", "Ressources Totales", "Investissements", "Remboursements", "Solde"],
-        y=[df_r[annee].iloc[0], df_r[annee].iloc[4], 0, -df_e[annee].iloc[1], -df_e[annee].iloc[3], 0],
-        connector={"line": {"color": "rgb(63, 63, 63)"}},
-    ))
-    fig.update_layout(
-        title=f"Cascade de financement {annee}",
-        height=350,
-        margin=dict(l=20, r=20, t=50, b=20),
-        plot_bgcolor="rgba(0,0,0,0)"
+    # --- Mode de saisie ---
+    mode = st.radio(
+        "Mode de saisie",
+        ["✏️ Saisie manuelle", "📂 Import balance PCG"],
+        horizontal=True
     )
-    return fig
 
+    prefill = {}
 
-def export_excel_complet(df_r, df_e, annees, entreprise):
-    """Génère le fichier Excel avec styles."""
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df_r.to_excel(writer, sheet_name="Ressources", index=False)
-        df_e.to_excel(writer, sheet_name="Emplois", index=False)
-    return buf.getvalue()
+    if mode == "📂 Import balance PCG":
+        with st.expander("📂 Import Balance PCG pour automatisation", expanded=True):
+            f = st.file_uploader("Déposer la balance", type=["csv", "xlsx"])
+            if f:
+                try:
+                    prefill = extraire_caf_bfr_pcg(f.read(), f.name)
+                    st.success("✅ Balance importée avec succès")
+                    st.json(prefill)
+                except Exception as e:
+                    st.error(f"Erreur import : {e}")
 
+    # --- Saisie manuelle par année ---
+    if mode == "✏️ Saisie manuelle":
+        st.markdown("#### 📥 RESSOURCES — Saisie par année")
+        ressources_data = {"Libellé": ["CAF prévisionnelle", "Augmentation de capital", "Subventions", "Nouveaux emprunts", "Autres ressources"]}
 
-def generer_conseils_experts(kpis, annee):
-    """Génère une analyse narrative et des conseils stratégiques."""
-    data = kpis.get(annee)
-    if not data:
-        return "Données insuffisantes pour l'analyse."
+        cols_r = st.columns(len(annees))
+        caf_vals, cap_vals, sub_vals, emp_vals, aut_r_vals = [], [], [], [], []
+        for i, annee in enumerate(annees):
+            with cols_r[i]:
+                st.markdown(f"**{annee}**")
+                caf_vals.append(st.number_input(f"CAF {annee}", min_value=0, value=0, step=1000, key=f"caf_{annee}"))
+                cap_vals.append(st.number_input(f"Capital {annee}", min_value=0, value=0, step=1000, key=f"cap_{annee}"))
+                sub_vals.append(st.number_input(f"Subventions {annee}", min_value=0, value=0, step=500, key=f"sub_{annee}"))
+                emp_vals.append(st.number_input(f"Emprunts {annee}", min_value=0, value=0, step=1000, key=f"emp_{annee}"))
+                aut_r_vals.append(st.number_input(f"Autres {annee}", min_value=0, value=0, step=500, key=f"autr_{annee}"))
 
-    solde = data['solde']
-    ratio = data['ratio']
-    conseils = []
+        for annee, c, ca, s, e, a in zip(annees, caf_vals, cap_vals, sub_vals, emp_vals, aut_r_vals):
+            ressources_data[annee] = [c, ca, s, e, a]
 
-    if solde < 0:
-        conseils.append("🔴 **Alerte Solde** : Déficit de financement. Restructurez la dette ou différez les investissements non prioritaires.")
+        st.markdown("#### 📤 EMPLOIS — Saisie par année")
+        emplois_data = {"Libellé": ["Investissements", "Remboursement emprunt", "Remboursement BPI", "Dividendes", "Variation BFR"]}
+
+        cols_e = st.columns(len(annees))
+        inv_vals, remb_vals, bpi_vals, div_vals, bfr_vals = [], [], [], [], []
+        for i, annee in enumerate(annees):
+            with cols_e[i]:
+                st.markdown(f"**{annee}**")
+                inv_vals.append(st.number_input(f"Investissements {annee}", min_value=0, value=0, step=1000, key=f"inv_{annee}"))
+                remb_vals.append(st.number_input(f"Remb. emprunt {annee}", min_value=0, value=0, step=1000, key=f"remb_{annee}"))
+                bpi_vals.append(st.number_input(f"Remb. BPI {annee}", min_value=0, value=0, step=500, key=f"bpi_{annee}"))
+                div_vals.append(st.number_input(f"Dividendes {annee}", min_value=0, value=0, step=500, key=f"div_{annee}"))
+                bfr_vals.append(st.number_input(f"Variation BFR {annee}", min_value=0, value=0, step=500, key=f"bfr_{annee}"))
+
+        for annee, i, r, b, d, bf in zip(annees, inv_vals, remb_vals, bpi_vals, div_vals, bfr_vals):
+            emplois_data[annee] = [i, r, b, d, bf]
+
+        df_r = pd.DataFrame(ressources_data)
+        df_e = pd.DataFrame(emplois_data)
+
     else:
-        conseils.append("🟢 **Autonomie Financière** : La structure génère un surplus couvrant le BFR et les investissements.")
+        # Mode import — tableaux éditables avec prefill
+        st.markdown("#### 📥 RESSOURCES")
+        df_r = st.data_editor(pd.DataFrame({
+            "Libellé": ["CAF prévisionnelle", "Augmentation de capital", "Subventions", "Nouveaux emprunts", "Autres ressources"],
+            **{a: [prefill.get("CAF estimée", 0)] + [0, 0, 0, 0] for a in annees}
+        }), use_container_width=True, key="editor_r")
 
-    if ratio > 80:
-        conseils.append("⚠️ **Pression Investissement** : Taux très élevé. Vérifiez que les ROI sont rapides pour éviter un effet de ciseau.")
-    elif ratio < 15:
-        conseils.append("💡 **Potentiel Stratégique** : Taux faible. Envisagez de réinvestir les excédents dans la modernisation.")
+        st.markdown("#### 📤 EMPLOIS")
+        df_e = st.data_editor(pd.DataFrame({
+            "Libellé": ["Investissements", "Remboursement emprunt", "Remboursement BPI", "Dividendes", "Variation BFR"],
+            **{a: [0, 0, 0, 0, 0] for a in annees}
+        }), use_container_width=True, key="editor_e")
 
-    return "\n\n".join(conseils)
+    # --- Calculs et affichage ---
+    st.markdown("---")
+    st.markdown("### 📊 Résultats du Plan de Financement")
+
+    totaux_r = {a: df_r[a].sum() for a in annees}
+    totaux_e = {a: df_e[a].sum() for a in annees}
+    soldes = {a: totaux_r[a] - totaux_e[a] for a in annees}
+
+    tresorerie_cumulee = []
+    cumul = 0
+    for a in annees:
+        cumul += soldes[a]
+        tresorerie_cumulee.append(cumul)
+
+    df_resultats = pd.DataFrame({
+        "Année": annees,
+        "Total Ressources (€)": [totaux_r[a] for a in annees],
+        "Total Emplois (€)": [totaux_e[a] for a in annees],
+        "Solde Annuel (€)": [soldes[a] for a in annees],
+        "Trésorerie Cumulée (€)": tresorerie_cumulee
+    })
+
+    # Mise en forme conditionnelle
+    def colorize(val):
+        if isinstance(val, (int, float)):
+            color = "color: green" if val >= 0 else "color: red"
+            return color
+        return ""
+
+    st.dataframe(
+        df_resultats.style.applymap(colorize, subset=["Solde Annuel (€)", "Trésorerie Cumulée (€)"]),
+        use_container_width=True
+    )
+
+    # Alertes
+    if any(v < 0 for v in tresorerie_cumulee):
+        st.error("⚠️ La trésorerie cumulée devient négative — revoir la structure de financement.")
+    else:
+        st.success("✅ La trésorerie cumulée reste positive sur toute la période.")
+
+    # Graphique
+    import plotly.graph_objects as go
+    fig = go.Figure()
+    fig.add_bar(x=annees, y=[totaux_r[a] for a in annees], name="Ressources", marker_color="steelblue")
+    fig.add_bar(x=annees, y=[-totaux_e[a] for a in annees], name="Emplois", marker_color="salmon")
+    fig.add_scatter(x=annees, y=tresorerie_cumulee, name="Trésorerie cumulée", mode="lines+markers", line=dict(color="green", width=2))
+    fig.update_layout(barmode="overlay", title="Plan de Financement Pluriannuel", xaxis_title="Année", yaxis_title="€")
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Export Excel
+    if st.button("📥 Exporter en Excel"):
+        from utils.plan_financement import export_excel_complet
+        excel_bytes = export_excel_complet(df_r, df_e, annees, st.session_state.get("entreprise", "Entreprise"))
+        st.download_button(
+            label="💾 Télécharger le fichier Excel",
+            data=excel_bytes,
+            file_name="plan_financement.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
