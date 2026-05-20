@@ -1475,39 +1475,64 @@ elif page == "📦 Immobilisations":
                     sauvegarder_si_autorise(type_analyse="Cession Immobilisation", resultat=rapport_c)
                     st.success("✅ Sauvegardé !")
 
-    # ── ONGLET 3 : PLAN D'INVESTISSEMENT ──
-    with onglet3:
-        st.markdown("### 📊 Plan d'investissement — Suivi du parc")
-        st.caption("Uploadez un fichier Excel avec vos immobilisations")
+    # -----------------------------------------------------------------------------
+# 📐 PLAN DE FINANCEMENT - VERSION EXPERTE
+# -----------------------------------------------------------------------------
 
-        uploaded_file = st.file_uploader(
-            "📎 Fichier immobilisations (CSV, XLSX)",
-            type=["csv", "xlsx"],
-            help="Colonnes attendues : Désignation, Valeur, Date acquisition, Durée, Amort. cumulé"
-        )
+elif page == "📐 Plan de Financement":
+    st.title("📐 Plan de Financement")
+    st.markdown("**Supervision PCG France** : Analyse de la CAF, du BFR et des équilibres.")
+    
+    # Initialisation des données
+    annee_base = datetime.now().year
+    nb_annees = st.slider("Horizon (années)", 1, 5, 3)
+    annees = [str(annee_base + i) for i in range(nb_annees)]
+    
+    # Saisie ou Import
+    with st.expander("📂 Import Balance PCG pour automatisation", expanded=False):
+        f = st.file_uploader("Déposer la balance", type=["csv", "xlsx"])
+        prefill = extraire_caf_bfr_pcg(f.read(), f.name) if f else {}
+        if prefill: st.success("CAF et BFR extraits !")
 
-        if uploaded_file:
-            df, erreur = charger_fichier(uploaded_file)
-            if erreur:
-                st.error(f"❌ Erreur : {erreur}")
-            else:
-                st.success(f"✅ {len(df)} immobilisation(s) chargée(s)")
-                st.dataframe(df, use_container_width=True, hide_index=True)
+    # Éditeurs de tableaux
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("📥 Ressources")
+        # Exemple de structure, adaptez selon vos variables globales existantes
+        df_r = st.data_editor(pd.DataFrame({
+            "Libellé": ["CAF", "Augmentation Capital", "Subventions", "Emprunts", "Autres"],
+            **{a: [prefill.get("CAF estimée", 0)] + [0]*4 for a in annees}
+        }), use_container_width=True)
+        
+    with col2:
+        st.subheader("📤 Emplois")
+        df_e = st.data_editor(pd.DataFrame({
+            "Libellé": ["Variation BFR", "Investissements", "Dividendes", "Remb. Emprunt", "Autres"],
+            **{a: [prefill.get("Variation BFR estimée", 0)] + [0]*4 for a in annees}
+        }), use_container_width=True)
 
-                st.divider()
-                st.markdown("### 📊 Analyse du parc")
+    # Synthèse & KPI (Le bloc que vous attendiez)
+    st.divider()
+    st.subheader("📊 Synthèse & KPI")
+    kpis = calculer_kpi_financiers(df_r.set_index("Libellé"), df_e.set_index("Libellé"), annees)
 
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("📦 Nombre de biens", len(df))
-                with col2:
-                    if 'Valeur' in df.columns:
-                        st.metric("💰 Valeur totale", f"{pd.to_numeric(df['Valeur'], errors='coerce').sum():,.2f} €")
-                with col3:
-                    if 'Amort. cumulé' in df.columns:
-                        st.metric("📉 Amort. total", f"{pd.to_numeric(df['Amort. cumulé'], errors='coerce').sum():,.2f} €")
-        else:
-            st.info("💡 Vous pouvez aussi saisir vos immobilisations manuellement via l'onglet Tableau d'amortissement.")
+    for a in annees:
+        st.markdown(f"### 🗓️ Exercice {a}")
+        c1, c2, c3 = st.columns(3)
+        c1.metric(f"Solde {a}", f"{kpis[a]['solde']:,.0f} €", 
+                  delta="Excédent" if kpis[a]['solde'] >= 0 else "Déficit")
+        c2.metric("Taux d'investissement", f"{kpis[a]['ratio']:.1f} %")
+        
+        if kpis[a]['alerte']:
+            st.error(f"⚠️ Alerte : Déficit de financement en {a} !")
+        
+        st.plotly_chart(generer_graphique_waterfall(df_r.set_index("Libellé"), df_e.set_index("Libellé"), a), use_container_width=True)
+        st.divider()
+
+    # Export
+    if st.button("📥 Exporter le plan complet"):
+        excel_bytes = export_excel_complet(df_r, df_e, annees, "Expertise")
+        st.download_button("Télécharger le fichier", excel_bytes, "Plan_Financement.xlsx")
 # -----------------------------------------------------------------------------
 # INVENTAIRE & CLÔTURE
 # -----------------------------------------------------------------------------
