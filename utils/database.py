@@ -123,7 +123,9 @@ def purger_donnees_expirees():
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        aujourd_hui = datetime.now().strftime("%d/%m/%Y %H:%M")
+        # Format ISO YYYY-MM-DD requis pour que la comparaison SQL < fonctionne
+        # correctement comme comparaison lexicographique de chaînes.
+        aujourd_hui = datetime.now().strftime("%Y-%m-%d %H:%M")
         c.execute("""
             DELETE FROM analyses
             WHERE date_expiration IS NOT NULL
@@ -234,8 +236,8 @@ def sauvegarder_analyse(type_analyse=None, resultat=None, client_id=0,
     if client_id is None:
         client_id = 0
 
-    # Date d'expiration RGPD
-    date_expiration = (datetime.now() + timedelta(days=RETENTION_JOURS)).strftime("%d/%m/%Y %H:%M")
+    # Date d'expiration RGPD — format ISO pour compatibilité avec la comparaison SQL
+    date_expiration = (datetime.now() + timedelta(days=RETENTION_JOURS)).strftime("%Y-%m-%d %H:%M")
 
     # Récupération email utilisateur connecté
     try:

@@ -31,9 +31,9 @@ def lire_fec(fichier):
                 df = pd.read_csv(fichier, sep=sep, encoding=enc, dtype=str)
                 if len(df.columns) >= 15:
                     return df, sep, enc
-            except:
+            except Exception:
                 continue
-    
+
     return None, None, None
 
 
@@ -101,7 +101,7 @@ def valider_fec(df):
                     "valide": False,
                     "message": f"Format non conforme ({taux_valide:.0f}% valide)"
                 }
-        except:
+        except Exception:
             resultats['Format dates (AAAAMMJJ)'] = {
                 "valide": False,
                 "message": "Format de date non valide"
@@ -246,7 +246,7 @@ def analyser_fec(df):
                 rapport.append(f"- **Date debut** : {dates.min().strftime('%d/%m/%Y')}")
                 rapport.append(f"- **Date fin** : {dates.max().strftime('%d/%m/%Y')}")
                 rapport.append(f"- **Duree** : {(dates.max() - dates.min()).days} jours")
-        except:
+        except Exception:
             rapport.append("*Format de dates non standard*")
     
     # 5. CONCLUSION

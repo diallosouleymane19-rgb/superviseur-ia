@@ -560,10 +560,10 @@ elif page == "📊 Audit Balance":
                             st.warning(f"### {niveau} : {score}% ⚠️")
                         else:
                             st.error(f"### {niveau} : {score}% ❌")
-                        st.progress(int(score))
-                    
+                        st.progress(min(int(score), 100))
+
                     st.divider()
-                    
+
                     if audit['kpis']:
                         st.markdown("## 💰 Indicateurs Clés")
                         kpis = audit['kpis']
@@ -720,7 +720,7 @@ elif page == "📂 Traitement FEC":
                         else:
                             st.error(f"### {niveau} : {score}% ❌")
                         
-                        st.progress(int(score))
+                        st.progress(min(int(score), 100))
                         st.caption(f"Points obtenus : {meta.get('points', 0)} / {meta.get('points_max', 100)}")
                     
                     st.divider()
@@ -1250,7 +1250,7 @@ elif page == "🔄 Rapprochement Bancaire":
                                  delta="Excellent" if taux >= 90 else "Bon" if taux >= 70 else "À vérifier",
                                  delta_color="normal" if taux >= 70 else "inverse")
                     
-                    st.progress(int(taux))
+                    st.progress(min(int(taux), 100))
                     
                     if taux >= 90:
                         st.success("✅ **Excellent rapprochement** - Quasi-complet")

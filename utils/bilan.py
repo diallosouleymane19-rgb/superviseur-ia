@@ -76,20 +76,22 @@ def calculer_bilan(df, date_cloture=None):
     bilan['actif']['TOTAL ACTIF'] = total_actif
     
     # PASSIF
+    # PCG : 10x = Capital + primes + réserves (106x) ; 11x = Report à nouveau ; 12x = Résultat
     capital = -df[df['_sous_classe'] == '10']['_solde'].sum()
-    reserves = -df[df['_sous_classe'] == '12']['_solde'].sum()
-    report = -df[df['_sous_classe'] == '13']['_solde'].sum()
-    
+    report = -df[df['_sous_classe'] == '11']['_solde'].sum()   # 11x = Report à nouveau (110/119)
+    # Note: le résultat est calculé ci-dessous à partir des classes 6 et 7
+    # Note: 12x = Résultat de l'exercice (non doublonné car calculé séparément)
+    # Note: 13x = Subventions d'investissement (exclu des capitaux propres usuels)
+
     produits = df[df['_classe'] == '7']['_credit'].sum() - df[df['_classe'] == '7']['_debit'].sum()
     charges = df[df['_classe'] == '6']['_debit'].sum() - df[df['_classe'] == '6']['_credit'].sum()
     resultat = produits - charges
-    
-    bilan['passif']['Capital (10)'] = capital
-    bilan['passif']['Reserves (12)'] = reserves
-    bilan['passif']['Report a nouveau (13)'] = report
+
+    bilan['passif']['Capital et reserves (10)'] = capital
+    bilan['passif']['Report a nouveau (11)'] = report
     bilan['passif']['Resultat exercice'] = resultat
-    
-    capitaux_propres = capital + reserves + report + resultat
+
+    capitaux_propres = capital + report + resultat
     bilan['passif']['TOTAL CAPITAUX PROPRES'] = capitaux_propres
     
     dettes_fin = -df[df['_sous_classe'] == '16']['_solde'].sum()
@@ -124,7 +126,7 @@ def calculer_bilan(df, date_cloture=None):
     # Ratios
     if total_actif > 0:
         autonomie = (capitaux_propres / total_actif) * 100
-        endettement = (dettes_fin / capitaux_propres * 100) if capitaux_propres > 0 else 0
+        endettement = (total_dettes / capitaux_propres * 100) if capitaux_propres > 0 else 0
         fdr = (capitaux_propres + dettes_fin) - immobilisations
         bfr = (stocks + max(clients, 0)) - (max(dettes_four, 0) + max(dettes_perso, 0) + max(dettes_soc, 0) + max(dettes_fisc, 0))
         tn = fdr - bfr
