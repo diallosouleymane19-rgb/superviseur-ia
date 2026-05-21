@@ -197,6 +197,9 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
 
 
 st.sidebar.title("SMD Consulting")
+st.sidebar.divider()
+if st.sidebar.button("🚪 Déconnexion", use_container_width=True):
+    logout()
 
 st.sidebar.caption(f"👤 {st.session_state.get('user_email', 'Utilisateur')}")
 
@@ -283,6 +286,14 @@ separateurs = ["─── Analyse & Audit ───", "─── États Financie
 if page in separateurs:
 
     page = "🏠 Accueil"
+    st.markdown("""
+    <div style="padding:1.5rem 1rem 1rem 1rem; border-bottom:2px solid #1F4E79; margin-bottom:1.5rem;">
+        <h1 style="margin:0; color:#1F4E79; font-size:1.9rem;">Superviseur IA Comptable</h1>
+        <p style="margin:0.4rem 0 0 0; color:#555; font-size:0.95rem;">
+            SMD Consulting &nbsp;&middot;&nbsp; Audit &amp; Finance augmentés par l'IA
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 
