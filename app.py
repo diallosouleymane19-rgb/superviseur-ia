@@ -9,7 +9,6 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
-import traceback
 
 # Imports des modules utils
 from utils.ocr import ocr_image_mistral
@@ -17,7 +16,7 @@ from utils.ai import appel_mistral, extraire_contenu_mistral, appel_mistral_visi
 from utils.export_word import export_analyse_word
 from utils.veille_fiscale import obtenir_veille_fiscale
 from utils.database import init_db, sauvegarder_analyse
-from utils.fec import valider_fec, analyser_fec, lire_fec, detecter_anomalies_fec
+from utils.fec import valider_fec, analyser_fec
 from utils.bilan import generer_bilan
 from utils.rapprochement import rapprocher_bancaire
 from utils.rapport_client import generer_rapport_client
@@ -28,11 +27,6 @@ from utils.tft import page_tft
 from utils.comparatif import page_comparatif
 from utils.tva import page_tva
 from benford_module import analyse_benford_complete
-
-# Imports remontés en haut pour des raisons de performance et de propreté (PEP 8)
-from utils.analyse_facture import extraire_donnees_facture, verifier_conformite_facture, suggerer_comptabilisation, generer_rapport_facture
-from utils.audit_balance import auditer_balance, generer_rapport_audit
-from utils.intelligent_parser import parser_balance_intelligent, nettoyer_balance
 
 # Authentification
 from auth import login, logout, is_connecte
@@ -199,7 +193,6 @@ def appel_mistral_securise(prompt, temperature=0.3, label="analyse"):
     except Exception as e:
         st.warning(f"⚠️ Connexion IA interrompue pour {label}. Vérifiez votre connexion.")
         return {"success": False, "content": "", "error": str(e)}
-
 @st.cache_data(show_spinner=False)
 def charger_fichier(uploaded_file, header=0):
     """Charge un fichier CSV ou XLSX en DataFrame"""
@@ -258,7 +251,6 @@ if page == "🏠 Accueil":
 
     st.divider()
     st.caption("SMD Consulting © 2026 — PCG France · ANC/CRC 99-02 · Données traitées localement, jamais stockées.")
-
 # -----------------------------------------------------------------------------
 # 2. ANALYSE FACTURE (OCR) - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
@@ -268,7 +260,7 @@ elif page == "🧾 Analyse Facture (OCR)":
     st.markdown("**OCR + IA** : Extraction structurée + Conformité + Comptabilisation")
     st.caption("✨ Pour Cabinets et Saisie comptable automatisée")
     
-    # Initialisation état (avec file_id pour sécurité de reset)
+    # Initialisation état
     if 'fact_ocr' not in st.session_state:
         st.session_state.fact_ocr = None
     if 'fact_donnees' not in st.session_state:
@@ -277,8 +269,8 @@ elif page == "🧾 Analyse Facture (OCR)":
         st.session_state.fact_controles = None
     if 'fact_ecritures' not in st.session_state:
         st.session_state.fact_ecritures = None
-    if 'fact_file_id' not in st.session_state:
-        st.session_state.fact_file_id = None
+    if 'fact_nom_fichier' not in st.session_state:
+        st.session_state.fact_nom_fichier = None
     
     col1, col2 = st.columns([5, 1])
     with col1:
@@ -295,17 +287,17 @@ elif page == "🧾 Analyse Facture (OCR)":
             st.session_state.fact_donnees = None
             st.session_state.fact_controles = None
             st.session_state.fact_ecritures = None
-            st.session_state.fact_file_id = None
+            st.session_state.fact_nom_fichier = None
             st.rerun()
     
     if uploaded_file:
-        # ✅ CORRECTION CACHE : Utilisation de file_id au lieu du nom du fichier
-        if st.session_state.get('fact_file_id') != uploaded_file.file_id:
+        # ✅ CORRECTION CACHE : Réinitialiser si nouveau fichier uploadé
+        if st.session_state.get('fact_nom_fichier') != uploaded_file.name:
             st.session_state.fact_ocr = None
             st.session_state.fact_donnees = None
             st.session_state.fact_controles = None
             st.session_state.fact_ecritures = None
-            st.session_state['fact_file_id'] = uploaded_file.file_id
+            st.session_state['fact_nom_fichier'] = uploaded_file.name
 
         # Étape 1 : OCR
         if st.session_state.fact_ocr is None:
@@ -335,6 +327,8 @@ elif page == "🧾 Analyse Facture (OCR)":
                 if st.button("🤖 Analyser avec IA (extraction structurée)", type="primary", use_container_width=True):
                     with st.spinner("🤖 Analyse structurée en cours..."):
                         try:
+                            from utils.analyse_facture import extraire_donnees_facture, verifier_conformite_facture, suggerer_comptabilisation
+                            
                             result = extraire_donnees_facture(st.session_state.fact_ocr)
                             
                             if result.get('success'):
@@ -349,6 +343,7 @@ elif page == "🧾 Analyse Facture (OCR)":
                                         st.code(result['raw'])
                         except Exception as e:
                             st.error(f"❌ Erreur : {e}")
+                            import traceback
                             with st.expander("Détails"):
                                 st.code(traceback.format_exc())
             
@@ -420,31 +415,22 @@ elif page == "🧾 Analyse Facture (OCR)":
                 
                 st.divider()
                 
-                # Comptabilisation (Corrigé pour éviter le ValueError)
+                # Comptabilisation
                 if st.session_state.fact_ecritures:
                     st.markdown("### 📚 Comptabilisation Suggérée")
                     
+                    import pandas as pd
                     df_ecritures = pd.DataFrame(st.session_state.fact_ecritures)
-                    
-                    # Renommage robuste des colonnes pour éviter les crashs si l'IA modifie la structure
-                    df_ecritures = df_ecritures.rename(columns={
-                        'compte': 'Compte',
-                        'libelle': 'Libellé',
-                        'debit': 'Débit',
-                        'credit': 'Crédit'
-                    })
-                    
-                    # Formatage uniquement si la colonne existe (sécurité supplémentaire)
-                    if 'Débit' in df_ecritures.columns:
-                        df_ecritures['Débit'] = df_ecritures['Débit'].apply(lambda x: f"{float(x):,.2f} €" if pd.notna(x) and float(x) > 0 else "")
-                    if 'Crédit' in df_ecritures.columns:
-                        df_ecritures['Crédit'] = df_ecritures['Crédit'].apply(lambda x: f"{float(x):,.2f} €" if pd.notna(x) and float(x) > 0 else "")
+                    df_ecritures['debit'] = df_ecritures['debit'].apply(lambda x: f"{x:,.2f} €" if x > 0 else "")
+                    df_ecritures['credit'] = df_ecritures['credit'].apply(lambda x: f"{x:,.2f} €" if x > 0 else "")
+                    df_ecritures.columns = ['Compte', 'Libellé', 'Débit', 'Crédit']
                     
                     st.dataframe(df_ecritures, use_container_width=True, hide_index=True)
                 
                 st.divider()
                 
                 # Export
+                from utils.analyse_facture import generer_rapport_facture
                 rapport = generer_rapport_facture(donnees, st.session_state.fact_controles, st.session_state.fact_ecritures)
                 
                 col1, col2 = st.columns(2)
@@ -474,6 +460,9 @@ elif page == "📊 Audit Balance":
     )
     
     if uploaded_file:
+        from utils.audit_balance import auditer_balance, generer_rapport_audit
+        from utils.intelligent_parser import parser_balance_intelligent, nettoyer_balance
+        
         mode_lecture = st.radio(
             "🔧 Mode de lecture",
             ["🤖 Auto-détection universelle", "📋 Mode manuel"],
@@ -509,14 +498,12 @@ elif page == "📊 Audit Balance":
                 with col1:
                     a_un_entete = st.checkbox("✅ Mon fichier a une ligne d'en-tête", value=True)
                 with col2:
-                    ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else 0
+                    ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else None
                 
-                # ✅ CORRECTION PERFORMANCE : Utilisation du cache pour éviter les rechargements lents
-                df, erreur_fichier = charger_fichier(uploaded_file, header=ligne_entete if a_un_entete else None)
-                
-                if erreur_fichier:
-                    st.error(f"❌ Erreur lors de la lecture : {erreur_fichier}")
-                    st.stop()
+                if uploaded_file.name.endswith('xlsx'):
+                    df = pd.read_excel(uploaded_file, header=ligne_entete if a_un_entete else None)
+                else:
+                    df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
                 
                 st.success(f"✅ Balance chargée : **{len(df):,} lignes**")
                 
@@ -665,6 +652,7 @@ elif page == "📊 Audit Balance":
                             
         except Exception as e:
             st.error(f"❌ Erreur : {str(e)}")
+            import traceback
             with st.expander("Détails techniques"):
                 st.code(traceback.format_exc())
 
@@ -683,6 +671,8 @@ elif page == "📂 Traitement FEC":
     )
     
     if uploaded_file:
+        from utils.fec import lire_fec, valider_fec, analyser_fec, detecter_anomalies_fec
+        
         with st.spinner("📖 Lecture du FEC..."):
             df, sep, enc = lire_fec(uploaded_file)
         
@@ -709,6 +699,4 @@ elif page == "📂 Traitement FEC":
             
             st.divider()
             
-            if st.button("🛡️ Lancer la validation DGFiP complète", type="primary", use_container_width=True):
-                # !!! COLLES LA SUITE DE TON CODE ICI POUR LE TRAITEMENT FEC !!!
-                pass
+            if st.button("🛡️ Lancer la validation DGFiP complète", type="primary", use_container_
