@@ -252,3 +252,42 @@ def generer_rapport_coherence(resultat, nom_entreprise="Entreprise"):
     rapport.append("*SMD Consulting - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
+    def generer_rapport_coherence(resultat, nom_entreprise="Entreprise"):
+    """Génère un rapport texte de cohérence pour export Word."""
+    score = resultat.get("score_qualite", 0)
+    niveau = resultat.get("niveau", "N/A")
+    kpis = resultat.get("kpis", {})
+    verifications = resultat.get("verifications", {})
+    recommandations = resultat.get("recommandations", [])
+
+    lignes = [
+        f"RAPPORT DE COHÉRENCE DES DONNÉES",
+        f"Entreprise : {nom_entreprise}",
+        f"Date : {__import__('datetime').datetime.now().strftime('%d/%m/%Y')}",
+        "",
+        f"SCORE DE QUALITÉ : {score}% — {niveau}",
+        "",
+        f"INDICATEURS CLÉS",
+        f"- Lignes analysées : {kpis.get('nb_lignes', 0):,}",
+        f"- Colonnes : {kpis.get('nb_colonnes', 0)}",
+        f"- Complétude : {kpis.get('completude', 0):.1f}%",
+        f"- Doublons détectés : {kpis.get('doublons', 0)}",
+        "",
+        "RÉSULTATS DES VÉRIFICATIONS",
+    ]
+
+    for nom, ctrl in verifications.items():
+        statut = "✅" if ctrl["status"] == "OK" else ("⚠️" if ctrl["status"] == "WARNING" else "❌")
+        lignes.append(f"{statut} {nom} : {ctrl['message']}")
+
+    if recommandations:
+        lignes.append("")
+        lignes.append("RECOMMANDATIONS")
+        for reco in recommandations:
+            lignes.append(f"• {reco}")
+
+    lignes.append("")
+    lignes.append("---")
+    lignes.append("Rapport généré par SMD Consulting - Superviseur IA Comptable")
+
+    return "\n".join(lignes)
