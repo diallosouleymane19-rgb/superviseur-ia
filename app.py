@@ -1401,5 +1401,5 @@ elif page == "📂 Traitement FEC":
             
 
             if st.button("🛡️ Lancer la validation DGFiP complète", type="primary", use_container_width=True):
-            st.write("Analyse en cours...") 
+                st.write("Analyse en cours...") 
 
