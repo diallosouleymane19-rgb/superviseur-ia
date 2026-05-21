@@ -1471,42 +1471,90 @@ elif page == "📦 Immobilisations":
                     st.success("✅ Sauvegardé !")
 
     # -----------------------------------------------------------------------------
-# 📐 PLAN DE FINANCEMENT - VERSION EXPERTE
+# 📐 PLAN DE FINANCEMENT - VERSION EXPERTE AVEC SAISIE MANUELLE
 # -----------------------------------------------------------------------------
-
 elif page == "📐 Plan de Financement":
     st.title("📐 Plan de Financement")
     st.markdown("**Supervision PCG France** : Analyse de la CAF, du BFR et des équilibres.")
-    
-    # Initialisation des données
+
     annee_base = datetime.now().year
     nb_annees = st.slider("Horizon (années)", 1, 5, 3)
     annees = [str(annee_base + i) for i in range(nb_annees)]
-    
-    # Saisie ou Import
-    with st.expander("📂 Import Balance PCG pour automatisation", expanded=False):
+
+    # ── Mode de saisie ──
+    mode = st.radio(
+        "Mode de saisie",
+        ["✏️ Saisie manuelle", "📂 Import balance PCG"],
+        horizontal=True
+    )
+
+    st.divider()
+
+    prefill = {}
+    ressources_lignes = ["CAF", "Augmentation Capital", "Subventions", "Emprunts", "Autres"]
+    emplois_lignes = ["Variation BFR", "Investissements", "Dividendes", "Remb. Emprunt", "Autres"]
+
+    if mode == "📂 Import balance PCG":
         f = st.file_uploader("Déposer la balance", type=["csv", "xlsx"])
-        prefill = extraire_caf_bfr_pcg(f.read(), f.name) if f else {}
-        if prefill: st.success("CAF et BFR extraits !")
+        if f:
+            prefill = extraire_caf_bfr_pcg(f.read(), f.name)
+            if prefill:
+                st.success("✅ CAF et BFR extraits !")
+                c1, c2 = st.columns(2)
+                c1.metric("CAF estimée", f"{prefill.get('CAF estimée', 0):,.2f} €")
+                c2.metric("BFR estimé", f"{prefill.get('BFR estimé', 0):,.2f} €")
 
-    # Éditeurs de tableaux
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("📥 Ressources")
-        # Exemple de structure, adaptez selon vos variables globales existantes
-        df_r = st.data_editor(pd.DataFrame({
-            "Libellé": ["CAF", "Augmentation Capital", "Subventions", "Emprunts", "Autres"],
-            **{a: [prefill.get("CAF estimée", 0)] + [0]*4 for a in annees}
-        }), use_container_width=True)
-        
-    with col2:
-        st.subheader("📤 Emplois")
-        df_e = st.data_editor(pd.DataFrame({
-            "Libellé": ["Variation BFR", "Investissements", "Dividendes", "Remb. Emprunt", "Autres"],
-            **{a: [prefill.get("Variation BFR estimée", 0)] + [0]*4 for a in annees}
-        }), use_container_width=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("📥 Ressources")
+            df_r = st.data_editor(pd.DataFrame({
+                "Libellé": ressources_lignes,
+                **{a: [prefill.get("CAF estimée", 0)] + [0] * 4 for a in annees}
+            }), use_container_width=True)
+        with col2:
+            st.subheader("📤 Emplois")
+            df_e = st.data_editor(pd.DataFrame({
+                "Libellé": emplois_lignes,
+                **{a: [prefill.get("BFR estimé", 0)] + [0] * 4 for a in annees}
+            }), use_container_width=True)
 
-    # Synthèse & KPI (Le bloc que vous attendiez)
+    else:  # ✏️ Saisie manuelle
+        st.subheader("✏️ Saisie manuelle des données")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("#### 📥 Ressources (€)")
+            ressources_data = {"Libellé": ressources_lignes}
+            for a in annees:
+                ressources_data[a] = []
+                for i, lib in enumerate(ressources_lignes):
+                    val = st.number_input(
+                        f"{lib} — {a}",
+                        min_value=0.0,
+                        value=0.0,
+                        step=1000.0,
+                        key=f"res_{i}_{a}"
+                    )
+                    ressources_data[a].append(val)
+            df_r = pd.DataFrame(ressources_data)
+
+        with col2:
+            st.markdown("#### 📤 Emplois (€)")
+            emplois_data = {"Libellé": emplois_lignes}
+            for a in annees:
+                emplois_data[a] = []
+                for i, lib in enumerate(emplois_lignes):
+                    val = st.number_input(
+                        f"{lib} — {a}",
+                        min_value=0.0,
+                        value=0.0,
+                        step=1000.0,
+                        key=f"emp_{i}_{a}"
+                    )
+                    emplois_data[a].append(val)
+            df_e = pd.DataFrame(emplois_data)
+
+    # ── Synthèse & KPI ──
     st.divider()
     st.subheader("📊 Synthèse & KPI")
     kpis = calculer_kpi_financiers(df_r.set_index("Libellé"), df_e.set_index("Libellé"), annees)
@@ -1514,20 +1562,21 @@ elif page == "📐 Plan de Financement":
     for a in annees:
         st.markdown(f"### 🗓️ Exercice {a}")
         c1, c2, c3 = st.columns(3)
-        
-        c1.metric(f"Solde {a}", f"{kpis[a]['solde']:,.0f} €", 
+        c1.metric(f"Solde {a}", f"{kpis[a]['solde']:,.0f} €",
                   delta="Excédent" if kpis[a]['solde'] >= 0 else "Déficit")
         c2.metric("Taux d'investissement", f"{kpis[a]['ratio']:.1f} %")
-        
+        c3.metric("Trésorerie cumulée", f"{kpis[a]['tresorerie_cumulee']:,.0f} €")
+
         if kpis[a]['alerte']:
             st.error(f"⚠️ Alerte : Déficit de financement en {a} !")
-            
-        # Intégration de l'analyse narrative IA
+
         with st.expander("🤖 Analyse Stratégique par l'IA", expanded=True):
             st.markdown(generer_conseils_experts(kpis, a))
-        
-        # Graphique Waterfall
-        st.plotly_chart(generer_graphique_waterfall(df_r.set_index("Libellé"), df_e.set_index("Libellé"), a), use_container_width=True)
+
+        st.plotly_chart(
+            generer_graphique_waterfall(df_r.set_index("Libellé"), df_e.set_index("Libellé"), a),
+            use_container_width=True
+        )
         st.divider()
 
     # Export
