@@ -26,7 +26,7 @@ from utils.plan_financement import page_plan_financement
 from utils.tft import page_tft
 from utils.comparatif import page_comparatif
 from utils.tva import page_tva
-from benford_module import analyse_benford_complete
+from utils.benford_module import analyse_benford_complete
 
 # Authentification
 from auth import login, logout, is_connecte
