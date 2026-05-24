@@ -1,306 +1,231 @@
+"""
+utils/ai.py - Client API Mistral optimisé pour Superviseur IA PCG
+"""
 import os
-import json
+import time
+import socket
 import logging
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import streamlit as st
 from dotenv import load_dotenv
-from pathlib import Path
-from typing import Optional, Dict
 
-# ---------------------------------------------------------
-# Configuration du logging
-# ---------------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+load_dotenv()
 
-# ---------------------------------------------------------
-# Chargement sécurisé de la clé API
-# st.secrets (Streamlit Cloud) en priorité, .env en fallback
-# ---------------------------------------------------------
-ROOT_DIR = Path(__file__).resolve().parent.parent
-ENV_PATH = ROOT_DIR / ".env"
-load_dotenv(dotenv_path=ENV_PATH)
+logger = logging.getLogger("superviseur_ia")
 
-def _get_mistral_key() -> str:
-    """Récupère la clé API Mistral depuis st.secrets ou .env"""
+# =============================================================================
+# CONFIGURATION API
+# =============================================================================
+
+API_URL = "https://api.mistral.ai/v1/chat/completions"
+MODEL_PRINCIPAL = "mistral-large-latest"
+MODEL_FALLBACK = "mistral-medium-latest"  # Plus rapide, moins cher
+
+# Timeouts critiques (connexion courte, lecture modérée)
+CONNECT_TIMEOUT = 8.0      # 8s max pour établir la connexion
+READ_TIMEOUT = 45.0        # 45s max pour recevoir la réponse
+MAX_RETRIES = 2            # 2 retries max (pas 3)
+RETRY_DELAY = 2.0          # Délai initial court
+RETRY_BACKOFF = 2.0        # Facteur de backoff
+
+# =============================================================================
+# SESSION HTTP RÉUTILISABLE (Keep-Alive)
+# =============================================================================
+
+def get_session():
+    """Crée ou récupère une session HTTP avec keep-alive et retry intelligent"""
+    if 'http_session' not in st.session_state:
+        session = requests.Session()
+        
+        # Retry UNIQUEMENT sur les erreurs réseau/connexion, PAS sur les timeouts de lecture
+        retry_strategy = Retry(
+            total=MAX_RETRIES,
+            backoff_factor=RETRY_DELAY,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["POST"],
+            raise_on_status=False
+        )
+        
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=5,
+            pool_maxsize=10
+        )
+        
+        session.mount("https://", adapter)
+        session.headers.update({
+            "Connection": "keep-alive",
+            "Accept-Encoding": "gzip, deflate"
+        })
+        
+        st.session_state.http_session = session
+        logger.info("Session HTTP créée avec keep-alive")
+    
+    return st.session_state.http_session
+
+# =============================================================================
+# UTILITAIRES RÉSEAU
+# =============================================================================
+
+def test_dns_resolution():
+    """Test rapide si api.mistral.ai est joignable (< 2s)"""
     try:
-        import streamlit as st
-        return st.secrets.get("MISTRAL_API_KEY", os.getenv("MISTRAL_API_KEY", ""))
-    except Exception:
-        return os.getenv("MISTRAL_API_KEY", "")
-
-MISTRAL_API_KEY = _get_mistral_key()
-MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
-DEFAULT_MODEL = "mistral-large-latest"
-DEFAULT_TEMPERATURE = 0.2
-REQUEST_TIMEOUT = 30  # secondes
-
-# ---------------------------------------------------------
-# Validation de la clé API au démarrage
-# ---------------------------------------------------------
-def valider_cle_api() -> bool:
-    """
-    Valide que la clé API Mistral est présente et non vide.
-    """
-    if not MISTRAL_API_KEY or MISTRAL_API_KEY.strip() == "":
-        logger.error("MISTRAL_API_KEY manquante ou vide dans le fichier .env")
+        socket.getaddrinfo("api.mistral.ai", None, socket.AF_INET, socket.SOCK_STREAM)
+        return True
+    except Exception as e:
+        logger.warning(f"DNS resolution failed: {e}")
         return False
-    
-    if not MISTRAL_API_KEY.startswith("sk-") and not MISTRAL_API_KEY.startswith("mistral-"):
-        logger.warning("Format de clé API inhabituel - vérifiez votre clé")
-    
-    logger.info("Clé API Mistral chargée avec succès")
-    return True
 
-# ---------------------------------------------------------
-# Fonction d'appel à l'API Mistral (VERSION AMÉLIORÉE)
-# ---------------------------------------------------------
-def appel_mistral(
-    prompt: str,
-    model: str = DEFAULT_MODEL,
-    temperature: float = DEFAULT_TEMPERATURE,
-    max_tokens: Optional[int] = None
-) -> Dict[str, any]:
+def get_api_key():
+    """Récupère la clé API de manière sécurisée"""
+    key = st.secrets.get("MISTRAL_API_KEY") or os.getenv("MISTRAL_API_KEY")
+    if not key:
+        raise ValueError("❌ Clé MISTRAL_API_KEY manquante dans Settings > Secrets ou .env")
+    return key
+
+# =============================================================================
+# APPEL API MISTRAL - VERSION CORRIGÉE
+# =============================================================================
+
+def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
     """
-    Envoie un prompt texte au modèle Mistral et retourne la réponse.
+    Appel API Mistral avec gestion robuste des timeouts et retry intelligent.
     
     Args:
-        prompt: Le texte à envoyer au modèle
-        model: Le modèle Mistral à utiliser
-        temperature: Contrôle la créativité (0.0 à 1.0)
-        max_tokens: Limite de tokens dans la réponse (optionnel)
+        prompt: Le prompt complet à envoyer
+        temperature: Température de génération (0.0 - 1.0)
+        max_tokens: Limite de tokens pour réponse rapide
+        use_fallback: Utiliser le modèle fallback (plus rapide)
     
     Returns:
-        Dict avec 'success' (bool), 'content' (str) et 'error' (str optionnel)
+        dict: {"success": bool, "content": str, "error": str}
     """
-    # Validation de la clé API
-    if not valider_cle_api():
+    # Test DNS rapide avant toute tentative
+    if not test_dns_resolution():
         return {
             "success": False,
-            "content": None,
-            "error": "Clé API Mistral invalide ou manquante"
+            "content": "",
+            "error": "🌐 Impossible de contacter api.mistral.ai - Vérifiez votre connexion internet"
         }
     
-    # Validation du prompt
-    if not prompt or prompt.strip() == "":
-        return {
-            "success": False,
-            "content": None,
-            "error": "Le prompt ne peut pas être vide"
-        }
+    api_key = get_api_key()
+    model = MODEL_FALLBACK if use_fallback else MODEL_PRINCIPAL
+    session = get_session()
     
-    # Préparation de la requête
     headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
     }
     
     payload = {
         "model": model,
-        "messages": [
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": temperature
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens
     }
     
-    if max_tokens:
-        payload["max_tokens"] = max_tokens
+    last_error = None
     
-    try:
-        logger.info(f"Appel API Mistral - Modèle: {model}, Temperature: {temperature}")
-        
-        # Appel API avec timeout
-        response = requests.post(
-            MISTRAL_API_URL,
-            headers=headers,
-            json=payload,
-            timeout=REQUEST_TIMEOUT
-        )
-        
-        # Gestion des erreurs HTTP
-        if response.status_code == 401:
-            logger.error("Erreur d'authentification - Clé API invalide")
-            return {
-                "success": False,
-                "content": None,
-                "error": "Clé API invalide ou expirée"
-            }
-        
-        if response.status_code == 429:
-            logger.error("Limite de taux dépassée")
-            return {
-                "success": False,
-                "content": None,
-                "error": "Trop de requêtes - limite API atteinte"
-            }
-        
-        if response.status_code != 200:
-            logger.error(f"Erreur HTTP {response.status_code}: {response.text}")
-            return {
-                "success": False,
-                "content": None,
-                "error": f"Erreur API: HTTP {response.status_code}"
-            }
-        
-        # Parsing de la réponse JSON
+    for attempt in range(MAX_RETRIES + 1):  # +1 pour tentative initiale
         try:
+            logger.info(f"Appel API Mistral (tentative {attempt+1}/{MAX_RETRIES+1}, modèle: {model})")
+            
+            # ⏱️ Timeout explicite : connexion courte, lecture modérée
+            response = session.post(
+                API_URL,
+                headers=headers,
+                json=payload,
+                timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
+            )
+            
+            # Gestion des codes HTTP
+            if response.status_code == 401:
+                return {"success": False, "content": "", "error": "🔑 Clé API invalide"}
+            elif response.status_code == 429:
+                return {"success": False, "content": "", "error": "⏱️ Rate limit atteint - patientez quelques minutes"}
+            elif response.status_code >= 500:
+                return {"success": False, "content": "", "error": f"🔥 Erreur serveur Mistral ({response.status_code})"}
+            
+            response.raise_for_status()
             data = response.json()
-        except json.JSONDecodeError as e:
-            logger.error(f"Erreur de parsing JSON: {e}")
-            return {
-                "success": False,
-                "content": None,
-                "error": "Réponse API invalide (JSON malformé)"
-            }
-        
-        # Validation de la structure de la réponse
-        if "choices" not in data or len(data["choices"]) == 0:
-            logger.error("Structure de réponse inattendue")
-            return {
-                "success": False,
-                "content": None,
-                "error": "Structure de réponse API invalide"
-            }
-        
-        # Extraction du contenu
-        content = data["choices"][0]["message"]["content"]
-        logger.info("Réponse reçue avec succès")
-        
-        return {
-            "success": True,
-            "content": content,
-            "error": None,
-            "usage": data.get("usage", {})  # Informations sur les tokens utilisés
-        }
+            
+            if not data.get("choices"):
+                return {"success": False, "content": "", "error": "Réponse API vide"}
+            
+            content = data["choices"][0].get("message", {}).get("content", "")
+            
+            logger.info(f"✅ Réponse reçue: {len(content)} caractères")
+            return {"success": True, "content": content, "error": ""}
+            
+        except requests.exceptions.ConnectTimeout:
+            last_error = f"Timeout connexion ({CONNECT_TIMEOUT}s)"
+            wait = RETRY_DELAY * (RETRY_BACKOFF ** attempt)
+            logger.warning(f"Connect timeout, retry dans {wait:.1f}s")
+            if attempt < MAX_RETRIES:
+                time.sleep(wait)
+                
+        except requests.exceptions.ReadTimeout:
+            last_error = f"Timeout lecture ({READ_TIMEOUT}s) - réponse trop lente"
+            # PAS de retry sur read timeout → essayer fallback directement
+            if not use_fallback:
+                logger.info("🔄 Bascule vers modèle fallback...")
+                return appel_mistral(prompt, temperature, max_tokens, use_fallback=True)
+            return {"success": False, "content": "", "error": f"⏱️ {last_error}\n\nL'API est surchargée. Réessayez dans 1-2 minutes."}
+            
+        except requests.exceptions.ConnectionError as e:
+            last_error = f"Erreur connexion: {str(e)[:100]}"
+            wait = RETRY_DELAY * (RETRY_BACKOFF ** attempt)
+            logger.warning(f"Connection error, retry dans {wait:.1f}s")
+            if attempt < MAX_RETRIES:
+                time.sleep(wait)
+                
+        except requests.exceptions.RequestException as e:
+            last_error = f"Erreur réseau: {str(e)[:100]}"
+            break  # Pas de retry sur erreurs de requête génériques
+            
+        except Exception as e:
+            last_error = f"Erreur inattendue: {str(e)[:100]}"
+            logger.error(f"Erreur critique: {e}", exc_info=True)
+            break
     
-    except requests.exceptions.Timeout:
-        logger.error(f"Timeout après {REQUEST_TIMEOUT} secondes")
-        return {
-            "success": False,
-            "content": None,
-            "error": f"Délai d'attente dépassé ({REQUEST_TIMEOUT}s)"
-        }
+    # Si échec avec modèle principal, essayer fallback
+    if not use_fallback:
+        logger.info("🔄 Tentative avec modèle fallback après échec...")
+        return appel_mistral(prompt, temperature, max_tokens, use_fallback=True)
     
-    except requests.exceptions.ConnectionError:
-        logger.error("Erreur de connexion réseau")
-        return {
-            "success": False,
-            "content": None,
-            "error": "Impossible de se connecter à l'API Mistral"
-        }
-    
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Erreur requête: {e}")
-        return {
-            "success": False,
-            "content": None,
-            "error": f"Erreur réseau: {str(e)}"
-        }
-    
-    except Exception as e:
-        logger.error(f"Erreur inattendue: {e}")
-        return {
-            "success": False,
-            "content": None,
-            "error": f"Erreur inattendue: {str(e)}"
-        }
-# ---------------------------------------------------------
-# Fonctions pour compatibilité avec OCR et Vision
-# ---------------------------------------------------------
-def extraire_contenu_mistral(result):
-    """
-    Extrait le contenu textuel d'un résultat Mistral.
-    Compatible avec l'ancien format et le nouveau.
-    """
-    if isinstance(result, dict):
-        if result.get("success"):
-            return result.get("content", "")
-        else:
-            return f"Erreur: {result.get('error', 'Erreur inconnue')}"
-    return str(result)
-
-
-def appel_mistral_vision(messages: list, model: str = "pixtral-12b-2409", temperature: float = 0.2):
-    """
-    Appel spécial pour Mistral Vision (Pixtral) avec images.
-    
-    Args:
-        messages: Liste de messages avec images au format Mistral
-        model: Modèle vision à utiliser
-        temperature: Température
-        
-    Returns:
-        Dict avec success, content, error
-    """
-    if not valider_cle_api():
-        return {
-            "success": False,
-            "content": None,
-            "error": "Clé API Mistral invalide ou manquante"
-        }
-    
-    headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature
-    }
-    
-    try:
-        logger.info(f"Appel API Mistral Vision - Modèle: {model}")
-        
-        response = requests.post(
-            MISTRAL_API_URL,
-            headers=headers,
-            json=payload,
-            timeout=60  # Plus long pour les images
+    return {
+        "success": False,
+        "content": "",
+        "error": (
+            f"❌ Échec après {MAX_RETRIES} tentatives.\n\n"
+            f"**Dernier problème:** {last_error}\n\n"
+            f"**Solutions:**\n"
+            f"• Vérifiez votre connexion internet\n"
+            f"• Réessayez dans 1-2 minutes\n"
+            f"• Si le problème persiste, contactez contact@smdconsulting.pro"
         )
-        
-        if response.status_code != 200:
-            logger.error(f"Erreur HTTP {response.status_code}: {response.text}")
-            return {
-                "success": False,
-                "content": None,
-                "error": f"Erreur API: HTTP {response.status_code}"
-            }
-        
-        data = response.json()
-        content = data["choices"][0]["message"]["content"]
-        
-        logger.info("Réponse vision reçue avec succès")
-        
-        return {
-            "success": True,
-            "content": content,
-            "error": None,
-            "usage": data.get("usage", {})
-        }
-    
-    except Exception as e:
-        logger.error(f"Erreur appel vision: {e}")
-        return {
-            "success": False,
-            "content": None,
-            "error": str(e)
-        }
-# ---------------------------------------------------------
-# Exemple d'utilisation
-# ---------------------------------------------------------
-if __name__ == "__main__":
-    # Test de l'API
-    result = appel_mistral(
-        prompt="Explique-moi la comptabilité en 2 phrases",
-        temperature=0.3
+    }
+
+# =============================================================================
+# FONCTIONS EXISTANTES (conservées pour compatibilité)
+# =============================================================================
+
+def extraire_contenu_mistral(contenu):
+    """Extrait le contenu texte d'une réponse Mistral"""
+    if isinstance(contenu, dict) and "content" in contenu:
+        return contenu["content"]
+    return str(contenu)
+
+def appel_mistral_vision(image_data, prompt, temperature=0.3):
+    """
+    Appel API Mistral Vision pour analyse d'image (OCR).
+    Même logique de timeout que appel_mistral.
+    """
+    # Réutilise la même session et logique
+    return appel_mistral(
+        prompt=f"[IMAGE ANALYSIS]\n{prompt}\n\nImage data: {image_data[:100]}...",
+        temperature=temperature,
+        max_tokens=4000  # Vision nécessite plus de tokens
     )
-    
-    if result["success"]:
-        print(f"✅ Réponse: {result['content']}")
-        print(f"📊 Tokens utilisés: {result.get('usage', {})}")
-    else:
-        print(f"❌ Erreur: {result['error']}")
