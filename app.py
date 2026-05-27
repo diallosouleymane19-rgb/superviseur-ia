@@ -17,6 +17,8 @@ from utils.export_word import export_analyse_word
 from utils.veille_fiscale import obtenir_veille_fiscale
 from utils.database import init_db, sauvegarder_analyse
 from utils.fec import valider_fec, analyser_fec
+from utils.rendu_financier import afficher_rapport, afficher_synthese_score
+from utils.permissions import afficher_badge_role, afficher_quota_sidebar, check_quota, log_user_action
 from utils.bilan import generer_bilan
 from utils.rapprochement import rapprocher_bancaire
 from utils.rapport_client import generer_rapport_client
@@ -49,48 +51,66 @@ init_db()
 # AUTHENTIFICATION
 # =============================================================================
 
-if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
-    st.title("🔒 Superviseur IA Comptable")
-    st.subheader("Accès réservé aux cabinets clients")
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        st.markdown("---")
-        st.markdown("""
-        <div style='background:#f0fdf4;padding:12px;border-radius:8px;margin-bottom:10px;font-size:0.85em'>
-        ✅ <b>Données anonymisées</b> — SIRET masqués, noms supprimés<br>
-        ✅ <b>Non stockées</b> — Aucune conservation après analyse<br>
-        ✅ <b>Non utilisées pour entraîner l'IA</b> — Politique Mistral garantie
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("---")
-        email = st.text_input("📧 Email professionnel", placeholder="contact@cabinet.com")
-        password = st.text_input("🔑 Mot de passe", type="password")
-        
-        if st.button("🚀 Se connecter", type="primary", use_container_width=True):
-            if login(email, password):
-                st.success("✅ Connexion réussie !")
+if not is_connecte():
+    # Retour Stripe éventuel (upgrade depuis login)
+    from utils.stripe_billing import gerer_retour_stripe
+    gerer_retour_stripe()
+
+    tab_login, tab_signup = st.tabs(["🔑 Se connecter", "📝 Créer un compte"])
+
+    with tab_login:
+        st.title("🔒 Superviseur IA Comptable")
+        st.subheader("Accès réservé aux cabinets clients")
+
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("---")
+            st.markdown("""
+            <div style='background:#f0fdf4;padding:12px;border-radius:8px;
+                        margin-bottom:10px;font-size:0.85em'>
+            ✅ <b>Données anonymisées</b> — SIRET masqués, noms supprimés<br>
+            ✅ <b>Non stockées</b> — Aucune conservation après analyse<br>
+            ✅ <b>Non utilisées pour entraîner l'IA</b> — Politique Mistral garantie
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("---")
+
+            prefill = st.session_state.pop("prefill_email", "")
+            email    = st.text_input("📧 Email professionnel",
+                                     value=prefill,
+                                     placeholder="contact@cabinet.com")
+            password = st.text_input("🔑 Mot de passe", type="password")
+
+            if st.button("🚀 Se connecter", type="primary", use_container_width=True):
+                if login(email, password):
+                    st.success("✅ Connexion réussie !")
+                    st.rerun()
+                else:
+                    st.error("❌ Email ou mot de passe incorrect")
+
+            st.markdown("---")
+            st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
+            if st.button("👀 Accès Démonstration", use_container_width=True, key="btn_demo"):
+                st.session_state.update({
+                    "authenticated": True,
+                    "user_email":    "demo@smdconsulting.pro",
+                    "role":          "demo",
+                    "plan":          "free",
+                    "nom":           "Démonstration",
+                    "login_time":    datetime.now().isoformat(),
+                })
                 st.rerun()
-            else:
-                st.error("❌ Email ou mot de passe incorrect")
-        
-        st.markdown("---")
-       
-        st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
-        if st.button("👀 Accès Démonstration", use_container_width=True, key="btn_demo"):
-            st.session_state["authenticated"] = True
-            st.session_state["user_email"] = "demo@smdconsulting.pro"
-            st.session_state["role"] = "demo"
-            st.session_state["nom"] = "Démonstration"
-            st.session_state["login_time"] = datetime.now().isoformat()
-            st.rerun()
-        
-        st.caption("📧 Demander un accès : contact@smdconsulting.pro")
-        st.markdown("---")        
-    
-    st.divider()
-    st.caption("SMD Consulting © 2026 - Comptable IA Augmenté")
+
+            st.caption("📧 Demander un accès : contact@smdconsulting.pro")
+            st.markdown("---")
+
+        st.divider()
+        st.caption("SMD Consulting © 2026 - Comptable IA Augmenté")
+
+    with tab_signup:
+        from utils.page_inscription import page_inscription
+        page_inscription(app_name="pcg")
+
     st.stop()
 
 # =============================================================================
@@ -99,6 +119,10 @@ if not is_connecte():  # AUTHENTIFICATION ACTIVÉE
 
 st.sidebar.title("SMD Consulting")
 st.sidebar.caption(f"👤 {st.session_state.get('user_email', 'Utilisateur')}")
+
+# Badge rôle + plan + quota
+afficher_badge_role()
+afficher_quota_sidebar()
 
 # Indicateur mode démo
 if st.session_state.get("role") == "demo":
@@ -113,8 +137,8 @@ page = st.sidebar.selectbox(
         "─── Analyse & Audit ───",
         "🧾 Analyse Facture (OCR)",
         "📊 Audit Balance",
-        "🛡️ Loi de Benford",
-        "⚠️ Alertes & Anomalies",
+        "🛡 Loi de Benford",
+        "⚠ Alertes & Anomalies",
         "✅ Cohérence des Données",
         "─── États Financiers ───",
         "📈 Compte de Résultat",
@@ -131,6 +155,7 @@ page = st.sidebar.selectbox(
         "📋 Rapport Client",
         "📰 Veille Fiscale",
         "─── Paramètres ───",
+        "💳 Tarifs & Abonnement",
         "🔒 Confidentialité & Sécurité",
     ],
     label_visibility="collapsed"
@@ -179,7 +204,7 @@ def generer_bouton_word(titre, contenu):
             use_container_width=True
         )
     except Exception as e:
-        st.warning("⚠️ Export Word temporairement indisponible. Copiez le contenu manuellement.")
+        st.warning("⚠ Export Word temporairement indisponible. Copiez le contenu manuellement.")
 
 def appel_mistral_securise(prompt, temperature=0.3, label="analyse"):
     """Appel Mistral avec fallback et message utilisateur clair"""
@@ -188,10 +213,10 @@ def appel_mistral_securise(prompt, temperature=0.3, label="analyse"):
         if result["success"]:
             return result
         else:
-            st.warning(f"⚠️ L'IA est momentanément indisponible pour {label}. Réessayez dans quelques instants.")
+            st.warning(f"⚠ L'IA est momentanément indisponible pour {label}. Réessayez dans quelques instants.")
             return {"success": False, "content": "", "error": result.get("error", "")}
     except Exception as e:
-        st.warning(f"⚠️ Connexion IA interrompue pour {label}. Vérifiez votre connexion.")
+        st.warning(f"⚠ Connexion IA interrompue pour {label}. Vérifiez votre connexion.")
         return {"success": False, "content": "", "error": str(e)}
 @st.cache_data(show_spinner=False)
 def charger_fichier(uploaded_file, header=0):
@@ -409,7 +434,7 @@ elif page == "🧾 Analyse Facture (OCR)":
                         if ctrl['statut'] == 'OK':
                             st.success(f"✅ {ctrl['mention']}")
                         elif ctrl['statut'] == 'WARNING':
-                            st.warning(f"⚠️ {ctrl['mention']}")
+                            st.warning(f"⚠ {ctrl['mention']}")
                         else:
                             st.error(f"❌ {ctrl['mention']}")
                 
@@ -483,7 +508,7 @@ elif page == "📊 Audit Balance":
                     st.metric("📝 Lignes données", info['nb_lignes_donnees'])
                 
                 if info['colonnes_manquantes']:
-                    st.warning(f"⚠️ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
+                    st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
                 
                 with st.expander("🔍 Détails de la détection", expanded=False):
                     st.write("**Mapping des colonnes :**")
@@ -545,99 +570,18 @@ elif page == "📊 Audit Balance":
             if st.button("🔍 Lancer l'audit professionnel", type="primary", use_container_width=True):
                 with st.spinner("Audit en cours..."):
                     audit = auditer_balance(df)
-                    
-                    st.markdown("## 🎯 Score de Qualité de la Balance")
-                    score = audit['score_qualite']
-                    niveau = audit['niveau']
-                    
-                    col1, col2, col3 = st.columns([1, 2, 1])
-                    with col2:
-                        if score >= 90:
-                            st.success(f"### {niveau} : {score}% ✅")
-                        elif score >= 75:
-                            st.info(f"### {niveau} : {score}% ℹ️")
-                        elif score >= 50:
-                            st.warning(f"### {niveau} : {score}% ⚠️")
-                        else:
-                            st.error(f"### {niveau} : {score}% ❌")
-                        st.progress(min(int(score), 100))
+
+                    afficher_synthese_score(
+                        score=audit['score_qualite'],
+                        niveau=audit['niveau'],
+                        kpis=audit['kpis'],
+                        controles=audit['controles'],
+                        anomalies=audit['anomalies'],
+                        recommandations=audit['recommandations'],
+                        devise="€"
+                    )
 
                     st.divider()
-
-                    if audit['kpis']:
-                        st.markdown("## 💰 Indicateurs Clés")
-                        kpis = audit['kpis']
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            if 'total_debit' in kpis:
-                                st.metric("Total Débit", f"{kpis['total_debit']:,.0f} €")
-                        with col2:
-                            if 'total_credit' in kpis:
-                                st.metric("Total Crédit", f"{kpis['total_credit']:,.0f} €")
-                        with col3:
-                            if 'nb_comptes' in kpis:
-                                st.metric("Comptes", kpis['nb_comptes'])
-                        with col4:
-                            if 'ecart' in kpis:
-                                st.metric("Écart D/C", f"{kpis['ecart']:,.2f} €",
-                                         delta_color="inverse" if kpis['ecart'] > 0.01 else "normal")
-                        
-                        if 'resultat_estime' in kpis:
-                            st.markdown("### 📈 Performance Estimée")
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("Produits", f"{kpis['produits_totaux']:,.0f} €")
-                            with col2:
-                                st.metric("Charges", f"{kpis['charges_totales']:,.0f} €")
-                            with col3:
-                                st.metric("Résultat", f"{kpis['resultat_estime']:,.0f} €",
-                                         delta=f"Marge : {kpis.get('marge_pct', 0):.1f}%")
-                    
-                    st.divider()
-                    
-                    if 'repartition_classes' in audit['kpis']:
-                        st.markdown("## 📚 Répartition par Classe Comptable (PCG)")
-                        repartition = audit['kpis']['repartition_classes']
-                        df_classes = pd.DataFrame([
-                            {'Classe': k, 'Nombre de comptes': v} 
-                            for k, v in repartition.items()
-                        ]).sort_values('Nombre de comptes', ascending=False)
-                        
-                        col1, col2 = st.columns([1, 2])
-                        with col1:
-                            st.dataframe(df_classes, use_container_width=True, hide_index=True)
-                        with col2:
-                            st.bar_chart(df_classes.set_index('Classe'))
-                    
-                    st.divider()
-                    
-                    st.markdown("## 🔍 Contrôles Effectués")
-                    for nom, ctrl in audit['controles'].items():
-                        if ctrl['statut'] == 'OK':
-                            st.success(f"✅ **{nom}** : {ctrl['message']}")
-                        elif ctrl['statut'] == 'WARNING':
-                            st.warning(f"⚠️ **{nom}** : {ctrl['message']}")
-                        else:
-                            st.error(f"❌ **{nom}** : {ctrl['message']}")
-                    
-                    if audit['anomalies']:
-                        st.markdown("## ⚠️ Anomalies Détectées")
-                        for anomalie in audit['anomalies']:
-                            grav = anomalie['gravite']
-                            if grav == 'CRITIQUE':
-                                st.error(f"🔴 **[{grav}]** {anomalie['type']} : {anomalie['description']}")
-                            elif grav == 'MOYENNE':
-                                st.warning(f"🟡 **[{grav}]** {anomalie['type']} : {anomalie['description']}")
-                            else:
-                                st.info(f"🔵 **[{grav}]** {anomalie['type']} : {anomalie['description']}")
-                    
-                    if audit['recommandations']:
-                        st.markdown("## 💡 Recommandations Cabinet")
-                        for reco in audit['recommandations']:
-                            st.info(f"💼 {reco}")
-                    
-                    st.divider()
-                    
                     rapport = generer_rapport_audit(audit, nom_entreprise)
                     col1, col2 = st.columns(2)
                     with col1:
@@ -699,7 +643,7 @@ elif page == "📂 Traitement FEC":
             
             st.divider()
             
-            if st.button("🛡️ Lancer la validation DGFiP complète", type="primary", use_container_width=True):
+            if st.button("🛡 Lancer la validation DGFiP complète", type="primary", use_container_width=True):
                 with st.spinner("Validation en cours selon Article A.47 A-1 du LPF..."):
                     resultats = valider_fec(df)
                     
@@ -714,9 +658,9 @@ elif page == "📂 Traitement FEC":
                         if score >= 90:
                             st.success(f"### {niveau} : {score}% ✅")
                         elif score >= 75:
-                            st.info(f"### {niveau} : {score}% ℹ️")
+                            st.info(f"### {niveau} : {score}% ℹ")
                         elif score >= 50:
-                            st.warning(f"### {niveau} : {score}% ⚠️")
+                            st.warning(f"### {niveau} : {score}% ⚠")
                         else:
                             st.error(f"### {niveau} : {score}% ❌")
                         
@@ -737,11 +681,11 @@ elif page == "📂 Traitement FEC":
                     
                     st.markdown("## 🔍 Analyse Approfondie")
                     analyse = analyser_fec(df)
-                    st.markdown(analyse)
+                    afficher_rapport(analyse, afficher_kpis_auto=True, afficher_alertes_auto=True, afficher_tables_auto=True)
                     
                     st.divider()
                     
-                    st.markdown("## ⚠️ Détection d'Anomalies")
+                    st.markdown("## ⚠ Détection d'Anomalies")
                     anomalies = detecter_anomalies_fec(df)
                     
                     if anomalies:
@@ -801,18 +745,18 @@ elif page == "📂 Traitement FEC":
 # 5. LOI DE BENFORD - VERSION PROFESSIONNELLE CABINET D'AUDIT
 # -----------------------------------------------------------------------------
 
-elif page == "🛡️ Loi de Benford":
-    st.title("🛡️ Audit de Fraude - Loi de Benford")
+elif page == "🛡 Loi de Benford":
+    st.title("🛡 Audit de Fraude - Loi de Benford")
     st.markdown("**Détection statistique** d'anomalies et manipulations de données")
     st.caption("✨ Méthode utilisée par les cabinets d'audit, IRS, CAC pour la détection de fraude")
     
-    with st.expander("ℹ️ Comment ça marche ?"):
+    with st.expander("ℹ Comment ça marche ?"):
         st.markdown("""
         **La Loi de Benford** (1938) stipule que dans les données numériques naturelles, 
         le **chiffre 1** apparaît comme premier chiffre dans **30%** des cas, 
         le 2 dans 17,6%, le 3 dans 12,5%, etc.
         
-        ⚠️ **Si vos données ne suivent pas cette distribution**, cela peut indiquer :
+        ⚠ **Si vos données ne suivent pas cette distribution**, cela peut indiquer :
         - Manipulation manuelle des chiffres
         - Erreurs de saisie systématiques
         - Seuils d'autorisation contournés
@@ -874,7 +818,7 @@ elif page == "🛡️ Loi de Benford":
                             st.success(f"### ✅ Risque {score_risque}")
                             st.info("**Conformité Benford** - Pas d'anomalie statistique majeure")
                         elif score_risque == "Modere":
-                            st.warning(f"### ⚠️ Risque {score_risque}")
+                            st.warning(f"### ⚠ Risque {score_risque}")
                             st.warning("**Écarts détectés** - Investigation recommandée")
                         else:
                             st.error(f"### 🚨 Risque {score_risque}")
@@ -884,7 +828,7 @@ elif page == "🛡️ Loi de Benford":
                     if fig:
                         st.plotly_chart(fig, use_container_width=True)
                     st.divider()
-                    st.markdown(rapport)
+                    afficher_rapport(rapport, titre="Analyse Statistique Benford", afficher_kpis_auto=True, afficher_alertes_auto=True, compact=True)
                     st.divider()
                     
                     col1, col2 = st.columns(2)
@@ -962,7 +906,7 @@ elif page == "📈 Compte de Résultat":
                             _ca = sig.get("Chiffre d'affaires", 0)
                             st.metric("💰 CA", f"{_ca:,.0f} €")
                         with col2:
-                            st.metric("⚙️ VA", f"{sig['Valeur ajoutée (VA)']:,.0f} €")
+                            st.metric("⚙ VA", f"{sig['Valeur ajoutée (VA)']:,.0f} €")
                         with col3:
                             _ebe = sig.get("Excedent Brut d'Exploitation (EBE)", 0)
                             st.metric("📈 EBE", f"{_ebe:,.0f} €")
@@ -1024,7 +968,7 @@ elif page == "📈 Compte de Résultat":
                                 if item['type'] == 'OK':
                                     st.success(f"✅ {item['message']}")
                                 elif item['type'] == 'WARNING':
-                                    st.warning(f"⚠️ {item['message']}")
+                                    st.warning(f"⚠ {item['message']}")
                                 else:
                                     st.error(f"🔴 {item['message']}")
                         
@@ -1105,12 +1049,12 @@ elif page == "📊 Bilan Comptable":
                             st.metric("🏦 Capitaux", f"{totaux['capitaux_propres']:,.0f} €")
                         with col4:
                             ecart = totaux['ecart']
-                            st.metric("⚖️ Écart", f"{ecart:,.2f} €")
+                            st.metric("⚖ Écart", f"{ecart:,.2f} €")
                         
                         if ecart < 1:
                             st.success("✅ Bilan équilibré")
                         else:
-                            st.warning(f"⚠️ Bilan déséquilibré de {ecart:,.2f} €")
+                            st.warning(f"⚠ Bilan déséquilibré de {ecart:,.2f} €")
                         
                         st.divider()
                         col1, col2 = st.columns(2)
@@ -1153,7 +1097,7 @@ elif page == "📊 Bilan Comptable":
                                 if item['type'] == 'OK':
                                     st.success(f"✅ {item['message']}")
                                 elif item['type'] == 'WARNING':
-                                    st.warning(f"⚠️ {item['message']}")
+                                    st.warning(f"⚠ {item['message']}")
                                 else:
                                     st.error(f"🔴 {item['message']}")
                         
@@ -1228,7 +1172,7 @@ elif page == "🔄 Rapprochement Bancaire":
             with col1:
                 nom_compte = st.text_input("🏦 Nom du compte", value="Compte bancaire principal")
             with col2:
-                tolerance = st.slider("⏱️ Tolérance jours", 0, 10, 3,
+                tolerance = st.slider("⏱ Tolérance jours", 0, 10, 3,
                                      help="Écart maximum entre date relevé et écriture")
             
             if st.button("🔄 Lancer le rapprochement", type="primary", use_container_width=True):
@@ -1255,9 +1199,9 @@ elif page == "🔄 Rapprochement Bancaire":
                     if taux >= 90:
                         st.success("✅ **Excellent rapprochement** - Quasi-complet")
                     elif taux >= 70:
-                        st.info("ℹ️ **Bon rapprochement** - Satisfaisant")
+                        st.info("ℹ **Bon rapprochement** - Satisfaisant")
                     elif taux >= 50:
-                        st.warning("⚠️ **Rapprochement moyen** - Investigations nécessaires")
+                        st.warning("⚠ **Rapprochement moyen** - Investigations nécessaires")
                     else:
                         st.error("🚨 **Rapprochement faible** - Anomalies importantes")
                     
@@ -1325,12 +1269,12 @@ elif page == "📦 Immobilisations":
 
         col1, col2 = st.columns(2)
         with col1:
-            nom_bien = st.text_input("🏷️ Désignation du bien", placeholder="Ex: Véhicule utilitaire")
+            nom_bien = st.text_input("🏷 Désignation du bien", placeholder="Ex: Véhicule utilitaire")
             valeur_origine = st.number_input("💰 Valeur d'origine (€)", min_value=0.0, value=10000.0, step=100.0)
-            duree_ans = st.number_input("⏱️ Durée d'amortissement (ans)", min_value=1, max_value=50, value=5)
+            duree_ans = st.number_input("⏱ Durée d'amortissement (ans)", min_value=1, max_value=50, value=5)
         with col2:
             date_acquisition = st.date_input("📅 Date d'acquisition")
-            mode = st.selectbox("⚙️ Mode d'amortissement", ["Linéaire", "Dégressif"])
+            mode = st.selectbox("⚙ Mode d'amortissement", ["Linéaire", "Dégressif"])
             categorie = st.selectbox("🏭 Catégorie", [
                 "Matériel et outillage (5 ans)",
                 "Véhicules (4-5 ans)",
@@ -1343,7 +1287,7 @@ elif page == "📦 Immobilisations":
 
         if st.button("📊 Générer le tableau", type="primary", use_container_width=True):
             if not nom_bien:
-                st.error("⚠️ Veuillez renseigner la désignation du bien")
+                st.error("⚠ Veuillez renseigner la désignation du bien")
             else:
                 with st.spinner("Calcul en cours..."):
                     from datetime import datetime
@@ -1360,7 +1304,7 @@ elif page == "📦 Immobilisations":
                     with col1:
                         st.metric("💰 Valeur origine", f"{valeur_origine:,.2f} €")
                     with col2:
-                        st.metric("⏱️ Durée", f"{duree_ans} ans")
+                        st.metric("⏱ Durée", f"{duree_ans} ans")
                     with col3:
                         taux = 100 / duree_ans
                         st.metric("📊 Taux", f"{taux:.2f}%")
@@ -1425,13 +1369,13 @@ elif page == "📦 Immobilisations":
 
         col1, col2 = st.columns(2)
         with col1:
-            nom_bien_c = st.text_input("🏷️ Désignation", placeholder="Ex: Véhicule X", key="cess_nom")
+            nom_bien_c = st.text_input("🏷 Désignation", placeholder="Ex: Véhicule X", key="cess_nom")
             valeur_origine_c = st.number_input("💰 Valeur d'origine (€)", min_value=0.0, value=10000.0, key="cess_vo")
             amort_cumule = st.number_input("📉 Amortissements cumulés (€)", min_value=0.0, value=6000.0, key="cess_amort")
         with col2:
             prix_cession = st.number_input("💵 Prix de cession (€)", min_value=0.0, value=5000.0, key="cess_prix")
             date_cession = st.date_input("📅 Date de cession", key="cess_date")
-            taux_is = st.number_input("🏛️ Taux IS (%)", min_value=0, max_value=100, value=25, key="cess_is")
+            taux_is = st.number_input("🏛 Taux IS (%)", min_value=0, max_value=100, value=25, key="cess_is")
 
         if st.button("🔄 Calculer la cession", type="primary", use_container_width=True):
             with st.spinner("Calcul en cours..."):
@@ -1453,12 +1397,12 @@ elif page == "📦 Immobilisations":
                         delta_color=delta_color
                     )
                 with col4:
-                    st.metric("🏛️ IS estimé", f"{result['impot_estime']:,.2f} €")
+                    st.metric("🏛 IS estimé", f"{result['impot_estime']:,.2f} €")
 
                 if result['resultat_cession'] > 0:
                     st.success(f"✅ **Plus-value de cession** : {result['resultat_cession']:,.2f} €")
                 else:
-                    st.warning(f"⚠️ **Moins-value de cession** : {abs(result['resultat_cession']):,.2f} €")
+                    st.warning(f"⚠ **Moins-value de cession** : {abs(result['resultat_cession']):,.2f} €")
 
                 st.divider()
                 st.markdown("### 📚 Écritures Comptables")
@@ -1522,7 +1466,7 @@ elif page == "📋 Inventaire & Clôture":
     )
 
     onglet1, onglet2, onglet3, onglet4 = st.tabs([
-        "⚠️ Provisions",
+        "⚠ Provisions",
         "🔄 Régularisations",
         "📦 Stocks",
         "✅ Check-list Clôture"
@@ -1530,7 +1474,7 @@ elif page == "📋 Inventaire & Clôture":
 
     # ── ONGLET 1 : PROVISIONS ──
     with onglet1:
-        st.markdown("### ⚠️ Provisions")
+        st.markdown("### ⚠ Provisions")
 
         sous_onglet1, sous_onglet2 = st.tabs([
             "Créances douteuses",
@@ -1563,7 +1507,7 @@ elif page == "📋 Inventaire & Clôture":
                     anciennete = st.number_input(f"Ancienneté (jours)", min_value=0, key=f"client_anc_{i}", value=90)
                 clients_data.append({'Client': nom, 'Montant': montant, 'Ancienneté': anciennete})
 
-            if st.button("⚠️ Calculer les provisions", type="primary", use_container_width=True, key="btn_prov_creances"):
+            if st.button("⚠ Calculer les provisions", type="primary", use_container_width=True, key="btn_prov_creances"):
                 df_clients = pd.DataFrame(clients_data)
                 df_resultats, total = calculer_provision_creances(df_clients, taux_douteux, taux_irrecouvrables)
 
@@ -1575,7 +1519,7 @@ elif page == "📋 Inventaire & Clôture":
                     st.metric("💰 Total provisions", f"{total:,.2f} €")
                 with col2:
                     nb_douteux = len(df_resultats[df_resultats['Taux (%)'] > 0])
-                    st.metric("⚠️ Créances à risque", nb_douteux)
+                    st.metric("⚠ Créances à risque", nb_douteux)
 
                 st.divider()
                 st.markdown("### 📚 Écriture comptable")
@@ -1590,7 +1534,7 @@ elif page == "📋 Inventaire & Clôture":
                     st.success("✅ Sauvegardé !")
 
         with sous_onglet2:
-            st.markdown("#### 🛡️ Provisions pour risques et charges")
+            st.markdown("#### 🛡 Provisions pour risques et charges")
             st.caption("Compte 15x — Risques identifiés fin d'exercice")
 
             col1, col2, col3 = st.columns(3)
@@ -1609,7 +1553,7 @@ elif page == "📋 Inventaire & Clôture":
                 "158 — Autres provisions pour charges"
             ])
 
-            if st.button("🛡️ Calculer la provision", type="primary", use_container_width=True, key="btn_prov_risque"):
+            if st.button("🛡 Calculer la provision", type="primary", use_container_width=True, key="btn_prov_risque"):
                 compte = compte_prov.split(" — ")[0]
                 result = calculer_provision_risque(libelle_risque, montant_risque, probabilite, compte)
 
@@ -1619,7 +1563,7 @@ elif page == "📋 Inventaire & Clôture":
                 with col2:
                     st.metric("📊 Probabilité", f"{probabilite}%")
                 with col3:
-                    st.metric("⚠️ Provision", f"{result['provision']:,.2f} €")
+                    st.metric("⚠ Provision", f"{result['provision']:,.2f} €")
 
                 st.divider()
                 st.markdown("### 📚 Écriture comptable")
@@ -1630,7 +1574,7 @@ elif page == "📋 Inventaire & Clôture":
         st.markdown("### 🔄 Régularisations de fin d'exercice")
         st.caption("CCA, PCA, Charges à payer, Produits à recevoir")
 
-        with st.expander("ℹ️ Comprendre les régularisations"):
+        with st.expander("ℹ Comprendre les régularisations"):
             st.markdown("""
 | Type | Compte | Description |
 |---|---|---|
@@ -1823,7 +1767,7 @@ elif page == "📋 Rapport Client":
                         df, info = parser_balance_intelligent(uploaded_file)
                         st.success(f"✅ {info['format_detecte']} | {len(df):,} comptes")
                         if info['colonnes_manquantes']:
-                            st.warning(f"⚠️ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
+                            st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
                     else:
                         df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
                         st.success(f"✅ FEC chargé : {len(df):,} lignes")
@@ -1876,7 +1820,7 @@ elif page == "📋 Rapport Client":
     
     st.divider()
     
-    st.markdown("### ✍️ Personnalisation")
+    st.markdown("### ✍ Personnalisation")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -1896,7 +1840,7 @@ elif page == "📋 Rapport Client":
     
     if st.button("📋 Générer le Rapport Client", type="primary", use_container_width=True):
         if not nom_client:
-            st.error("⚠️ Veuillez renseigner le nom du client")
+            st.error("⚠ Veuillez renseigner le nom du client")
         else:
             from utils.rapport_client import generer_rapport_client, analyser_donnees_client
             
@@ -1946,7 +1890,7 @@ elif page == "📋 Rapport Client":
                 
                 st.markdown("## 📄 Rapport Généré")
                 with st.container():
-                    st.markdown(rapport)
+                    afficher_rapport(rapport, afficher_kpis_auto=True, afficher_alertes_auto=True, afficher_tables_auto=True, compact=True)
                 
                 st.divider()
                 
@@ -1967,12 +1911,12 @@ elif page == "📋 Rapport Client":
 # 10. ALERTES & ANOMALIES - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
 
-elif page == "⚠️ Alertes & Anomalies":
-    st.title("⚠️ Alertes & Anomalies")
+elif page == "⚠ Alertes & Anomalies":
+    st.title("⚠ Alertes & Anomalies")
     st.markdown("**Détection automatique** d'anomalies multi-niveaux")
     st.caption("✨ 10 contrôles automatiques pour cabinets et DAF")
     
-    with st.expander("ℹ️ Quels contrôles sont effectués ?"):
+    with st.expander("ℹ Quels contrôles sont effectués ?"):
         st.markdown("""
         Le module détecte automatiquement :
         
@@ -2051,11 +1995,11 @@ elif page == "⚠️ Alertes & Anomalies":
                     if nb_critique > 0:
                         st.error("🚨 **ATTENTION** : Anomalies critiques détectées - Investigation urgente !")
                     elif nb_warning > 0:
-                        st.warning("⚠️ **Vigilance** : Alertes à investiguer")
+                        st.warning("⚠ **Vigilance** : Alertes à investiguer")
                     elif len(alertes) == 0:
                         st.success("✅ **Aucune anomalie majeure détectée** - Données saines")
                     else:
-                        st.info("ℹ️ **Points à surveiller** identifiés")
+                        st.info("ℹ **Points à surveiller** identifiés")
                     
                     st.divider()
                     
@@ -2108,7 +2052,7 @@ elif page == "✅ Cohérence des Données":
     st.markdown("**Audit qualité** des données comptables")
     st.caption("✨ 7 contrôles automatiques + Score qualité")
     
-    with st.expander("ℹ️ Quels contrôles ?"):
+    with st.expander("ℹ Quels contrôles ?"):
         st.markdown("""
         1. **Complétude des données** (20 pts)
         2. **Unicité / Doublons** (15 pts)
@@ -2166,9 +2110,9 @@ elif page == "✅ Cohérence des Données":
                         if score >= 90:
                             st.success(f"### {niveau} : {score}% ✅")
                         elif score >= 75:
-                            st.info(f"### {niveau} : {score}% ℹ️")
+                            st.info(f"### {niveau} : {score}% ℹ")
                         elif score >= 50:
-                            st.warning(f"### {niveau} : {score}% ⚠️")
+                            st.warning(f"### {niveau} : {score}% ⚠")
                         else:
                             st.error(f"### {niveau} : {score}% ❌")
                         
@@ -2185,7 +2129,7 @@ elif page == "✅ Cohérence des Données":
                     with col3:
                         st.metric("✅ Complétude", f"{kpis.get('completude', 0):.1f}%")
                     with col4:
-                        st.metric("⚠️ Doublons", kpis.get('doublons', 0),
+                        st.metric("⚠ Doublons", kpis.get('doublons', 0),
                                  delta_color="inverse" if kpis.get('doublons', 0) > 0 else "normal")
                     
                     st.divider()
@@ -2196,7 +2140,7 @@ elif page == "✅ Cohérence des Données":
                         if ctrl['status'] == 'OK':
                             st.success(f"✅ **{nom}** : {ctrl['message']}")
                         elif ctrl['status'] == 'WARNING':
-                            st.warning(f"⚠️ **{nom}** : {ctrl['message']}")
+                            st.warning(f"⚠ **{nom}** : {ctrl['message']}")
                         else:
                             st.error(f"❌ **{nom}** : {ctrl['message']}")
                     
@@ -2274,7 +2218,7 @@ elif page == "📰 Veille Fiscale":
                                 with st.expander(f"📄 {titre}"):
                                     col1, col2 = st.columns([2, 1])
                                     with col1:
-                                        st.caption(f"🗓️ {date} | 📡 {source}")
+                                        st.caption(f"🗓 {date} | 📡 {source}")
                                     with col2:
                                         if lien:
                                             st.markdown(f"[🔗 Article complet]({lien})")
@@ -2301,7 +2245,7 @@ Fournis :
                         sauvegarder_si_autorise(type_analyse="Veille Fiscale France", resultat=str(actualites))
 
                     else:
-                        st.info("ℹ️ Aucune actualité récente. Consultez directement les sources officielles.")
+                        st.info("ℹ Aucune actualité récente. Consultez directement les sources officielles.")
 
                 except Exception as e:
                     st.error(f"❌ Erreur de récupération : {str(e)}")
@@ -2346,7 +2290,7 @@ Fournis :
             if date_echeance:
                 jours_restants = (date_echeance - aujourd_hui).days
                 if 0 <= jours_restants <= 30:
-                    e["Statut"] = f"⚠️ Dans {jours_restants} jours"
+                    e["Statut"] = f"⚠ Dans {jours_restants} jours"
                 elif jours_restants < 0:
                     e["Statut"] = "✅ Passée"
                 else:
@@ -2401,11 +2345,20 @@ Structure ta réponse ainsi :
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 
-                    st.caption("⚠️ Réponse à titre informatif. Consultez un expert pour validation.")
+                    st.caption("⚠ Réponse à titre informatif. Consultez un expert pour validation.")
 
 
 # -----------------------------------------------------------------------------
-# 13. CONFIDENTIALITÉ & SÉCURITÉ
+# 13. TARIFS & ABONNEMENT
+# -----------------------------------------------------------------------------
+
+elif page == "💳 Tarifs & Abonnement":
+    from utils.page_tarifs import page_tarifs
+    from utils.stripe_billing import gerer_retour_stripe
+    gerer_retour_stripe()
+    page_tarifs(app_name="pcg")
+
+# 14. CONFIDENTIALITÉ & SÉCURITÉ
 # -----------------------------------------------------------------------------
 
 elif page == "🔒 Confidentialité & Sécurité":
@@ -2438,7 +2391,7 @@ Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est con
     """)
 
     st.divider()
-    st.markdown("### 🛡️ Cadre Réglementaire")
+    st.markdown("### 🛡 Cadre Réglementaire")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("""
@@ -2452,34 +2405,12 @@ Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est con
         st.markdown("""
 **Mistral AI**
 - Données API non utilisées pour l'entraînement
-- Hébergement en Europe
-- Conformité RGPD certifiée
-- Chiffrement HTTPS/TLS
+- Traitement en Europe
+- Confidentialité contractuellement garantie
         """)
-
-    st.divider()
-    st.markdown("📧 **Contact** : contact@smdconsulting.pro")
-    st.caption("SMD Consulting © 2026 - Comptable IA Augmenté")
-
-elif page == "📐 Plan de Financement":
-    page_plan_financement()
-
-elif page == "💹 TFT Trésorerie":
-    page_tft()
-
-elif page == "📊 Comparatif N/N-1":
-    page_comparatif()
-
-elif page == "🧾 Aide TVA CA3/CA12":
-    page_tva()
 
 # =============================================================================
 # FOOTER
 # =============================================================================
-
 st.divider()
-st.caption("""
-**SMD Consulting** - Superviseur IA Comptable  
-Comptable Augmenté par Intelligence Artificielle  
-© 2026 - Souleymane Diallo
-""")
+st.caption("SMD Consulting © 2026 - Superviseur IA Comptable - contact@smdconsulting.pro")
