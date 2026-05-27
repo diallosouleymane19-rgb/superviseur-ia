@@ -139,11 +139,3 @@ def get_nom() -> str:
 
 def get_plan() -> str:
     return st.session_state.get("plan", "free")
-
-
-def is_admin() -> bool:
-    return get_role() == "admin"
-
-
-def is_cabinet() -> bool:
-    return get_role() in ("admin", "cabinet")

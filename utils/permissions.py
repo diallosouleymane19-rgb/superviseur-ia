@@ -64,7 +64,7 @@ def check_quota(action_type: str = "analyse", details: str = "") -> bool:
         st.markdown(f"""
             <div style='background:#fffbeb;border-left:4px solid #f59e0b;
                         padding:14px 18px;border-radius:6px;margin:16px 0'>
-                <span style='font-size:1.2em'>⚠️</span>
+                <span style='font-size:1.2em'>⚠</span>
                 <strong style='color:#92400e'> Quota mensuel atteint</strong><br>
                 <span style='color:#666;font-size:0.9em'>
                     Votre plan <b>{plan_label}</b> inclut <b>{limit} analyses/mois</b>.<br>
@@ -122,7 +122,7 @@ def afficher_quota_sidebar() -> None:
     role       = st.session_state.get("role", "client")
 
     if role == "admin":
-        st.sidebar.caption("♾️ Quota illimité (Admin)")
+        st.sidebar.caption("♾ Quota illimité (Admin)")
         return
 
     user = get_user(user_email) if user_email else None
@@ -131,7 +131,7 @@ def afficher_quota_sidebar() -> None:
 
     limit = get_quota_limit(user)
     if limit == -1:
-        st.sidebar.caption("♾️ Quota illimité (Enterprise)")
+        st.sidebar.caption("♾ Quota illimité (Enterprise)")
         return
 
     used = get_quota_used(user_email)
@@ -162,7 +162,7 @@ def afficher_quota_sidebar() -> None:
     """, unsafe_allow_html=True)
 
     if pct >= 90:
-        st.sidebar.warning("⚠️ Quota presque épuisé — pensez à upgrader.")
+        st.sidebar.warning("⚠ Quota presque épuisé — pensez à upgrader.")
 
 
 # ─── Audit log automatique ────────────────────────────────────────────────────
@@ -211,8 +211,4 @@ def page_admin_users(app_name: str = "") -> None:
     st.subheader("📋 Audit logs (50 derniers)")
     logs = get_audit_logs(limit=50)
     if logs:
-        df_logs = pd.DataFrame(logs)
-        st.dataframe(df_logs[["timestamp", "user_email", "action", "resource", "details"]],
-                     use_container_width=True)
-    else:
-        st.info("Aucun log enregistré.")
+        df_logs

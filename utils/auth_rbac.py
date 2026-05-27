@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-utils/auth_rbac.py — SMD Consulting
-Module RBAC partagé : rôles, plans, quotas, audit logs.
+utils/auth_rbac.py - SMD Consulting
+Module RBAC partage : roles, plans, quotas, audit logs.
 Compatible PCG France & SYSCOHADA.
 """
 
@@ -10,34 +10,31 @@ import os
 import bcrypt
 from datetime import datetime
 
-# ─── Chemin DB ───────────────────────────────────────────────────────────────
-# Streamlit Cloud : HOME=/home/appuser ou STREAMLIT_SHARING_MODE défini
+# --- Chemin DB ---
 _IS_CLOUD = bool(
     os.getenv("STREAMLIT_SHARING_MODE")
     or os.getenv("HOME") == "/home/appuser"
 )
-# Sur Streamlit Cloud les données temporaires vont dans /tmp
-# En local : dans le répertoire de l'application
 DB_PATH = "/tmp/smd_users.db" if _IS_CLOUD else "smd_users.db"
 
-# ─── Rôles ────────────────────────────────────────────────────────────────────
+# --- Roles ---
 ROLES = {
     "admin":         {"label": "Administrateur SMD",  "level": 4, "color": "#dc2626"},
     "cabinet":       {"label": "Cabinet Comptable",   "level": 3, "color": "#2563eb"},
     "collaborateur": {"label": "Collaborateur",       "level": 2, "color": "#7c3aed"},
     "client":        {"label": "Client Final",        "level": 1, "color": "#059669"},
-    "demo":          {"label": "Démonstration",       "level": 0, "color": "#d97706"},
+    "demo":          {"label": "Demonstration",       "level": 0, "color": "#d97706"},
 }
 
-# ─── Plans ────────────────────────────────────────────────────────────────────
+# --- Plans ---
 PLANS = {
-    "free":       {"label": "Gratuit",    "quota": 10,   "color": "#6b7280"},
-    "starter":    {"label": "Starter",   "quota": 50,   "color": "#0891b2"},
-    "pro":        {"label": "Pro",       "quota": 200,  "color": "#7c3aed"},
-    "enterprise": {"label": "Entreprise","quota": -1,   "color": "#d97706"},
+    "free":       {"label": "Gratuit",     "quota": 10,  "color": "#6b7280"},
+    "starter":    {"label": "Starter",     "quota": 50,  "color": "#0891b2"},
+    "pro":        {"label": "Pro",         "quota": 200, "color": "#7c3aed"},
+    "enterprise": {"label": "Entreprise",  "quota": -1,  "color": "#d97706"},
 }
 
-# ─── Permissions par rôle ─────────────────────────────────────────────────────
+# --- Permissions par role ---
 PERMISSIONS = {
     "admin": ["*"],
     "cabinet": [
@@ -63,7 +60,7 @@ PERMISSIONS = {
 }
 
 
-# ─── Connexion ────────────────────────────────────────────────────────────────
+# --- Connexion ---
 
 def _conn():
     c = sqlite3.connect(DB_PATH)
@@ -76,7 +73,6 @@ def init_rbac_db():
     conn = _conn()
     c = conn.cursor()
 
-    # Table utilisateurs
     c.execute("""
         CREATE TABLE IF NOT EXISTS smd_users (
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,8 +93,7 @@ def init_rbac_db():
         )
     """)
 
-    # Migrations douces (ignore si colonne existe déjà)
-    _migrations = [
+    migrations = [
         "ALTER TABLE smd_users ADD COLUMN plan TEXT DEFAULT 'free'",
         "ALTER TABLE smd_users ADD COLUMN quota_used_month INTEGER DEFAULT 0",
         "ALTER TABLE smd_users ADD COLUMN quota_month TEXT DEFAULT ''",
@@ -106,13 +101,12 @@ def init_rbac_db():
         "ALTER TABLE smd_users ADD COLUMN stripe_subscription_id TEXT DEFAULT ''",
         "ALTER TABLE smd_users ADD COLUMN last_login TEXT",
     ]
-    for m in _migrations:
+    for m in migrations:
         try:
             c.execute(m)
         except Exception:
             pass
 
-    # Table cabinets / organisations
     c.execute("""
         CREATE TABLE IF NOT EXISTS smd_cabinets (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,7 +120,6 @@ def init_rbac_db():
         )
     """)
 
-    # Audit logs
     c.execute("""
         CREATE TABLE IF NOT EXISTS smd_audit_logs (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,7 +132,6 @@ def init_rbac_db():
         )
     """)
 
-    # Quota usage détaillé
     c.execute("""
         CREATE TABLE IF NOT EXISTS smd_quota_usage (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,9 +147,9 @@ def init_rbac_db():
     conn.close()
 
 
-# ─── CRUD Utilisateurs ────────────────────────────────────────────────────────
+# --- CRUD Utilisateurs ---
 
-def get_user(email: str) -> dict | None:
+def get_user(email):
     """Retourne le user RBAC ou None."""
     email = email.lower().strip()
     init_rbac_db()
@@ -171,19 +163,12 @@ def get_user(email: str) -> dict | None:
         conn.close()
 
 
-def creer_user_rbac(
-    email: str,
-    password: str,
-    nom: str = "",
-    cabinet: str = "",
-    pays: str = "FR",
-    role: str = "client",
-    plan: str = "free",
-) -> dict:
-    """Crée un utilisateur RBAC. Retourne {"ok": True} ou {"error": "..."}."""
+def creer_user_rbac(email, password, nom="", cabinet="",
+                    pays="FR", role="client", plan="free"):
+    """Cree un utilisateur RBAC. Retourne {"ok": True} ou {"error": "..."}."""
     email = email.lower().strip()
     if get_user(email):
-        return {"error": "Cet email est déjà enregistré."}
+        return {"error": "Cet email est deja enregistre."}
     pw_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn = _conn()
@@ -196,13 +181,13 @@ def creer_user_rbac(
         conn.commit()
         return {"ok": True}
     except sqlite3.IntegrityError:
-        return {"error": "Cet email est déjà enregistré."}
+        return {"error": "Cet email est deja enregistre."}
     finally:
         conn.close()
 
 
-def verifier_login(email: str, password: str) -> dict | None:
-    """Vérifie email + mot de passe RBAC. Retourne user dict ou None."""
+def verifier_login(email, password):
+    """Verifie email + mot de passe RBAC. Retourne user dict ou None."""
     user = get_user(email)
     if not user:
         return None
@@ -225,20 +210,21 @@ def verifier_login(email: str, password: str) -> dict | None:
     return None
 
 
-def mettre_a_jour_plan(email: str, plan: str) -> bool:
-    """Change le plan d'un utilisateur (Starter → Pro, etc.)."""
+def mettre_a_jour_plan(email, plan):
+    """Change le plan d'un utilisateur."""
     if plan not in PLANS:
         return False
     conn = _conn()
     try:
-        conn.execute("UPDATE smd_users SET plan=? WHERE email=?", (plan, email.lower().strip()))
+        conn.execute("UPDATE smd_users SET plan=? WHERE email=?",
+                     (plan, email.lower().strip()))
         conn.commit()
         return True
     finally:
         conn.close()
 
 
-def mettre_a_jour_stripe(email: str, customer_id: str, subscription_id: str) -> bool:
+def mettre_a_jour_stripe(email, customer_id, subscription_id):
     """Enregistre les IDs Stripe sur le compte."""
     conn = _conn()
     try:
@@ -252,8 +238,8 @@ def mettre_a_jour_stripe(email: str, customer_id: str, subscription_id: str) -> 
         conn.close()
 
 
-def lister_users(role: str = None, cabinet: str = None) -> list:
-    """Liste les utilisateurs (admin uniquement). Filtres optionnels."""
+def lister_users(role=None, cabinet=None):
+    """Liste les utilisateurs. Filtres optionnels."""
     init_rbac_db()
     conn = _conn()
     try:
@@ -279,16 +265,16 @@ def lister_users(role: str = None, cabinet: str = None) -> list:
         conn.close()
 
 
-# ─── Quotas ───────────────────────────────────────────────────────────────────
+# --- Quotas ---
 
-def get_quota_limit(user: dict) -> int:
-    """Retourne la limite mensuelle du plan (-1 = illimité)."""
+def get_quota_limit(user):
+    """Retourne la limite mensuelle du plan (-1 = illimite)."""
     plan = user.get("plan", "free")
     return PLANS.get(plan, PLANS["free"])["quota"]
 
 
-def get_quota_used(user_email: str) -> int:
-    """Retourne le nombre d'analyses utilisées ce mois-ci."""
+def get_quota_used(user_email):
+    """Retourne le nombre d'analyses utilisees ce mois-ci."""
     month = datetime.now().strftime("%Y-%m")
     init_rbac_db()
     conn = _conn()
@@ -304,22 +290,22 @@ def get_quota_used(user_email: str) -> int:
         conn.close()
 
 
-def incrementer_quota(user_email: str, action_type: str = "analyse", details: str = "") -> bool:
+def incrementer_quota(user_email, action_type="analyse", details=""):
     """
-    Incrémente le compteur d'analyses.
-    Retourne True si OK, False si quota dépassé.
+    Incremente le compteur d'analyses.
+    Retourne True si OK, False si quota depasse.
     """
     email = user_email.lower().strip()
     user = get_user(email)
     if not user:
-        return True  # user inconnu → on laisse passer (demo, admin secrets)
+        return True
     limit = get_quota_limit(user)
     if limit == -1:
-        return True  # enterprise = illimité
+        return True
     month = datetime.now().strftime("%Y-%m")
     used = get_quota_used(email)
     if used >= limit:
-        return False  # quota épuisé
+        return False
 
     conn = _conn()
     try:
@@ -344,15 +330,9 @@ def incrementer_quota(user_email: str, action_type: str = "analyse", details: st
     return True
 
 
-# ─── Audit logs ───────────────────────────────────────────────────────────────
+# --- Audit logs ---
 
-def log_action(
-    user_email: str,
-    action: str,
-    resource: str = "",
-    details: str = "",
-    app: str = "",
-) -> None:
+def log_action(user_email, action, resource="", details="", app=""):
     """Enregistre une action dans les audit logs."""
     init_rbac_db()
     conn = _conn()
@@ -367,8 +347,8 @@ def log_action(
         conn.close()
 
 
-def get_audit_logs(user_email: str = None, limit: int = 100) -> list:
-    """Retourne les derniers audit logs (admin uniquement)."""
+def get_audit_logs(user_email=None, limit=100):
+    """Retourne les derniers audit logs."""
     init_rbac_db()
     conn = _conn()
     try:
@@ -386,17 +366,17 @@ def get_audit_logs(user_email: str = None, limit: int = 100) -> list:
         conn.close()
 
 
-# ─── Permissions ──────────────────────────────────────────────────────────────
+# --- Permissions ---
 
-def has_permission(role: str, permission: str) -> bool:
-    """Vérifie si un rôle possède une permission."""
+def has_permission(role, permission):
+    """Verifie si un role possede une permission."""
     perms = PERMISSIONS.get(role, [])
     return "*" in perms or permission in perms
 
 
-def get_role_label(role: str) -> str:
+def get_role_label(role):
     return ROLES.get(role, {}).get("label", role.capitalize())
 
 
-def get_plan_label(plan: str) -> str:
+def get_plan_label(plan):
     return PLANS.get(plan, {}).get("label", plan.capitalize())

@@ -296,7 +296,7 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
     if resultat['analyse']:
         rapport.append("## 💡 ANALYSE QUALITATIVE\n")
         for item in resultat['analyse']:
-            symbol = '✅' if item['type'] == 'OK' else '⚠️' if item['type'] == 'WARNING' else '🔴'
+            symbol = '✅' if item['type'] == 'OK' else '⚠' if item['type'] == 'WARNING' else '🔴'
             rapport.append(f"- {symbol} {item['message']}")
         rapport.append("")
     

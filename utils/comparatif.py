@@ -314,7 +314,7 @@ def page_comparatif():
     # Métriques clés
     indicateurs_cles = [
         ("💰 CA", "Chiffre d'affaires"),
-        ("⚙️ VA", "Valeur ajoutée (VA)"),
+        ("⚙ VA", "Valeur ajoutée (VA)"),
         ("📈 EBE", "Excedent Brut d'Exploitation (EBE)"),
         ("🎯 Résultat Net", "Resultat net"),
     ]
@@ -375,7 +375,7 @@ def page_comparatif():
 
     # Métriques bilan
     bilan_cles = [
-        ("🏗️ Total Actif", 'actif', 'TOTAL ACTIF'),
+        ("🏗 Total Actif", 'actif', 'TOTAL ACTIF'),
         ("💼 Capitaux Propres", 'passif', 'Capitaux propres'),
         ("🏦 FDR", 'ratios', 'Fonds de roulement net global (FRNG)'),
         ("⚡ BFR", 'ratios', 'Besoin en fonds de roulement (BFR)'),
@@ -409,7 +409,7 @@ def page_comparatif():
             subset=['Écart (€)', 'Écart (%)']
         ), use_container_width=True, hide_index=True)
     with col_p2:
-        st.markdown("### 🏛️ PASSIF N vs N-1")
+        st.markdown("### 🏛 PASSIF N vs N-1")
         df_passif = _build_comparatif_df(bilan_n['passif'], bilan_n1['passif'], label_n, label_n1)
         df_passif = df_passif[df_passif[label_n].abs() + df_passif[label_n1].abs() > 0]
         st.dataframe(df_passif.style.format(
@@ -440,7 +440,7 @@ def page_comparatif():
         elif ea_ca > 15:
             alertes.append(('success', f"✅ CA en hausse de {ea_ca:.1f}% — performance commerciale solide"))
         else:
-            alertes.append(('info', f"ℹ️ CA stable ({ea_ca:+.1f}%)"))
+            alertes.append(('info', f"ℹ CA stable ({ea_ca:+.1f}%)"))
 
     # Résultat net
     rn_n = sig_n.get("Resultat net", 0) or 0
@@ -452,13 +452,13 @@ def page_comparatif():
     elif rn_n1 != 0:
         ea_rn, _ = _ecart(rn_n, rn_n1)
         if abs(ea_rn) / abs(rn_n1) > 0.20:
-            alertes.append(('warning', f"⚠️ Résultat net : variation significative de {ea_rn:+,.0f} €"))
+            alertes.append(('warning', f"⚠ Résultat net : variation significative de {ea_rn:+,.0f} €"))
 
     # BFR
     bfr_n = (bilan_n.get('ratios') or {}).get('Besoin en fonds de roulement (BFR)', 0) or 0
     bfr_n1 = (bilan_n1.get('ratios') or {}).get('Besoin en fonds de roulement (BFR)', 0) or 0
     if bfr_n > bfr_n1 * 1.20 and bfr_n1 > 0:
-        alertes.append(('warning', f"⚠️ BFR en hausse de {((bfr_n/bfr_n1)-1)*100:.1f}% — surveiller le cycle d'exploitation"))
+        alertes.append(('warning', f"⚠ BFR en hausse de {((bfr_n/bfr_n1)-1)*100:.1f}% — surveiller le cycle d'exploitation"))
 
     # FDR
     fdr_n = (bilan_n.get('ratios') or {}).get('Fonds de roulement net global (FRNG)', 0) or 0
@@ -476,7 +476,7 @@ def page_comparatif():
             st.info(msg)
 
     if not alertes:
-        st.info("ℹ️ Aucune alerte significative détectée.")
+        st.info("ℹ Aucune alerte significative détectée.")
 
     # ═══════════════════════════════════════════
     # EXPORT EXCEL

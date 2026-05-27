@@ -539,7 +539,7 @@ def page_tva():
                     st.dataframe(df_ext, use_container_width=True, hide_index=True)
 
                     st.divider()
-                    st.markdown("#### ✏️ Vérifier / Ajuster les montants avant déclaration")
+                    st.markdown("#### ✏ Vérifier / Ajuster les montants avant déclaration")
                     col1, col2 = st.columns(2)
                     with col1:
                         tva_col  = st.number_input("TVA Collectée — 44571 (€)",
@@ -678,7 +678,7 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
     alertes = _verifier_coherence(res)
     if alertes:
         st.divider()
-        st.markdown("### ⚠️ Contrôles de cohérence")
+        st.markdown("### ⚠ Contrôles de cohérence")
         for typ, msg in alertes:
             if typ == "warning":   st.warning(msg)
             elif typ == "success": st.success(msg)

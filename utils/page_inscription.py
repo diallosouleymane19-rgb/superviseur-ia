@@ -204,9 +204,9 @@ def page_inscription(app_name: str = "pcg") -> None:
         avantages = [
             ("🧠", "IA Comptable augmentée",
              "Analyse vos balances, FEC, factures et états financiers en quelques secondes."),
-            ("⚖️", "PCG France & SYSCOHADA",
+            ("⚖", "PCG France & SYSCOHADA",
              "Deux référentiels couverts : France et Zone OHADA (8 pays UEMOA)."),
-            ("🛡️", "Données sécurisées",
+            ("🛡", "Données sécurisées",
              "Fichiers analysés en mémoire, jamais stockés. Conformité RGPD."),
             ("📊", "Rapports professionnels",
              "KPIs, alertes colorées, tableaux structurés prêts pour vos clients."),

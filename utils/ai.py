@@ -132,7 +132,7 @@ def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
         try:
             logger.info(f"Appel API Mistral (tentative {attempt+1}/{MAX_RETRIES+1}, modèle: {model})")
             
-            # ⏱️ Timeout explicite : connexion courte, lecture modérée
+            # ⏱ Timeout explicite : connexion courte, lecture modérée
             response = session.post(
                 API_URL,
                 headers=headers,
@@ -144,7 +144,7 @@ def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
             if response.status_code == 401:
                 return {"success": False, "content": "", "error": "🔑 Clé API invalide"}
             elif response.status_code == 429:
-                return {"success": False, "content": "", "error": "⏱️ Rate limit atteint - patientez quelques minutes"}
+                return {"success": False, "content": "", "error": "⏱ Rate limit atteint - patientez quelques minutes"}
             elif response.status_code >= 500:
                 return {"success": False, "content": "", "error": f"🔥 Erreur serveur Mistral ({response.status_code})"}
             
@@ -172,7 +172,7 @@ def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
             if not use_fallback:
                 logger.info("🔄 Bascule vers modèle fallback...")
                 return appel_mistral(prompt, temperature, max_tokens, use_fallback=True)
-            return {"success": False, "content": "", "error": f"⏱️ {last_error}\n\nL'API est surchargée. Réessayez dans 1-2 minutes."}
+            return {"success": False, "content": "", "error": f"⏱ {last_error}\n\nL'API est surchargée. Réessayez dans 1-2 minutes."}
             
         except requests.exceptions.ConnectionError as e:
             last_error = f"Erreur connexion: {str(e)[:100]}"

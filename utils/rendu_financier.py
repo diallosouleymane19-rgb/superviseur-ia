@@ -27,7 +27,7 @@ def _couleur_signe(texte: str):
     t = texte.lower()
     if any(x in t for x in ["✅", "ok", "positif", "bon", "équilibr", "conforme", "excellent"]):
         return _COULEUR_OK, _BG_OK
-    if any(x in t for x in ["⚠️", "attention", "modéré", "surveiller", "risque moyen"]):
+    if any(x in t for x in ["⚠", "attention", "modéré", "surveiller", "risque moyen"]):
         return _COULEUR_WARN, _BG_WARN
     if any(x in t for x in ["❌", "🚨", "critique", "négatif", "anomalie", "impayé", "alerte"]):
         return _COULEUR_KO, _BG_KO
@@ -85,7 +85,7 @@ def _extraire_alertes(texte: str) -> list:
         l = ligne.strip().lstrip('- •*').strip()
         if not l:
             continue
-        if any(x in ligne for x in ['❌', '🚨', '⚠️', '✅', '[CRITIQUE]', '[FAIBLE]', '[MOYEN]',
+        if any(x in ligne for x in ['❌', '🚨', '⚠', '✅', '[CRITIQUE]', '[FAIBLE]', '[MOYEN]',
                                      'CRITIQUE', 'ANOMALIE', 'ALERTE', 'ATTENTION']):
             alertes.append(l)
     return alertes
@@ -126,7 +126,7 @@ def _afficher_alerte(texte: str):
     t = texte.lower()
     if any(x in texte for x in ['❌', '🚨', '[CRITIQUE]', 'CRITIQUE']):
         st.error(texte)
-    elif any(x in texte for x in ['⚠️', '[MOYEN]', 'ATTENTION', 'ALERTE']):
+    elif any(x in texte for x in ['⚠', '[MOYEN]', 'ATTENTION', 'ALERTE']):
         st.warning(texte)
     elif any(x in texte for x in ['✅', '[FAIBLE]']):
         st.success(texte)
@@ -270,7 +270,7 @@ def afficher_synthese_score(
         nb_warn = sum(1 for c in controles.values() if c.get('statut') == 'WARNING')
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Contrôles OK",    f"✅ {nb_ok}")
-        c2.metric("Avertissements",  f"⚠️ {nb_warn}")
+        c2.metric("Avertissements",  f"⚠ {nb_warn}")
         c3.metric("Contrôles KO",    f"❌ {nb_ko}")
         c4.metric("Anomalies",       f"🔍 {len(anomalies)}")
 
@@ -321,7 +321,7 @@ def afficher_synthese_score(
     rows_ctrl = []
     for nom_ctrl, ctrl in controles.items():
         s = ctrl.get('statut', '')
-        icone = "✅" if s == 'OK' else "⚠️" if s == 'WARNING' else "❌"
+        icone = "✅" if s == 'OK' else "⚠" if s == 'WARNING' else "❌"
         rows_ctrl.append({
             "Contrôle": nom_ctrl,
             "Statut": f"{icone} {s}",
@@ -334,11 +334,11 @@ def afficher_synthese_score(
 
     # Anomalies ────────────────────────────────────────────────────────────
     if anomalies:
-        st.markdown("#### ⚠️ Anomalies Détectées")
+        st.markdown("#### ⚠ Anomalies Détectées")
         rows_anom = []
         for a in anomalies:
             g = a.get('gravite', 'INFO')
-            icone = "🚨" if g == 'CRITIQUE' else "⚠️" if g == 'MOYENNE' else "ℹ️"
+            icone = "🚨" if g == 'CRITIQUE' else "⚠" if g == 'MOYENNE' else "ℹ"
             rows_anom.append({
                 "Gravité": f"{icone} {g}",
                 "Type": a.get('type', ''),

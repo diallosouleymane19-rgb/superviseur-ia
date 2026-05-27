@@ -240,7 +240,7 @@ def analyse_benford_complete(df, col_montant):
     
     # Chiffres anormaux
     if chiffres_anormaux:
-        rapport.append("### ⚠️ CHIFFRES SUSPECTS\n")
+        rapport.append("### ⚠ CHIFFRES SUSPECTS\n")
         for d, z in chiffres_anormaux.items():
             sur_sous = "SUR-represente" if freq_observee[d] > freq_theorique[d] else "SOUS-represente"
             rapport.append(f"- **Chiffre {d}** : Z-score = {z:.2f} ({sur_sous})")
@@ -257,7 +257,7 @@ def analyse_benford_complete(df, col_montant):
         rapport.append("- Conserver l'analyse pour la documentation d'audit")
     
     elif score_risque == "Modere":
-        rapport.append("⚠️ **Ecarts statistiques detectes** : certains chiffres s'ecartent de la distribution theorique.")
+        rapport.append("⚠ **Ecarts statistiques detectes** : certains chiffres s'ecartent de la distribution theorique.")
         rapport.append("")
         rapport.append("**Recommandations cabinet :**")
         rapport.append("- Examiner les transactions associees aux chiffres anormaux")

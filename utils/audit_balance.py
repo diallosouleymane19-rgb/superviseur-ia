@@ -263,13 +263,13 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
     # CONTROLES
     rapport.append("## 🔍 CONTROLES EFFECTUES")
     for nom, ctrl in audit['controles'].items():
-        symbol = '✅' if ctrl['statut'] == 'OK' else '⚠️' if ctrl['statut'] == 'WARNING' else '❌'
+        symbol = '✅' if ctrl['statut'] == 'OK' else '⚠' if ctrl['statut'] == 'WARNING' else '❌'
         rapport.append(f"- {symbol} **{nom}** : {ctrl['message']}")
     rapport.append("")
     
     # ANOMALIES
     if audit['anomalies']:
-        rapport.append("## ⚠️ ANOMALIES DETECTEES")
+        rapport.append("## ⚠ ANOMALIES DETECTEES")
         for anomalie in audit['anomalies']:
             rapport.append(f"- **[{anomalie['gravite']}]** {anomalie['type']} : {anomalie['description']}")
         rapport.append("")

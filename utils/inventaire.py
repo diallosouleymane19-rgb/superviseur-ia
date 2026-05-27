@@ -168,7 +168,7 @@ def calculer_variation_stock(stock_debut, stock_fin, type_stock="marchandises"):
         sens = "📉 Diminution"
     else:
         ecriture = pd.DataFrame(columns=['Compte', 'Libellé', 'Débit', 'Crédit'])
-        sens = "➡️ Stable"
+        sens = "➡ Stable"
 
     return {
         'stock_debut': stock_debut,
@@ -202,9 +202,9 @@ def generer_checklist_cloture(exercice):
         {"Catégorie": "📦 Stocks", "Tâche": "Dépréciation stocks obsolètes", "Priorité": "🟡 Important", "Délai": "J-15"},
         
         # Provisions
-        {"Catégorie": "⚠️ Provisions", "Tâche": "Provisions créances douteuses (491)", "Priorité": "🔴 Critique", "Délai": "J-10"},
-        {"Catégorie": "⚠️ Provisions", "Tâche": "Provisions risques et charges (15x)", "Priorité": "🟡 Important", "Délai": "J-10"},
-        {"Catégorie": "⚠️ Provisions", "Tâche": "Provisions pour congés payés (428)", "Priorité": "🟡 Important", "Délai": "J-10"},
+        {"Catégorie": "⚠ Provisions", "Tâche": "Provisions créances douteuses (491)", "Priorité": "🔴 Critique", "Délai": "J-10"},
+        {"Catégorie": "⚠ Provisions", "Tâche": "Provisions risques et charges (15x)", "Priorité": "🟡 Important", "Délai": "J-10"},
+        {"Catégorie": "⚠ Provisions", "Tâche": "Provisions pour congés payés (428)", "Priorité": "🟡 Important", "Délai": "J-10"},
         
         # Régularisations
         {"Catégorie": "🔄 Régularisations", "Tâche": "Charges constatées d'avance (486)", "Priorité": "🔴 Critique", "Délai": "J-5"},
@@ -213,9 +213,9 @@ def generer_checklist_cloture(exercice):
         {"Catégorie": "🔄 Régularisations", "Tâche": "Produits à recevoir (418)", "Priorité": "🟡 Important", "Délai": "J-5"},
         
         # Fiscal
-        {"Catégorie": "🏛️ Fiscal", "Tâche": "Calcul IS / acomptes", "Priorité": "🔴 Critique", "Délai": "J-3"},
-        {"Catégorie": "🏛️ Fiscal", "Tâche": "Déclaration TVA dernière période", "Priorité": "🔴 Critique", "Délai": "J-3"},
-        {"Catégorie": "🏛️ Fiscal", "Tâche": "Vérification liasse fiscale", "Priorité": "🔴 Critique", "Délai": "J-1"},
+        {"Catégorie": "🏛 Fiscal", "Tâche": "Calcul IS / acomptes", "Priorité": "🔴 Critique", "Délai": "J-3"},
+        {"Catégorie": "🏛 Fiscal", "Tâche": "Déclaration TVA dernière période", "Priorité": "🔴 Critique", "Délai": "J-3"},
+        {"Catégorie": "🏛 Fiscal", "Tâche": "Vérification liasse fiscale", "Priorité": "🔴 Critique", "Délai": "J-1"},
         
         # Clôture
         {"Catégorie": "✅ Clôture", "Tâche": "Vérification équilibre balance", "Priorité": "🔴 Critique", "Délai": "J-1"},

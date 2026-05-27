@@ -312,7 +312,7 @@ def gerer_retour_stripe() -> None:
             st.query_params.clear()
 
         elif params.get("stripe") == "cancel":
-            st.info("ℹ️ Paiement annulé. Vous restez sur votre plan actuel.")
+            st.info("ℹ Paiement annulé. Vous restez sur votre plan actuel.")
             st.query_params.clear()
 
         elif params.get("stripe") == "portal_return":
