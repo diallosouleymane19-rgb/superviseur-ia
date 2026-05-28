@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*- 
 """
 Superviseur IA Comptable - SMD Consulting
 Application complète de supervision comptable augmentée par IA
@@ -2422,7 +2422,8 @@ Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est con
 - Traitement limité à la finalité déclarée
 - Durée de conservation minimale
 - Droit d'accès et suppression garanti
-- Pas de transfert hors UE sans garanties
+- Pas de transfert hors UE sans garanties
+
         """)
     with col2:
         st.markdown("""
