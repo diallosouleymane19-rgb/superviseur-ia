@@ -1,21 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 utils/auth_rbac.py - SMD Consulting
-Module RBAC partage : roles, plans, quotas, audit logs.
-Compatible PCG France & SYSCOHADA.
+Module RBAC : roles, plans, quotas, audit logs.
+Backend : Supabase PostgreSQL (remplace SQLite /tmp/smd_users.db).
+API identique a l'ancienne version — drop-in replacement.
 """
 
-import sqlite3
-import os
 import bcrypt
 from datetime import datetime
 
-# --- Chemin DB ---
-_IS_CLOUD = bool(
-    os.getenv("STREAMLIT_SHARING_MODE")
-    or os.getenv("HOME") == "/home/appuser"
-)
-DB_PATH = "/tmp/smd_users.db" if _IS_CLOUD else "smd_users.db"
+from utils.db_supabase import get_supabase
 
 # --- Roles ---
 ROLES = {
@@ -28,10 +22,10 @@ ROLES = {
 
 # --- Plans ---
 PLANS = {
-    "free":       {"label": "Gratuit",     "quota": 10,  "color": "#6b7280"},
-    "starter":    {"label": "Starter",     "quota": 50,  "color": "#0891b2"},
-    "pro":        {"label": "Pro",         "quota": 200, "color": "#7c3aed"},
-    "enterprise": {"label": "Entreprise",  "quota": -1,  "color": "#d97706"},
+    "free":       {"label": "Gratuit",    "quota": 10,  "color": "#6b7280"},
+    "starter":    {"label": "Starter",    "quota": 50,  "color": "#0891b2"},
+    "pro":        {"label": "Pro",        "quota": 200, "color": "#7c3aed"},
+    "enterprise": {"label": "Entreprise", "quota": -1,  "color": "#d97706"},
 }
 
 # --- Permissions par role ---
@@ -50,251 +44,183 @@ PERMISSIONS = {
         "tft", "plan_financement", "comparatif", "rapport_client",
         "veille_fiscale", "rapprochement", "balance_agee", "tresorerie",
     ],
-    "client": [
-        "rapport_client", "veille_fiscale",
-    ],
-    "demo": [
-        "analyse_facture", "audit_balance", "benford",
-        "compte_resultat", "bilan", "veille_fiscale",
-    ],
+    "client": ["rapport_client", "veille_fiscale"],
+    "demo":   ["analyse_facture", "audit_balance", "benford",
+               "compte_resultat", "bilan", "veille_fiscale"],
 }
 
 
-# --- Connexion ---
-
-def _conn():
-    c = sqlite3.connect(DB_PATH)
-    c.row_factory = sqlite3.Row
-    return c
-
-
+# =============================================================================
+# Compatibilite — init_rbac_db() no-op (schema gere par migrations Supabase)
+# =============================================================================
 def init_rbac_db():
-    """Initialise/migre les tables RBAC (idempotent)."""
-    conn = _conn()
-    c = conn.cursor()
-
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS smd_users (
-            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
-            email                   TEXT UNIQUE NOT NULL,
-            password_hash           TEXT NOT NULL,
-            nom                     TEXT DEFAULT '',
-            cabinet                 TEXT DEFAULT '',
-            pays                    TEXT DEFAULT 'FR',
-            role                    TEXT DEFAULT 'client',
-            plan                    TEXT DEFAULT 'free',
-            is_active               INTEGER DEFAULT 1,
-            quota_used_month        INTEGER DEFAULT 0,
-            quota_month             TEXT DEFAULT '',
-            stripe_customer_id      TEXT DEFAULT '',
-            stripe_subscription_id  TEXT DEFAULT '',
-            created_at              TEXT,
-            last_login              TEXT
-        )
-    """)
-
-    migrations = [
-        "ALTER TABLE smd_users ADD COLUMN plan TEXT DEFAULT 'free'",
-        "ALTER TABLE smd_users ADD COLUMN quota_used_month INTEGER DEFAULT 0",
-        "ALTER TABLE smd_users ADD COLUMN quota_month TEXT DEFAULT ''",
-        "ALTER TABLE smd_users ADD COLUMN stripe_customer_id TEXT DEFAULT ''",
-        "ALTER TABLE smd_users ADD COLUMN stripe_subscription_id TEXT DEFAULT ''",
-        "ALTER TABLE smd_users ADD COLUMN last_login TEXT",
-    ]
-    for m in migrations:
-        try:
-            c.execute(m)
-        except Exception:
-            pass
-
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS smd_cabinets (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom         TEXT NOT NULL,
-            siret       TEXT DEFAULT '',
-            pays        TEXT DEFAULT 'FR',
-            plan        TEXT DEFAULT 'starter',
-            email_admin TEXT DEFAULT '',
-            is_active   INTEGER DEFAULT 1,
-            created_at  TEXT
-        )
-    """)
-
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS smd_audit_logs (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_email  TEXT,
-            action      TEXT NOT NULL,
-            resource    TEXT DEFAULT '',
-            details     TEXT DEFAULT '',
-            app         TEXT DEFAULT '',
-            timestamp   TEXT NOT NULL
-        )
-    """)
-
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS smd_quota_usage (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_email  TEXT,
-            action_type TEXT,
-            details     TEXT DEFAULT '',
-            month_year  TEXT,
-            timestamp   TEXT
-        )
-    """)
-
-    conn.commit()
-    conn.close()
+    pass
 
 
-# --- CRUD Utilisateurs ---
+# =============================================================================
+# CRUD Utilisateurs
+# =============================================================================
 
-def get_user(email):
-    """Retourne le user RBAC ou None."""
-    email = email.lower().strip()
-    init_rbac_db()
-    conn = _conn()
+def get_user(email: str):
+    """Retourne le user dict ou None."""
     try:
-        row = conn.execute(
-            "SELECT * FROM smd_users WHERE email=? AND is_active=1", (email,)
-        ).fetchone()
-        return dict(row) if row else None
-    finally:
-        conn.close()
+        email = email.lower().strip()
+        sb = get_supabase()
+        res = (
+            sb.table("users")
+            .select("*")
+            .eq("email", email)
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+        return res.data[0] if res.data else None
+    except Exception as e:
+        _log_error("get_user", str(e))
+        return None
 
 
-def creer_user_rbac(email, password, nom="", cabinet="",
-                    pays="FR", role="client", plan="free"):
-    """Cree un utilisateur RBAC. Retourne {"ok": True} ou {"error": "..."}."""
+def creer_user_rbac(email: str, password: str, nom: str = "",
+                    cabinet: str = "", pays: str = "FR",
+                    role: str = "client", plan: str = "free") -> dict:
+    """Cree un utilisateur. Retourne {'ok': True} ou {'error': '...'}."""
     email = email.lower().strip()
     if get_user(email):
         return {"error": "Cet email est deja enregistre."}
-    pw_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    conn = _conn()
+
+    pw_hash = bcrypt.hashpw(
+        password.encode("utf-8"), bcrypt.gensalt()
+    ).decode("utf-8")
+
     try:
-        conn.execute("""
-            INSERT INTO smd_users
-              (email, password_hash, nom, cabinet, pays, role, plan, is_active, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
-        """, (email, pw_hash, nom, cabinet, pays, role, plan, now))
-        conn.commit()
+        get_supabase().table("users").insert({
+            "email":                  email,
+            "password_hash":          pw_hash,
+            "nom":                    nom,
+            "full_name":              nom,
+            "cabinet":                cabinet,
+            "company":                cabinet,
+            "pays":                   pays,
+            "role":                   role,
+            "plan":                   plan,
+            "is_active":              True,
+            "quota_used_month":       0,
+            "quota_month":            "",
+            "stripe_customer_id":     "",
+            "stripe_subscription_id": "",
+        }).execute()
         return {"ok": True}
-    except sqlite3.IntegrityError:
-        return {"error": "Cet email est deja enregistre."}
-    finally:
-        conn.close()
+    except Exception as e:
+        msg = str(e)
+        if "unique" in msg.lower() or "duplicate" in msg.lower():
+            return {"error": "Cet email est deja enregistre."}
+        _log_error("creer_user_rbac", msg)
+        return {"error": "Erreur creation compte : " + msg[:80]}
 
 
-def verifier_login(email, password):
-    """Verifie email + mot de passe RBAC. Retourne user dict ou None."""
+def verifier_login(email: str, password: str):
+    """Verifie email + mot de passe. Retourne user dict ou None."""
     user = get_user(email)
     if not user:
         return None
+    pw_hash = user.get("password_hash", "")
+    if not pw_hash:
+        return None
     try:
-        ok = bcrypt.checkpw(
-            password.encode("utf-8"),
-            user["password_hash"].encode("utf-8")
-        )
+        ok = bcrypt.checkpw(password.encode("utf-8"), pw_hash.encode("utf-8"))
     except Exception:
         return None
     if ok:
-        conn = _conn()
-        conn.execute(
-            "UPDATE smd_users SET last_login=? WHERE email=?",
-            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user["email"])
-        )
-        conn.commit()
-        conn.close()
+        _update_last_login(email)
         return user
     return None
 
 
-def mettre_a_jour_plan(email, plan):
-    """Change le plan d'un utilisateur."""
+def _update_last_login(email: str):
+    try:
+        get_supabase().table("users").update({
+            "last_login": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+        }).eq("email", email).execute()
+    except Exception:
+        pass
+
+
+def mettre_a_jour_plan(email: str, plan: str) -> bool:
     if plan not in PLANS:
         return False
-    conn = _conn()
     try:
-        conn.execute("UPDATE smd_users SET plan=? WHERE email=?",
-                     (plan, email.lower().strip()))
-        conn.commit()
+        get_supabase().table("users").update({
+            "plan":       plan,
+            "updated_at": datetime.utcnow().isoformat(),
+        }).eq("email", email.lower().strip()).execute()
         return True
-    finally:
-        conn.close()
+    except Exception as e:
+        _log_error("mettre_a_jour_plan", str(e))
+        return False
 
 
-def mettre_a_jour_stripe(email, customer_id, subscription_id):
-    """Enregistre les IDs Stripe sur le compte."""
-    conn = _conn()
+def mettre_a_jour_stripe(email: str, customer_id: str,
+                          subscription_id: str) -> bool:
     try:
-        conn.execute(
-            "UPDATE smd_users SET stripe_customer_id=?, stripe_subscription_id=? WHERE email=?",
-            (customer_id, subscription_id, email.lower().strip())
-        )
-        conn.commit()
+        get_supabase().table("users").update({
+            "stripe_customer_id":     customer_id,
+            "stripe_subscription_id": subscription_id,
+            "updated_at":             datetime.utcnow().isoformat(),
+        }).eq("email", email.lower().strip()).execute()
         return True
-    finally:
-        conn.close()
+    except Exception as e:
+        _log_error("mettre_a_jour_stripe", str(e))
+        return False
 
 
-def lister_users(role=None, cabinet=None):
-    """Liste les utilisateurs. Filtres optionnels."""
-    init_rbac_db()
-    conn = _conn()
+def lister_users(role: str = None, cabinet: str = None) -> list:
     try:
-        if role and cabinet:
-            rows = conn.execute(
-                "SELECT * FROM smd_users WHERE role=? AND cabinet=? ORDER BY created_at DESC",
-                (role, cabinet)
-            ).fetchall()
-        elif role:
-            rows = conn.execute(
-                "SELECT * FROM smd_users WHERE role=? ORDER BY created_at DESC", (role,)
-            ).fetchall()
-        elif cabinet:
-            rows = conn.execute(
-                "SELECT * FROM smd_users WHERE cabinet=? ORDER BY created_at DESC", (cabinet,)
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM smd_users ORDER BY created_at DESC"
-            ).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
+        sb = get_supabase()
+        q = sb.table("users").select("*")
+        if role:
+            q = q.eq("role", role)
+        if cabinet:
+            q = q.eq("cabinet", cabinet)
+        res = q.order("created_at", desc=True).execute()
+        return res.data or []
+    except Exception as e:
+        _log_error("lister_users", str(e))
+        return []
 
 
-# --- Quotas ---
+# =============================================================================
+# Quotas
+# =============================================================================
 
-def get_quota_limit(user):
-    """Retourne la limite mensuelle du plan (-1 = illimite)."""
+def get_quota_limit(user: dict) -> int:
     plan = user.get("plan", "free")
     return PLANS.get(plan, PLANS["free"])["quota"]
 
 
-def get_quota_used(user_email):
-    """Retourne le nombre d'analyses utilisees ce mois-ci."""
+def get_quota_used(user_email: str) -> int:
     month = datetime.now().strftime("%Y-%m")
-    init_rbac_db()
-    conn = _conn()
     try:
-        row = conn.execute(
-            "SELECT quota_used_month, quota_month FROM smd_users WHERE email=?",
-            (user_email.lower().strip(),)
-        ).fetchone()
-        if row and row["quota_month"] == month:
-            return row["quota_used_month"] or 0
+        res = (
+            get_supabase()
+            .table("users")
+            .select("quota_used_month, quota_month")
+            .eq("email", user_email.lower().strip())
+            .limit(1)
+            .execute()
+        )
+        if res.data:
+            row = res.data[0]
+            if row.get("quota_month") == month:
+                return row.get("quota_used_month") or 0
         return 0
-    finally:
-        conn.close()
+    except Exception:
+        return 0
 
 
-def incrementer_quota(user_email, action_type="analyse", details=""):
-    """
-    Incremente le compteur d'analyses.
-    Retourne True si OK, False si quota depasse.
-    """
+def incrementer_quota(user_email: str, action_type: str = "analyse",
+                      details: str = "") -> bool:
+    """Incremente le compteur. Retourne False si quota depasse."""
     email = user_email.lower().strip()
     user = get_user(email)
     if not user:
@@ -302,81 +228,95 @@ def incrementer_quota(user_email, action_type="analyse", details=""):
     limit = get_quota_limit(user)
     if limit == -1:
         return True
+
     month = datetime.now().strftime("%Y-%m")
     used = get_quota_used(email)
     if used >= limit:
         return False
 
-    conn = _conn()
     try:
+        sb = get_supabase()
         if user.get("quota_month") != month:
-            conn.execute(
-                "UPDATE smd_users SET quota_used_month=1, quota_month=? WHERE email=?",
-                (month, email)
-            )
+            new_used = 1
         else:
-            conn.execute(
-                "UPDATE smd_users SET quota_used_month=quota_used_month+1 WHERE email=?",
-                (email,)
-            )
-        conn.execute("""
-            INSERT INTO smd_quota_usage (user_email, action_type, details, month_year, timestamp)
-            VALUES (?, ?, ?, ?, ?)
-        """, (email, action_type, details, month,
-              datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-        conn.commit()
-    finally:
-        conn.close()
+            new_used = (user.get("quota_used_month") or 0) + 1
+
+        sb.table("users").update({
+            "quota_used_month": new_used,
+            "quota_month":      month,
+            "updated_at":       datetime.utcnow().isoformat(),
+        }).eq("email", email).execute()
+
+        sb.table("smd_quota_usage").insert({
+            "user_email":  email,
+            "action_type": action_type,
+            "details":     details,
+            "month_year":  month,
+        }).execute()
+    except Exception as e:
+        _log_error("incrementer_quota", str(e))
+
     return True
 
 
-# --- Audit logs ---
+# =============================================================================
+# Audit logs
+# =============================================================================
 
-def log_action(user_email, action, resource="", details="", app=""):
-    """Enregistre une action dans les audit logs."""
-    init_rbac_db()
-    conn = _conn()
+def log_action(user_email: str, action: str, resource: str = "",
+               details: str = "", app: str = ""):
     try:
-        conn.execute("""
-            INSERT INTO smd_audit_logs (user_email, action, resource, details, app, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (user_email, action, resource, details, app,
-              datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-        conn.commit()
-    finally:
-        conn.close()
+        get_supabase().table("audit_logs").insert({
+            "action": action,
+            "module": resource or app or None,
+            "details": {
+                "user_email": user_email,
+                "resource":   resource,
+                "details":    details,
+                "app":        app,
+            },
+        }).execute()
+    except Exception:
+        pass
 
 
-def get_audit_logs(user_email=None, limit=100):
-    """Retourne les derniers audit logs."""
-    init_rbac_db()
-    conn = _conn()
+def get_audit_logs(user_email: str = None, limit: int = 100) -> list:
     try:
+        sb = get_supabase()
+        q = sb.table("audit_logs").select("*")
+        res = q.order("created_at", desc=True).limit(limit).execute()
+        rows = res.data or []
         if user_email:
-            rows = conn.execute(
-                "SELECT * FROM smd_audit_logs WHERE user_email=? ORDER BY timestamp DESC LIMIT ?",
-                (user_email, limit)
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM smd_audit_logs ORDER BY timestamp DESC LIMIT ?", (limit,)
-            ).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
+            rows = [
+                r for r in rows
+                if isinstance(r.get("details"), dict)
+                and r["details"].get("user_email") == user_email
+            ]
+        return rows
+    except Exception:
+        return []
 
 
-# --- Permissions ---
+# =============================================================================
+# Permissions
+# =============================================================================
 
-def has_permission(role, permission):
-    """Verifie si un role possede une permission."""
+def has_permission(role: str, permission: str) -> bool:
     perms = PERMISSIONS.get(role, [])
     return "*" in perms or permission in perms
 
 
-def get_role_label(role):
+def get_role_label(role: str) -> str:
     return ROLES.get(role, {}).get("label", role.capitalize())
 
 
-def get_plan_label(plan):
+def get_plan_label(plan: str) -> str:
     return PLANS.get(plan, {}).get("label", plan.capitalize())
+
+
+def _log_error(fn: str, msg: str):
+    try:
+        import logging
+        logging.getLogger("auth_rbac").error(fn + " : " + msg)
+    except Exception:
+        pass
