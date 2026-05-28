@@ -5,6 +5,7 @@ SMD Consulting — Superviseur IA PCG France
 Transforme les sorties narratives Mistral en KPIs + tableaux + alertes visuelles.
 """
 import re
+import html as _html_mod
 import streamlit as st
 import pandas as pd
 from typing import Optional
@@ -352,11 +353,12 @@ def afficher_synthese_score(
     if recommandations:
         st.markdown("#### 💡 Recommandations")
         for i, reco in enumerate(recommandations, 1):
+            reco_safe = _html_mod.escape(str(reco), quote=True)
             st.markdown(
                 f"""<div style='background:{_BG_INFO};border-left:4px solid {_COULEUR_INFO};
                 padding:10px 14px;border-radius:0 6px 6px 0;margin:6px 0;
                 font-size:0.92em;color:#1a3a5c'>
-                <b>{i}.</b> {reco}</div>""",
+                <b>{i}.</b> {reco_safe}</div>""",
                 unsafe_allow_html=True
             )
 

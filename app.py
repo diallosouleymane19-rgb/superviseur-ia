@@ -11,12 +11,9 @@ import os
 from datetime import datetime
 
 # Imports des modules utils
-from utils.ocr import ocr_image_mistral
 from utils.ai import appel_mistral, extraire_contenu_mistral, appel_mistral_vision
 from utils.export_word import export_analyse_word
-from utils.veille_fiscale import obtenir_veille_fiscale
 from utils.database import init_db, sauvegarder_analyse
-from utils.fec import valider_fec, analyser_fec
 from utils.rendu_financier import afficher_rapport, afficher_synthese_score
 from utils.permissions import afficher_badge_role, afficher_quota_sidebar, check_quota, log_user_action
 from utils.bilan import generer_bilan
@@ -24,11 +21,10 @@ from utils.rapprochement import rapprocher_bancaire
 from utils.rapport_client import generer_rapport_client
 from utils.alertes import detecter_alertes
 from utils.coherence import verifier_coherence
-from utils.plan_financement import page_plan_financement
-from utils.tft import page_tft
-from utils.comparatif import page_comparatif
-from utils.tva import page_tva
-from utils.benford_module import analyse_benford_complete
+from utils.security import sanitize_filename, sanitize_html_value
+# Modules lourds en lazy dans leurs blocs (cold start optimise) :
+# utils.ocr, utils.veille_fiscale, utils.fec, utils.plan_financement,
+# utils.tft, utils.comparatif, utils.tva, utils.benford_module
 
 # Authentification
 from auth import login, logout, is_connecte
@@ -202,7 +198,7 @@ def generer_bouton_word(titre, contenu):
         st.download_button(
             f"📄 Télécharger {titre}", 
             buf, 
-            f"{titre.replace(' ', '_')}.docx",
+            f"{sanitize_filename(titre)}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True
         )
@@ -222,15 +218,28 @@ def appel_mistral_securise(prompt, temperature=0.3, label="analyse"):
         st.warning(f"⚠ Connexion IA interrompue pour {label}. Vérifiez votre connexion.")
         return {"success": False, "content": "", "error": str(e)}
 @st.cache_data(show_spinner=False)
-def charger_fichier(uploaded_file, header=0):
-    """Charge un fichier CSV ou XLSX en DataFrame"""
+def _charger_fichier_bytes(file_bytes: bytes, file_name: str, header: int = 0):
+    """Charge un fichier depuis ses bytes (hashable par st.cache_data)."""
+    import io
+    buf = io.BytesIO(file_bytes)
     try:
-        if uploaded_file.name.endswith('xlsx'):
-            return pd.read_excel(uploaded_file, header=header), None
-        elif uploaded_file.name.endswith('txt'):
-            return pd.read_csv(uploaded_file, sep='|', encoding='utf-8', header=header), None
+        if file_name.endswith('xlsx'):
+            return pd.read_excel(buf, header=header), None
+        elif file_name.endswith('txt'):
+            buf.seek(0)
+            return pd.read_csv(buf, sep='|', encoding='utf-8', header=header), None
         else:
-            return pd.read_csv(uploaded_file, sep=None, engine='python', header=header), None
+            buf.seek(0)
+            return pd.read_csv(buf, sep=None, engine='python', header=header), None
+    except Exception as e:
+        return None, str(e)
+
+
+def charger_fichier(uploaded_file, header=0):
+    """Charge un fichier CSV ou XLSX en DataFrame (cache sur bytes, pas sur UploadedFile)."""
+    try:
+        file_bytes = uploaded_file.getvalue()
+        return _charger_fichier_bytes(file_bytes, uploaded_file.name, header)
     except Exception as e:
         return None, str(e)
 
@@ -336,7 +345,7 @@ elif page == "🧾 Analyse Facture (OCR)":
                         st.error(erreur)
                     elif texte:
                         st.session_state.fact_ocr = texte
-                        st.rerun()
+                        # Pas de st.rerun() — Streamlit rerun automatiquement apres spinner
                     else:
                         st.error("❌ Impossible d'extraire le texte")
                 except Exception as e:
@@ -360,10 +369,10 @@ elif page == "🧾 Analyse Facture (OCR)":
                             result = extraire_donnees_facture(st.session_state.fact_ocr)
                             
                             if result.get('success'):
-                                st.session_state.fact_donnees = result['data']
+                                st.session_state.fact_donnees   = result['data']
                                 st.session_state.fact_controles = verifier_conformite_facture(result['data'])
                                 st.session_state.fact_ecritures = suggerer_comptabilisation(result['data'])
-                                st.rerun()
+                                # Pas de st.rerun() — le bloc suivant lit session_state directement
                             else:
                                 st.error(f"❌ Erreur analyse : {result.get('error')}")
                                 if result.get('raw'):
@@ -488,8 +497,12 @@ elif page == "📊 Audit Balance":
     )
     
     if uploaded_file:
-        from utils.audit_balance import auditer_balance, generer_rapport_audit
-        from utils.intelligent_parser import parser_balance_intelligent, nettoyer_balance
+        try:
+            from utils.audit_balance import auditer_balance, generer_rapport_audit
+            from utils.intelligent_parser import parser_balance_intelligent, nettoyer_balance
+        except ImportError as _imp_err:
+            st.error(f"Module d'audit indisponible : {_imp_err}")
+            st.stop()
         
         mode_lecture = st.radio(
             "🔧 Mode de lecture",
@@ -2073,7 +2086,7 @@ elif page == "✅ Cohérence des Données":
     )
     
     if uploaded_file:
-        from utils.coherence import verifier_coherence
+        from utils.coherence import verifier_coherence, generer_rapport_coherence
         from utils.intelligent_parser import parser_balance_intelligent
         
         try:
@@ -2401,7 +2414,7 @@ Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est con
     """)
 
     st.divider()
-    st.markdown("### 🛡 Cadre Réglementaire")
+    st.markdown("### 🛡 Cadre Réglementaire")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("""
@@ -2409,7 +2422,7 @@ Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est con
 - Traitement limité à la finalité déclarée
 - Durée de conservation minimale
 - Droit d'accès et suppression garanti
-- Pas de transfert hors UE sans garanties
+- Pas de transfert hors UE sans garanties
         """)
     with col2:
         st.markdown("""

@@ -216,27 +216,37 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
                     conn = _get_connector(erp_key, creds_saved)
                     conn.tester_connexion()
 
+                    def _store_df(key, data, source):
+                        """Stocke un DataFrame en session state avec garde 1MB."""
+                        if data is None or data.empty:
+                            return
+                        size_mb = data.memory_usage(deep=True).sum() / 1_048_576
+                        if size_mb > 1.0:
+                            # Tronquer a 5000 lignes pour eviter le crash Streamlit Cloud
+                            data = data.head(5000)
+                            st.warning(
+                                "Fichier volumineux (" + str(round(size_mb, 1)) + " MB) — "
+                                "affichage limite aux 5 000 premieres lignes."
+                            )
+                        st.session_state[key]           = data
+                        st.session_state["erp_source"]  = source
+
                     df = pd.DataFrame()
                     if type_import == "Balance generale":
                         df = conn.get_balance(int(exercice))
-                        st.session_state["erp_balance"] = df
-                        st.session_state["erp_source"]  = cfg["nom"]
+                        _store_df("erp_balance", df, cfg["nom"])
                     elif type_import == "Ecritures (FEC)":
                         df = conn.get_ecritures(int(exercice))
-                        st.session_state["erp_fec"]    = df
-                        st.session_state["erp_source"] = cfg["nom"]
+                        _store_df("erp_fec", df, cfg["nom"])
                     elif type_import == "Grand livre":
                         df = conn.get_grand_livre(int(exercice))
-                        st.session_state["erp_grand_livre"] = df
-                        st.session_state["erp_source"]      = cfg["nom"]
+                        _store_df("erp_grand_livre", df, cfg["nom"])
                     elif "fournisseur" in type_import.lower():
                         df = conn.get_factures("fournisseur", int(exercice))
-                        st.session_state["erp_factures_fournisseur"] = df
-                        st.session_state["erp_source"] = cfg["nom"]
+                        _store_df("erp_factures_fournisseur", df, cfg["nom"])
                     elif "clients" in type_import.lower():
                         df = conn.get_factures("client", int(exercice))
-                        st.session_state["erp_factures_client"] = df
-                        st.session_state["erp_source"] = cfg["nom"]
+                        _store_df("erp_factures_client", df, cfg["nom"])
 
                     if df is not None and not df.empty:
                         st.success(
@@ -270,14 +280,28 @@ def _afficher_donnees_importees(erp_key, cfg):
         df = st.session_state["erp_grand_livre"]
         if not df.empty:
             disponibles.append("Grand livre (" + str(len(df)) + " lignes)")
+    if st.session_state.get("erp_factures_fournisseur") is not None:
+        df = st.session_state["erp_factures_fournisseur"]
+        if not df.empty:
+            disponibles.append("Factures fournisseurs (" + str(len(df)) + ")")
+    if st.session_state.get("erp_factures_client") is not None:
+        df = st.session_state["erp_factures_client"]
+        if not df.empty:
+            disponibles.append("Factures clients (" + str(len(df)) + ")")
 
-    if disponibles:
-        st.markdown("---")
-        st.caption(
-            "Donnees en session : " + " | ".join(disponibles)
-            + " — source : " + str(st.session_state.get("erp_source", ""))
-        )
-        st.info(
-            "Ces donnees sont automatiquement utilisees par les modules "
-            "Audit Balance, Benford, Compte de Resultat, Bilan et FEC."
-        )
+    if not disponibles:
+        return
+
+    source = st.session_state.get("erp_source", "ERP")
+    st.success(
+        "Donnees importees depuis **" + source + "** : "
+        + ", ".join(disponibles)
+        + ". Disponibles dans tous les modules d'analyse."
+    )
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Effacer les donnees importees", key="clear_erp_" + erp_key):
+            for k in ["erp_balance", "erp_fec", "erp_grand_livre",
+                      "erp_factures_fournisseur", "erp_factures_client", "erp_source"]:
+                st.session_state.pop(k, None)
+            st.rerun()

@@ -23,12 +23,61 @@ API_URL = "https://api.mistral.ai/v1/chat/completions"
 MODEL_PRINCIPAL = "mistral-large-latest"
 MODEL_FALLBACK = "mistral-medium-latest"  # Plus rapide, moins cher
 
-# Timeouts critiques (connexion courte, lecture modérée)
-CONNECT_TIMEOUT = 8.0      # 8s max pour établir la connexion
-READ_TIMEOUT = 45.0        # 45s max pour recevoir la réponse
+# Timeouts critiques (connexion courte, lecture moderee)
+CONNECT_TIMEOUT = 8.0      # 8s max pour etablir la connexion
+READ_TIMEOUT = 45.0        # 45s max pour recevoir la reponse
 MAX_RETRIES = 2            # 2 retries max (pas 3)
-RETRY_DELAY = 2.0          # Délai initial court
+RETRY_DELAY = 2.0          # Delai initial court
 RETRY_BACKOFF = 2.0        # Facteur de backoff
+
+# =============================================================================
+# RATE LIMITING PAR SESSION (protection couts API)
+# =============================================================================
+# Limites par plan (appels Mistral/jour par utilisateur)
+RATE_LIMITS = {
+    "free":       10,   # 10 appels/jour
+    "starter":    50,   # 50 appels/jour
+    "pro":       200,   # 200 appels/jour
+    "enterprise": -1,   # illimite
+    "demo":       5,    # 5 appels/jour
+    "admin":     -1,    # illimite
+}
+
+
+def _get_rate_key() -> str:
+    """Cle de rate limiting pour la session courante (email + jour)."""
+    from datetime import date
+    email = st.session_state.get("user_email", "anonymous")
+    return f"_rl_{email}_{date.today().isoformat()}"
+
+
+def check_rate_limit() -> tuple:
+    """
+    Verifie si l'utilisateur a atteint sa limite d'appels Mistral/jour.
+    Retourne (autorise: bool, message: str, calls_today: int, limit: int)
+    """
+    plan  = st.session_state.get("plan", "free")
+    limit = RATE_LIMITS.get(plan, RATE_LIMITS["free"])
+    key   = _get_rate_key()
+
+    if limit == -1:
+        return True, "", 0, -1
+
+    calls = st.session_state.get(key, 0)
+    if calls >= limit:
+        msg = (
+            f"Limite d'analyses atteinte ({calls}/{limit} aujourd'hui). "
+            f"Votre plan **{plan.capitalize()}** est limite a {limit} appels/jour. "
+            "Passez au plan superieur pour continuer."
+        )
+        return False, msg, calls, limit
+    return True, "", calls, limit
+
+
+def increment_rate_counter():
+    """Incremente le compteur d'appels Mistral pour la session."""
+    key = _get_rate_key()
+    st.session_state[key] = st.session_state.get(key, 0) + 1
 
 # =============================================================================
 # SESSION HTTP RÉUTILISABLE (Keep-Alive)
@@ -102,6 +151,11 @@ def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
     Returns:
         dict: {"success": bool, "content": str, "error": str}
     """
+    # --- Rate limiting par session ---
+    allowed, rl_msg, calls_today, rl_limit = check_rate_limit()
+    if not allowed:
+        return {"success": False, "content": "", "error": rl_msg}
+
     # Test DNS rapide avant toute tentative
     if not test_dns_resolution():
         return {
@@ -157,6 +211,7 @@ def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
             content = data["choices"][0].get("message", {}).get("content", "")
             
             logger.info(f"✅ Réponse reçue: {len(content)} caractères")
+            increment_rate_counter()
             return {"success": True, "content": content, "error": ""}
             
         except requests.exceptions.ConnectTimeout:
