@@ -154,6 +154,8 @@ page = st.sidebar.selectbox(
         "📂 Traitement FEC",
         "📋 Rapport Client",
         "📰 Veille Fiscale",
+        "─── Connecteurs ───",
+        "🔌 Connecteurs ERP",
         "─── Paramètres ───",
         "💳 Tarifs & Abonnement",
         "🔒 Confidentialité & Sécurité",
@@ -163,7 +165,8 @@ page = st.sidebar.selectbox(
 
 # Neutraliser les séparateurs
 separateurs = ["─── Analyse & Audit ───", "─── États Financiers ───",
-               "─── Supervision & Reporting ───", "─── Paramètres ───"]
+               "─── Supervision & Reporting ───", "─── Connecteurs ───",
+               "─── Paramètres ───"]
 if page in separateurs:
     page = "🏠 Accueil"
 
@@ -2349,7 +2352,14 @@ Structure ta réponse ainsi :
 
 
 # -----------------------------------------------------------------------------
-# 13. TARIFS & ABONNEMENT
+# 13. CONNECTEURS ERP
+# -----------------------------------------------------------------------------
+
+elif page == "🔌 Connecteurs ERP":
+    from utils.page_connectors import page_connectors
+    page_connectors(app_name="pcg")
+
+# 13b. TARIFS & ABONNEMENT
 # -----------------------------------------------------------------------------
 
 elif page == "💳 Tarifs & Abonnement":
@@ -2391,7 +2401,7 @@ Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est con
     """)
 
     st.divider()
-    st.markdown("### 🛡 Cadre Réglementaire")
+    st.markdown("### 🛡 Cadre Réglementaire")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("""
