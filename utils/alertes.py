@@ -3,6 +3,11 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from utils.page_helpers import (
+    sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
+    banniere_demo, is_demo, appel_mistral_securise,
+    afficher_rapport, afficher_synthese_score,
+)
 
 
 def detecter_alertes(df):
@@ -202,3 +207,143 @@ def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
     rapport.append("*SMD Consulting - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
+
+def page_alertes():
+    import streamlit as st
+    import pandas as pd
+    from datetime import datetime
+st.title("⚠ Alertes & Anomalies")
+st.markdown("**Détection automatique** d'anomalies multi-niveaux")
+st.caption("✨ 10 contrôles automatiques pour cabinets et DAF")
+
+with st.expander("ℹ Quels contrôles sont effectués ?"):
+    st.markdown("""
+    Le module détecte automatiquement :
+
+    🔴 **CRITIQUE**
+    - Déséquilibre Débit/Crédit
+
+    🟡 **WARNING**
+    - Doublons exacts
+    - Montants ronds suspects (>30%)
+    - Écritures sans libellé
+    - Montants négatifs
+    - Débit ET Crédit simultanés
+    - Numéros de comptes invalides
+
+    🔵 **INFO**
+    - Écritures montant nul
+    - Montants très répétés
+    - Écritures week-end
+    - Montants très élevés (>10x P95)
+    - Charges créditrices
+    """)
+
+uploaded_file = st.file_uploader(
+    "📎 Données comptables (FEC, Balance, CSV, XLSX)",
+    type=["csv", "xlsx", "txt"]
+)
+
+if uploaded_file:
+    from utils.alertes import detecter_alertes, generer_rapport_alertes
+    from utils.intelligent_parser import parser_balance_intelligent
+
+    try:
+        with st.spinner("🤖 Analyse..."):
+            if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                try:
+                    df, info = parser_balance_intelligent(uploaded_file)
+                    st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} lignes**")
+                except:
+                    if uploaded_file.name.endswith('xlsx'):
+                        df = pd.read_excel(uploaded_file)
+                    else:
+                        df = pd.read_csv(uploaded_file, sep=None, engine='python')
+                    st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+            else:
+                df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
+
+        with st.expander("👀 Aperçu"):
+            st.dataframe(df.head(10), use_container_width=True)
+
+        st.divider()
+
+        nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+
+        if st.button("🔍 Détecter les anomalies", type="primary", use_container_width=True):
+            with st.spinner("Analyse en cours..."):
+                alertes = detecter_alertes(df)
+
+                nb_critique = len([a for a in alertes if a['niveau'] == 'CRITIQUE'])
+                nb_warning = len([a for a in alertes if a['niveau'] == 'WARNING'])
+                nb_info = len([a for a in alertes if a['niveau'] == 'INFO'])
+
+                st.markdown("## 📊 Résumé des Alertes")
+
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("🔴 Critiques", nb_critique,
+                             delta_color="inverse" if nb_critique > 0 else "normal")
+                with col2:
+                    st.metric("🟡 Warnings", nb_warning)
+                with col3:
+                    st.metric("🔵 Infos", nb_info)
+                with col4:
+                    st.metric("📊 Total", len(alertes))
+
+                if nb_critique > 0:
+                    st.error("🚨 **ATTENTION** : Anomalies critiques détectées - Investigation urgente !")
+                elif nb_warning > 0:
+                    st.warning("⚠ **Vigilance** : Alertes à investiguer")
+                elif len(alertes) == 0:
+                    st.success("✅ **Aucune anomalie majeure détectée** - Données saines")
+                else:
+                    st.info("ℹ **Points à surveiller** identifiés")
+
+                st.divider()
+
+                if alertes:
+                    alertes_critiques = [a for a in alertes if a['niveau'] == 'CRITIQUE']
+                    if alertes_critiques:
+                        st.markdown("### 🔴 Alertes CRITIQUES")
+                        for a in alertes_critiques:
+                            st.error(f"**{a['titre']}** ({a['count']}) : {a['message']}")
+
+                    alertes_warning = [a for a in alertes if a['niveau'] == 'WARNING']
+                    if alertes_warning:
+                        st.markdown("### 🟡 Alertes WARNING")
+                        for a in alertes_warning:
+                            st.warning(f"**{a['titre']}** ({a['count']}) : {a['message']}")
+
+                    alertes_info = [a for a in alertes if a['niveau'] == 'INFO']
+                    if alertes_info:
+                        st.markdown("### 🔵 Alertes INFO")
+                        for a in alertes_info:
+                            st.info(f"**{a['titre']}** ({a['count']}) : {a['message']}")
+
+                st.divider()
+
+                rapport = generer_rapport_alertes(alertes, nom_entreprise)
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("💾 Sauvegarder", use_container_width=True):
+                        sauvegarder_si_autorise(type_analyse="Alertes", resultat=rapport)
+                        st.success("✅ Sauvegardé !")
+                with col2:
+                    try:
+                        generer_bouton_word(f"Alertes_{nom_entreprise}", rapport)
+                    except Exception as e:
+                        st.error(f"Erreur : {e}")
+
+    except Exception as e:
+        st.error(f"❌ Erreur : {str(e)}")
+        import traceback
+        with st.expander("Détails techniques"):
+            st.code(traceback.format_exc())
+
+# -----------------------------------------------------------------------------
+# 11. COHÉRENCE DES DONNÉES - VERSION PROFESSIONNELLE
+# -----------------------------------------------------------------------------
+

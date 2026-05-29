@@ -2,6 +2,11 @@
 """Module Rapprochement Bancaire - SMD Consulting"""
 import pandas as pd
 from datetime import datetime, timedelta
+from utils.page_helpers import (
+    sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
+    banniere_demo, is_demo, appel_mistral_securise,
+    afficher_rapport, afficher_synthese_score,
+)
 
 
 def normaliser_montant(serie):
@@ -209,3 +214,129 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
     rapport.append("*SMD Consulting - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
+
+def page_rapprochement():
+    import streamlit as st
+    import pandas as pd
+    from datetime import datetime
+st.title("🔄 Rapprochement Bancaire")
+st.markdown("**Matching intelligent** entre relevé bancaire et écritures comptables")
+st.caption("✨ Matching automatique par montant + date + libellé")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("### 📥 Relevé Bancaire")
+    releve = st.file_uploader(
+        "Fichier relevé (CSV, XLSX)",
+        type=["csv", "xlsx"],
+        key="releve",
+        help="Colonnes attendues : Date, Libellé, Montant"
+    )
+
+with col2:
+    st.markdown("### 📚 Écritures Comptables")
+    ecritures = st.file_uploader(
+        "Fichier écritures (CSV, XLSX)",
+        type=["csv", "xlsx"],
+        key="ecritures",
+        help="Colonnes attendues : Date, Libellé, Débit, Crédit"
+    )
+
+if releve and ecritures:
+    from utils.rapprochement import rapprocher_bancaire, generer_rapport_rapprochement
+
+    try:
+        df_releve = pd.read_excel(releve) if releve.name.endswith('xlsx') else pd.read_csv(releve, sep=None, engine='python')
+        df_ecritures = pd.read_excel(ecritures) if ecritures.name.endswith('xlsx') else pd.read_csv(ecritures, sep=None, engine='python')
+
+        st.success(f"✅ Relevé : **{len(df_releve)} opérations** | Écritures : **{len(df_ecritures)} lignes**")
+
+        with st.expander("👀 Aperçu des fichiers"):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Relevé bancaire**")
+                st.dataframe(df_releve.head(5), use_container_width=True)
+            with col2:
+                st.markdown("**Écritures comptables**")
+                st.dataframe(df_ecritures.head(5), use_container_width=True)
+
+        st.divider()
+
+        col1, col2 = st.columns(2)
+        with col1:
+            nom_compte = st.text_input("🏦 Nom du compte", value="Compte bancaire principal")
+        with col2:
+            tolerance = st.slider("⏱ Tolérance jours", 0, 10, 3,
+                                 help="Écart maximum entre date relevé et écriture")
+
+        if st.button("🔄 Lancer le rapprochement", type="primary", use_container_width=True):
+            with st.spinner("Matching intelligent en cours..."):
+                resultats = rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=tolerance)
+
+                st.markdown("## 📊 Résultats du Rapprochement")
+
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("✅ Rapprochés", resultats['nb_rapproches'])
+                with col2:
+                    st.metric("❌ Non rapp. relevé", resultats['nb_non_rapproches_releve'])
+                with col3:
+                    st.metric("❌ Non rapp. écritures", resultats['nb_non_rapproches_ecritures'])
+                with col4:
+                    taux = resultats['taux_rapprochement']
+                    st.metric("📈 Taux", f"{taux:.1f}%",
+                             delta="Excellent" if taux >= 90 else "Bon" if taux >= 70 else "À vérifier",
+                             delta_color="normal" if taux >= 70 else "inverse")
+
+                st.progress(min(int(taux), 100))
+
+                if taux >= 90:
+                    st.success("✅ **Excellent rapprochement** - Quasi-complet")
+                elif taux >= 70:
+                    st.info("ℹ **Bon rapprochement** - Satisfaisant")
+                elif taux >= 50:
+                    st.warning("⚠ **Rapprochement moyen** - Investigations nécessaires")
+                else:
+                    st.error("🚨 **Rapprochement faible** - Anomalies importantes")
+
+                st.divider()
+
+                if not resultats['rapproches'].empty:
+                    with st.expander(f"✅ Opérations rapprochées ({resultats['nb_rapproches']})"):
+                        st.dataframe(resultats['rapproches'], use_container_width=True, hide_index=True)
+
+                if not resultats['non_rapproches_releve'].empty:
+                    with st.expander(f"❌ Relevé non rapproché ({resultats['nb_non_rapproches_releve']})", expanded=True):
+                        st.warning("Opérations bancaires sans contrepartie comptable")
+                        st.dataframe(resultats['non_rapproches_releve'], use_container_width=True, hide_index=True)
+
+                if not resultats['non_rapproches_ecritures'].empty:
+                    with st.expander(f"❌ Écritures non rapprochées ({resultats['nb_non_rapproches_ecritures']})", expanded=True):
+                        st.warning("Écritures sans contrepartie bancaire")
+                        st.dataframe(resultats['non_rapproches_ecritures'], use_container_width=True, hide_index=True)
+
+                st.divider()
+
+                rapport = generer_rapport_rapprochement(resultats, nom_compte)
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("💾 Sauvegarder", use_container_width=True):
+                        sauvegarder_si_autorise(type_analyse="Rapprochement Bancaire", resultat=rapport)
+                        st.success("✅ Sauvegardé !")
+                with col2:
+                    try:
+                        generer_bouton_word(f"Rapprochement_{nom_compte}", rapport)
+                    except Exception as e:
+                        st.error(f"Erreur : {e}")
+
+    except Exception as e:
+        st.error(f"❌ Erreur : {str(e)}")
+        import traceback
+        with st.expander("Détails techniques"):
+            st.code(traceback.format_exc())
+# -----------------------------------------------------------------------------
+# IMMOBILISATIONS - AMORTISSEMENTS & CESSIONS
+# -----------------------------------------------------------------------------
+

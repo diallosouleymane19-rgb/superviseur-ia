@@ -3,6 +3,11 @@
 import re
 from datetime import datetime
 from utils.ai import appel_mistral
+from utils.page_helpers import (
+    sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
+    banniere_demo, is_demo, appel_mistral_securise,
+    afficher_rapport, afficher_synthese_score,
+)
 
 
 def extraire_donnees_facture(texte):
@@ -237,3 +242,201 @@ def generer_rapport_facture(donnees, controles, ecritures):
     rapport.append("*Rapport genere par SMD Consulting - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
+
+def page_analyse_facture():
+    import streamlit as st
+    import pandas as pd
+    from datetime import datetime
+st.title("🧾 Analyse de Facture")
+st.markdown("**OCR + IA** : Extraction structurée + Conformité + Comptabilisation")
+st.caption("✨ Pour Cabinets et Saisie comptable automatisée")
+
+# Initialisation état
+if 'fact_ocr' not in st.session_state:
+    st.session_state.fact_ocr = None
+if 'fact_donnees' not in st.session_state:
+    st.session_state.fact_donnees = None
+if 'fact_controles' not in st.session_state:
+    st.session_state.fact_controles = None
+if 'fact_ecritures' not in st.session_state:
+    st.session_state.fact_ecritures = None
+if 'fact_nom_fichier' not in st.session_state:
+    st.session_state.fact_nom_fichier = None
+
+col1, col2 = st.columns([5, 1])
+with col1:
+    uploaded_file = st.file_uploader(
+        "📎 Déposer une facture (PDF, PNG, JPG)",
+        type=["pdf", "png", "jpg", "jpeg"],
+        key="facture_uploader"
+    )
+with col2:
+    st.write("")
+    st.write("")
+    if st.button("🔄", help="Réinitialiser"):
+        st.session_state.fact_ocr = None
+        st.session_state.fact_donnees = None
+        st.session_state.fact_controles = None
+        st.session_state.fact_ecritures = None
+        st.session_state.fact_nom_fichier = None
+        st.rerun()
+
+if uploaded_file:
+    # ✅ CORRECTION CACHE : Réinitialiser si nouveau fichier uploadé
+    if st.session_state.get('fact_nom_fichier') != uploaded_file.name:
+        st.session_state.fact_ocr = None
+        st.session_state.fact_donnees = None
+        st.session_state.fact_controles = None
+        st.session_state.fact_ecritures = None
+        st.session_state['fact_nom_fichier'] = uploaded_file.name
+
+    # Étape 1 : OCR
+    if st.session_state.fact_ocr is None:
+        with st.spinner("🔍 Extraction OCR en cours..."):
+            try:
+                texte, erreur = ocr_image_mistral(uploaded_file)
+                if erreur:
+                    st.error(erreur)
+                elif texte:
+                    st.session_state.fact_ocr = texte
+                    # Pas de st.rerun() — Streamlit rerun automatiquement apres spinner
+                else:
+                    st.error("❌ Impossible d'extraire le texte")
+            except Exception as e:
+                st.error(f"❌ Erreur OCR : {e}")
+
+    if st.session_state.fact_ocr:
+        st.success("✅ Texte extrait avec succès !")
+
+        with st.expander("📄 Texte brut extrait"):
+            st.code(st.session_state.fact_ocr, language="text")
+
+        st.divider()
+
+        # Étape 2 : Analyse IA structurée
+        if st.session_state.fact_donnees is None:
+            if st.button("🤖 Analyser avec IA (extraction structurée)", type="primary", use_container_width=True):
+                with st.spinner("🤖 Analyse structurée en cours..."):
+                    try:
+                        from utils.analyse_facture import extraire_donnees_facture, verifier_conformite_facture, suggerer_comptabilisation
+
+                        result = extraire_donnees_facture(st.session_state.fact_ocr)
+
+                        if result.get('success'):
+                            st.session_state.fact_donnees   = result['data']
+                            st.session_state.fact_controles = verifier_conformite_facture(result['data'])
+                            st.session_state.fact_ecritures = suggerer_comptabilisation(result['data'])
+                            # Pas de st.rerun() — le bloc suivant lit session_state directement
+                        else:
+                            st.error(f"❌ Erreur analyse : {result.get('error')}")
+                            if result.get('raw'):
+                                with st.expander("Réponse brute"):
+                                    st.code(result['raw'])
+                    except Exception as e:
+                        st.error(f"❌ Erreur : {e}")
+                        import traceback
+                        with st.expander("Détails"):
+                            st.code(traceback.format_exc())
+
+        # Affichage des résultats
+        if st.session_state.fact_donnees:
+            donnees = st.session_state.fact_donnees
+
+            st.markdown("## 📋 Données Extraites")
+
+            # Informations générales
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("### 🏢 Fournisseur")
+                fournisseur = donnees.get('fournisseur', {})
+                st.write(f"**Nom** : {fournisseur.get('nom', 'N/A')}")
+                st.write(f"**SIRET** : {fournisseur.get('siret', 'N/A')}")
+                st.write(f"**TVA Intra** : {fournisseur.get('tva_intra', 'N/A')}")
+                st.write(f"**Adresse** : {fournisseur.get('adresse', 'N/A')}")
+
+            with col2:
+                st.markdown("### 👤 Client")
+                client = donnees.get('client', {})
+                st.write(f"**Nom** : {client.get('nom', 'N/A')}")
+                st.write(f"**Adresse** : {client.get('adresse', 'N/A')}")
+
+            st.divider()
+
+            # Facture
+            st.markdown("### 📄 Facture")
+            facture = donnees.get('facture', {})
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("N°", facture.get('numero', 'N/A'))
+            with col2:
+                st.metric("Date", facture.get('date', 'N/A'))
+            with col3:
+                st.metric("Échéance", facture.get('echeance', 'N/A'))
+            with col4:
+                st.metric("Paiement", facture.get('mode_paiement', 'N/A'))
+
+            st.divider()
+
+            # Montants
+            st.markdown("### 💰 Montants")
+            montants = donnees.get('montants', {})
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total HT", f"{float(montants.get('total_ht', 0)):,.2f} €")
+            with col2:
+                st.metric(f"TVA ({montants.get('taux_tva', 20)}%)", f"{float(montants.get('total_tva', 0)):,.2f} €")
+            with col3:
+                st.metric("Total TTC", f"{float(montants.get('total_ttc', 0)):,.2f} €")
+
+            st.divider()
+
+            # Conformité
+            if st.session_state.fact_controles:
+                st.markdown("### ✅ Conformité Légale")
+                st.caption("*Article 242 nonies A du CGI*")
+
+                for ctrl in st.session_state.fact_controles:
+                    if ctrl['statut'] == 'OK':
+                        st.success(f"✅ {ctrl['mention']}")
+                    elif ctrl['statut'] == 'WARNING':
+                        st.warning(f"⚠ {ctrl['mention']}")
+                    else:
+                        st.error(f"❌ {ctrl['mention']}")
+
+            st.divider()
+
+            # Comptabilisation
+            if st.session_state.fact_ecritures:
+                st.markdown("### 📚 Comptabilisation Suggérée")
+
+                import pandas as pd
+                df_ecritures = pd.DataFrame(st.session_state.fact_ecritures)
+                df_ecritures['debit'] = df_ecritures['debit'].apply(lambda x: f"{x:,.2f} €" if x > 0 else "")
+                df_ecritures['credit'] = df_ecritures['credit'].apply(lambda x: f"{x:,.2f} €" if x > 0 else "")
+                df_ecritures.columns = ['Compte', 'Libellé', 'Débit', 'Crédit']
+
+                st.dataframe(df_ecritures, use_container_width=True, hide_index=True)
+
+            st.divider()
+
+            # Export
+            from utils.analyse_facture import generer_rapport_facture
+            rapport = generer_rapport_facture(donnees, st.session_state.fact_controles, st.session_state.fact_ecritures)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Sauvegarder", use_container_width=True):
+                    sauvegarder_si_autorise(type_analyse="Analyse Facture", resultat=rapport)
+                    st.success("✅ Sauvegardé !")
+            with col2:
+                try:
+                    nom_fact = donnees.get('facture', {}).get('numero', 'inconnu')
+                    generer_bouton_word(f"Facture_{nom_fact}", rapport)
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
+
+# -----------------------------------------------------------------------------
+# 3. AUDIT BALANCE - VERSION UNIVERSELLE
+# -----------------------------------------------------------------------------
+

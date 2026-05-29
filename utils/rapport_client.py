@@ -2,6 +2,11 @@
 """Module Rapport Client - SMD Consulting"""
 import pandas as pd
 from datetime import datetime
+from utils.page_helpers import (
+    sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
+    banniere_demo, is_demo, appel_mistral_securise,
+    afficher_rapport, afficher_synthese_score,
+)
 
 
 def analyser_donnees_client(df):
@@ -211,3 +216,196 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     rapport.append(f"*(c) {datetime.now().year} - Tous droits reserves*")
     
     return "\n".join(rapport)
+
+def page_rapport_client():
+    import streamlit as st
+    import pandas as pd
+    from datetime import datetime
+st.title("📋 Rapport Client")
+st.markdown("**Livrable professionnel** pour vos clients")
+st.caption("✨ Synthèse + KPIs + Analyse + Recommandations")
+
+st.markdown("### 👤 Informations Client")
+
+col1, col2 = st.columns(2)
+with col1:
+    nom_client = st.text_input("🏢 Nom du client", placeholder="Ex: SARL DARLING")
+    siret = st.text_input("🆔 SIRET")
+    secteur = st.text_input("🏭 Secteur d'activité")
+
+with col2:
+    periode = st.selectbox("📆 Période", ["Mensuel", "Trimestriel", "Semestriel", "Annuel"])
+    exercice = st.number_input("📅 Exercice", min_value=2020, max_value=2030, value=2026)
+    date_rapport = st.date_input("📋 Date du rapport")
+
+st.divider()
+
+st.markdown("### 📂 Données Comptables")
+
+uploaded_file = st.file_uploader(
+    "📎 Balance ou FEC du client",
+    type=["csv", "xlsx", "txt"]
+)
+
+df = None
+if uploaded_file:
+    from utils.intelligent_parser import parser_balance_intelligent
+
+    mode_lecture = st.radio(
+        "🔧 Mode de lecture",
+        ["🤖 Auto-détection", "📋 Mode manuel"],
+        horizontal=True,
+        key="rc_mode"
+    )
+
+    if mode_lecture == "🤖 Auto-détection":
+        try:
+            with st.spinner("🤖 Analyse..."):
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                    df, info = parser_balance_intelligent(uploaded_file)
+                    st.success(f"✅ {info['format_detecte']} | {len(df):,} comptes")
+                    if info['colonnes_manquantes']:
+                        st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
+                else:
+                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                    st.success(f"✅ FEC chargé : {len(df):,} lignes")
+        except Exception as e:
+            st.error(f"Erreur : {e}")
+
+    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            a_un_entete = st.checkbox("✅ Fichier a une ligne d'en-tête", value=True, key="rc_entete")
+        with col2:
+            ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0, key="rc_ligne") if a_un_entete else None
+
+        try:
+            if uploaded_file.name.endswith('xlsx'):
+                df = pd.read_excel(uploaded_file, header=ligne_entete if a_un_entete else None)
+            else:
+                df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
+
+            st.success(f"✅ Fichier chargé : {len(df):,} lignes")
+
+            with st.expander("👀 Aperçu"):
+                st.dataframe(df.head(15), use_container_width=True)
+
+            st.markdown("#### 🎯 Mapping des colonnes")
+            colonnes_disponibles = ["-- Aucune --"] + [str(c) for c in df.columns]
+
+            col1, col2 = st.columns(2)
+            with col1:
+                col_compte = st.selectbox("🔢 Compte", colonnes_disponibles, index=1 if len(df.columns) > 0 else 0, key="rc_cc")
+                col_debit = st.selectbox("📥 Débit", colonnes_disponibles, index=3 if len(df.columns) > 2 else 0, key="rc_cd")
+            with col2:
+                col_libelle = st.selectbox("📝 Libellé", colonnes_disponibles, index=2 if len(df.columns) > 1 else 0, key="rc_cl")
+                col_credit = st.selectbox("📤 Crédit", colonnes_disponibles, index=4 if len(df.columns) > 3 else 0, key="rc_cre")
+
+            renommage = {}
+            if col_compte != "-- Aucune --":
+                renommage[col_compte] = 'CompteNum'
+            if col_libelle != "-- Aucune --":
+                renommage[col_libelle] = 'CompteLib'
+            if col_debit != "-- Aucune --":
+                renommage[col_debit] = 'Debit'
+            if col_credit != "-- Aucune --":
+                renommage[col_credit] = 'Credit'
+
+            df = df.rename(columns=renommage)
+
+        except Exception as e:
+            st.error(f"Erreur : {e}")
+
+st.divider()
+
+st.markdown("### ✍ Personnalisation")
+
+col1, col2 = st.columns(2)
+with col1:
+    observations = st.text_area(
+        "📝 Observations particulières",
+        placeholder="Évènements marquants, points d'attention...",
+        height=120
+    )
+with col2:
+    objectifs = st.text_area(
+        "🎯 Objectifs prochaine période",
+        placeholder="Objectifs de croissance, plans d'action...",
+        height=120
+    )
+
+st.divider()
+
+if st.button("📋 Générer le Rapport Client", type="primary", use_container_width=True):
+    if not nom_client:
+        st.error("⚠ Veuillez renseigner le nom du client")
+    else:
+        from utils.rapport_client import generer_rapport_client, analyser_donnees_client
+
+        df_analyse = df if df is not None else pd.DataFrame()
+
+        with st.spinner("Génération du rapport..."):
+            rapport = generer_rapport_client(
+                nom_client=nom_client,
+                siret=siret,
+                periode=periode,
+                exercice=exercice,
+                donnees=df_analyse,
+                observations=observations,
+                objectifs=objectifs
+            )
+
+            if df is not None and 'CompteNum' in df.columns:
+                kpis = analyser_donnees_client(df)
+
+                if kpis.get('chiffre_affaires', 0) > 0:
+                    st.markdown("## 📊 Aperçu KPIs Client")
+
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("CA", f"{kpis['chiffre_affaires']:,.0f} €")
+                    with col2:
+                        rn = kpis['resultat_net']
+                        st.metric("Résultat Net", f"{rn:,.0f} €",
+                                 delta="Bénéfice" if rn > 0 else "Déficit",
+                                 delta_color="normal" if rn > 0 else "inverse")
+                    with col3:
+                        st.metric("EBE", f"{kpis['ebe']:,.0f} €")
+                    with col4:
+                        st.metric("Trésorerie", f"{kpis['tresorerie']:,.0f} €")
+
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Marge nette", f"{kpis['taux_rentabilite']:.1f}%")
+                    with col2:
+                        st.metric("Marge brute", f"{kpis['taux_marge_brute']:.1f}%")
+                    with col3:
+                        st.metric("Taux VA", f"{kpis['taux_va']:.1f}%")
+                    with col4:
+                        st.metric("Poids personnel", f"{kpis['poids_charges_personnel']:.1f}%")
+
+                    st.divider()
+
+            st.markdown("## 📄 Rapport Généré")
+            with st.container():
+                afficher_rapport(rapport, afficher_kpis_auto=True, afficher_alertes_auto=True, afficher_tables_auto=True, compact=True)
+
+            st.divider()
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Sauvegarder", use_container_width=True):
+                    sauvegarder_si_autorise(type_analyse="Rapport Client", resultat=rapport)
+                    st.success("✅ Sauvegardé !")
+
+            with col2:
+                try:
+                    nom_fichier = f"Rapport_{nom_client.replace(' ', '_')}_{periode}_{exercice}"
+                    generer_bouton_word(nom_fichier, rapport)
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
+
+# -----------------------------------------------------------------------------
+# 10. ALERTES & ANOMALIES - VERSION PROFESSIONNELLE
+# -----------------------------------------------------------------------------
+

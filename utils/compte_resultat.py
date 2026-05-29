@@ -7,6 +7,11 @@ Pour Cabinets, DAF et Dirigeants
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from utils.page_helpers import (
+    sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
+    banniere_demo, is_demo, appel_mistral_securise,
+    afficher_rapport, afficher_synthese_score,
+)
 
 
 # Mapping des comptes PCG vers les rubriques du compte de resultat
@@ -304,3 +309,150 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
     rapport.append("*Rapport genere par SMD Consulting - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
+
+def page_compte_resultat():
+    import streamlit as st
+    import pandas as pd
+    from datetime import datetime
+st.title("📈 Compte de Résultat")
+st.markdown("**Calcul automatique des SIG** (Soldes Intermédiaires de Gestion) selon PCG")
+st.caption("✨ Pour Cabinets, DAF et Dirigeants - Compatible toutes balances")
+
+uploaded_file = st.file_uploader(
+    "📎 Déposer votre balance ou FEC",
+    type=["csv", "xlsx", "txt"],
+    help="La balance doit contenir les comptes des classes 6 (charges) et 7 (produits)"
+)
+
+if uploaded_file:
+    from utils.compte_resultat import calculer_compte_resultat, generer_rapport_compte_resultat
+    from utils.intelligent_parser import parser_balance_intelligent
+
+    try:
+        with st.spinner("🤖 Analyse de la balance..."):
+            if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                df, info = parser_balance_intelligent(uploaded_file)
+                st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} comptes**")
+            else:
+                df, erreur = charger_fichier(uploaded_file)
+                if erreur:
+                    st.error(f"❌ Erreur : {erreur}")
+                    st.stop()
+                st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
+
+        st.divider()
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+        with col2:
+            exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
+        with col3:
+            type_entreprise = st.selectbox(
+                "🏭 Type d'entreprise",
+                ["Mixte", "Commerciale", "Industrielle", "Services"]
+            )
+
+        if st.button("📊 Générer le Compte de Résultat", type="primary", use_container_width=True):
+            with st.spinner("Calcul des SIG en cours..."):
+                resultat = calculer_compte_resultat(df, type_entreprise)
+
+                if 'erreur' in resultat:
+                    st.error(f"❌ {resultat['erreur']}")
+                else:
+                    st.markdown("## 📊 Soldes Intermédiaires de Gestion")
+                    st.caption(f"{nom_entreprise} - Exercice {exercice}")
+
+                    sig = resultat['sig']
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        _ca = sig.get("Chiffre d'affaires", 0)
+                        st.metric("💰 CA", f"{_ca:,.0f} €")
+                    with col2:
+                        st.metric("⚙ VA", f"{sig['Valeur ajoutée (VA)']:,.0f} €")
+                    with col3:
+                        _ebe = sig.get("Excedent Brut d'Exploitation (EBE)", 0)
+                        st.metric("📈 EBE", f"{_ebe:,.0f} €")
+                    with col4:
+                        rn = sig['Resultat net']
+                        st.metric("🎯 Résultat Net", f"{rn:,.0f} €",
+                                 delta="Bénéfice" if rn > 0 else "Déficit",
+                                 delta_color="normal" if rn > 0 else "inverse")
+
+                    st.divider()
+                    st.markdown("### 📋 Détail des Soldes Intermédiaires")
+                    df_sig = pd.DataFrame([
+                        {'Indicateur': nom, 'Montant (€)': f"{val:,.2f}"} 
+                        for nom, val in sig.items()
+                    ])
+                    st.dataframe(df_sig, use_container_width=True, hide_index=True)
+                    st.bar_chart(pd.DataFrame([
+                        {'Indicateur': nom, 'Montant': val} 
+                        for nom, val in sig.items()
+                    ]).set_index('Indicateur'))
+
+                    st.divider()
+                    if resultat['ratios']:
+                        st.markdown("## 📈 Ratios de Performance")
+                        ratios = resultat['ratios']
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            if 'Taux de valeur ajoutee (%)' in ratios:
+                                st.metric("Taux VA", f"{ratios['Taux de valeur ajoutee (%)']:.1f}%")
+                        with col2:
+                            if 'Taux de marge brute - EBE (%)' in ratios:
+                                st.metric("Marge EBE", f"{ratios['Taux de marge brute - EBE (%)']:.1f}%")
+                        with col3:
+                            if 'Taux de rentabilite exploitation (%)' in ratios:
+                                st.metric("Rentab. Exploit.", f"{ratios['Taux de rentabilite exploitation (%)']:.1f}%")
+                        with col4:
+                            if 'Taux de rentabilite nette (%)' in ratios:
+                                st.metric("Rentab. Nette", f"{ratios['Taux de rentabilite nette (%)']:.1f}%")
+
+                    st.divider()
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("### 💰 PRODUITS")
+                        st.dataframe(pd.DataFrame([
+                            {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
+                            for k, v in resultat['produits'].items() if v != 0
+                        ]), use_container_width=True, hide_index=True)
+                    with col2:
+                        st.markdown("### 💸 CHARGES")
+                        st.dataframe(pd.DataFrame([
+                            {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
+                            for k, v in resultat['charges'].items() if v != 0
+                        ]), use_container_width=True, hide_index=True)
+
+                    st.divider()
+                    if resultat['analyse']:
+                        st.markdown("## 💡 Analyse Cabinet")
+                        for item in resultat['analyse']:
+                            if item['type'] == 'OK':
+                                st.success(f"✅ {item['message']}")
+                            elif item['type'] == 'WARNING':
+                                st.warning(f"⚠ {item['message']}")
+                            else:
+                                st.error(f"🔴 {item['message']}")
+
+                    st.divider()
+                    rapport = generer_rapport_compte_resultat(resultat, nom_entreprise, exercice)
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder", use_container_width=True):
+                            sauvegarder_si_autorise(type_analyse="Compte de Résultat", resultat=rapport)
+                            st.success("✅ Sauvegardé !")
+                    with col2:
+                        try:
+                            generer_bouton_word(f"Compte_Resultat_{nom_entreprise}", rapport)
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+
+    except Exception as e:
+        st.error(f"❌ Erreur : {str(e)}")
+        import traceback
+        with st.expander("Détails techniques"):
+            st.code(traceback.format_exc())
+# -----------------------------------------------------------------------------
+# 7. BILAN COMPTABLE - VERSION PROFESSIONNELLE CABINET
+# -----------------------------------------------------------------------------
+

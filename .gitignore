@@ -2,6 +2,7 @@
 .streamlit/secrets.toml
 .env
 *.env
+DEPLOIEMENT.md
 
 # Bases de données locales
 *.db

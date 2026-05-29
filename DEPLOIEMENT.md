@@ -66,10 +66,10 @@ Une fois déployé, aller dans **Settings → Secrets** et coller :
 
 **PCG France :**
 ```toml
-MISTRAL_API_KEY = "WGJJsSrYZxx1Ue5gHrUxRnIBKwYVBB9N"
+MISTRAL_API_KEY = "votre_cle_mistral_pcg_ici"
 
-AUTH_EMAIL    = "cabinet@smd-consulting.fr"
-AUTH_PASSWORD = "Superviseur2026!"
+AUTH_EMAIL    = "votre_email_admin"
+AUTH_PASSWORD = "votre_mot_de_passe_admin"
 AUTH_ROLE     = "admin"
 AUTH_NOM      = "SMD Consulting"
 
@@ -80,10 +80,10 @@ APP_URL = "https://superviseur-ia-pcg.streamlit.app"
 
 **SYSCOHADA :**
 ```toml
-MISTRAL_API_KEY = "PO3DdZ5OYJVxEXaWUjvSF7Od3mcKp0zy"
+MISTRAL_API_KEY = "votre_cle_mistral_syscohada_ici"
 
 [users]
-smdconsulting = "compta2026"
+smdconsulting = "votre_mot_de_passe"
 
 STRIPE_SECRET_KEY     = "sk_live_VOTRE_CLE_LIVE"
 STRIPE_WEBHOOK_SECRET = "whsec_VOTRE_SECRET"
