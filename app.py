@@ -1735,6 +1735,50 @@ elif page == "📋 Inventaire & Clôture":
                     st.error(f"Erreur : {e}")
 
 # -----------------------------------------------------------------------------
+# 9a. PLAN DE FINANCEMENT
+# -----------------------------------------------------------------------------
+
+elif page == "📐 Plan de Financement":
+    try:
+        from utils.plan_financement import page_plan_financement
+        page_plan_financement()
+    except ImportError as e:
+        st.error(f"Module plan_financement indisponible : {e}")
+
+# -----------------------------------------------------------------------------
+# 9b. TFT TRESORERIE
+# -----------------------------------------------------------------------------
+
+elif page == "💹 TFT Trésorerie":
+    try:
+        from utils.tft import page_tft
+        page_tft()
+    except ImportError as e:
+        st.error(f"Module TFT indisponible : {e}")
+
+# -----------------------------------------------------------------------------
+# 9c. COMPARATIF N/N-1
+# -----------------------------------------------------------------------------
+
+elif page == "📊 Comparatif N/N-1":
+    try:
+        from utils.comparatif import page_comparatif
+        page_comparatif()
+    except ImportError as e:
+        st.error(f"Module Comparatif indisponible : {e}")
+
+# -----------------------------------------------------------------------------
+# 9d. AIDE TVA CA3/CA12
+# -----------------------------------------------------------------------------
+
+elif page == "🧾 Aide TVA CA3/CA12":
+    try:
+        from utils.tva import page_tva
+        page_tva()
+    except ImportError as e:
+        st.error(f"Module TVA indisponible : {e}")
+
+# -----------------------------------------------------------------------------
 # 9. RAPPORT CLIENT - VERSION PRO AVEC MODE MANUEL
 # -----------------------------------------------------------------------------
 
@@ -2395,23 +2439,7 @@ elif page == "🔒 Confidentialité & Sécurité":
     with col2:
         st.success("### ✅ Non stockées\n\nVos données ne sont pas conservées après analyse. Une convention de test est disponible sur demande.")
     with col3:
-        st.success("### ✅ IA éthique\n\nVos données ne servent pas à entraîner Mistral AI — garanti contractuellement.")
-
-    st.divider()
-    st.markdown("### 📋 Convention de Test")
-    st.info("""
-**CONVENTION DE TEST - SMD Consulting**
-
-Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est convenu que :
-
-1. Les données transmises sont utilisées **uniquement** pour la démonstration du Superviseur IA Comptable
-2. **Aucune donnée n'est conservée** au-delà de la session d'analyse
-3. Les données ne sont **pas partagées** avec des tiers
-4. Les données ne sont **pas utilisées** pour entraîner des modèles d'IA
-5. Le client s'engage à transmettre des données **préalablement anonymisées**
-
-*Version signée disponible sur demande : smdconsulting@gmail.com*
-    """)
+        st.success("### ✅ IA éthique\n\nMistral AI ne réutilise pas vos données pour entraîner ses modèles. Traitement en Europe uniquement.")
 
     st.divider()
     st.markdown("### 🛡 Cadre Réglementaire")
@@ -2420,15 +2448,14 @@ Entre **SMD Consulting** (Souleymane Diallo) et le client soussigné, il est con
         st.markdown("""
 **RGPD**
 - Traitement limité à la finalité déclarée
-- Durée de conservation minimale
-- Droit d'accès et suppression garanti
+- Durée de conservation : 30 jours
+- Droit d’accès et suppression garanti
 - Pas de transfert hors UE sans garanties
-
         """)
     with col2:
         st.markdown("""
 **Mistral AI**
-- Données API non utilisées pour l'entraînement
+- Données API non utilisées pour l’entraînement
 - Traitement en Europe
 - Confidentialité contractuellement garantie
         """)
