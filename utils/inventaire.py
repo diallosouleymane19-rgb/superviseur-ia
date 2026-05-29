@@ -244,277 +244,284 @@ def generer_rapport_inventaire(resultats, exercice):
     rapport.append("*SMD Consulting - Superviseur IA Comptable*")
     return "\n".join(rapport)
 
+
+
 def page_inventaire():
     import streamlit as st
     import pandas as pd
     from datetime import datetime
-st.title("📋 Travaux d'Inventaire & Clôture")
-st.markdown("**Provisions, Régularisations, Stocks, Check-list clôture**")
-st.caption("✨ Opérations de fin d'exercice — Qualité grand cabinet")
+    from utils.page_helpers import (
+        sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
+        banniere_demo, is_demo, appel_mistral_securise,
+        afficher_rapport, afficher_synthese_score,
+    )
+    st.title("📋 Travaux d'Inventaire & Clôture")
+    st.markdown("**Provisions, Régularisations, Stocks, Check-list clôture**")
+    st.caption("✨ Opérations de fin d'exercice — Qualité grand cabinet")
 
-from utils.inventaire import (
-    calculer_provision_creances,
-    calculer_provision_risque,
-    calculer_regularisations,
-    calculer_variation_stock,
-    generer_checklist_cloture,
-    generer_rapport_inventaire
-)
+    from utils.inventaire import (
+        calculer_provision_creances,
+        calculer_provision_risque,
+        calculer_regularisations,
+        calculer_variation_stock,
+        generer_checklist_cloture,
+        generer_rapport_inventaire
+    )
 
-onglet1, onglet2, onglet3, onglet4 = st.tabs([
-    "⚠ Provisions",
-    "🔄 Régularisations",
-    "📦 Stocks",
-    "✅ Check-list Clôture"
-])
-
-# ── ONGLET 1 : PROVISIONS ──
-with onglet1:
-    st.markdown("### ⚠ Provisions")
-
-    sous_onglet1, sous_onglet2 = st.tabs([
-        "Créances douteuses",
-        "Risques & Charges"
+    onglet1, onglet2, onglet3, onglet4 = st.tabs([
+        "⚠ Provisions",
+        "🔄 Régularisations",
+        "📦 Stocks",
+        "✅ Check-list Clôture"
     ])
 
-    with sous_onglet1:
-        st.markdown("#### 📉 Provisions pour créances douteuses")
-        st.caption("Compte 491 — Article L123-20 du Code de Commerce")
+    # ── ONGLET 1 : PROVISIONS ──
+    with onglet1:
+        st.markdown("### ⚠ Provisions")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            taux_douteux = st.slider("Taux créances douteuses (%)", 0, 100, 50)
-        with col2:
-            taux_irrecouvrables = st.slider("Taux créances irrécouvrables (%)", 0, 100, 100)
+        sous_onglet1, sous_onglet2 = st.tabs([
+            "Créances douteuses",
+            "Risques & Charges"
+        ])
 
-        st.markdown("#### 📋 Saisie des créances clients")
-
-        nb_clients = st.number_input("Nombre de clients à analyser", min_value=1, max_value=20, value=3)
-
-        clients_data = []
-        for i in range(int(nb_clients)):
-            st.markdown(f"**Client {i+1}**")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                nom = st.text_input(f"Nom", key=f"client_nom_{i}", placeholder="SARL X")
-            with col2:
-                montant = st.number_input(f"Montant (€)", min_value=0.0, key=f"client_montant_{i}", value=1000.0)
-            with col3:
-                anciennete = st.number_input(f"Ancienneté (jours)", min_value=0, key=f"client_anc_{i}", value=90)
-            clients_data.append({'Client': nom, 'Montant': montant, 'Ancienneté': anciennete})
-
-        if st.button("⚠ Calculer les provisions", type="primary", use_container_width=True, key="btn_prov_creances"):
-            df_clients = pd.DataFrame(clients_data)
-            df_resultats, total = calculer_provision_creances(df_clients, taux_douteux, taux_irrecouvrables)
-
-            st.markdown("## 📊 Résultats")
-            st.dataframe(df_resultats, use_container_width=True, hide_index=True)
+        with sous_onglet1:
+            st.markdown("#### 📉 Provisions pour créances douteuses")
+            st.caption("Compte 491 — Article L123-20 du Code de Commerce")
 
             col1, col2 = st.columns(2)
             with col1:
-                st.metric("💰 Total provisions", f"{total:,.2f} €")
+                taux_douteux = st.slider("Taux créances douteuses (%)", 0, 100, 50)
             with col2:
-                nb_douteux = len(df_resultats[df_resultats['Taux (%)'] > 0])
-                st.metric("⚠ Créances à risque", nb_douteux)
+                taux_irrecouvrables = st.slider("Taux créances irrécouvrables (%)", 0, 100, 100)
 
-            st.divider()
-            st.markdown("### 📚 Écriture comptable")
-            st.info(f"""
-**Dotation aux provisions :**
-- Débit **6817** (Dotation provisions créances) : {total:,.2f} €
-- Crédit **491** (Provision créances douteuses) : {total:,.2f} €
-            """)
+            st.markdown("#### 📋 Saisie des créances clients")
 
-            if st.button("💾 Sauvegarder", use_container_width=True, key="save_prov_creances"):
-                sauvegarder_si_autorise(type_analyse="Provisions créances", resultat=df_resultats.to_string())
-                st.success("✅ Sauvegardé !")
+            nb_clients = st.number_input("Nombre de clients à analyser", min_value=1, max_value=20, value=3)
 
-    with sous_onglet2:
-        st.markdown("#### 🛡 Provisions pour risques et charges")
-        st.caption("Compte 15x — Risques identifiés fin d'exercice")
+            clients_data = []
+            for i in range(int(nb_clients)):
+                st.markdown(f"**Client {i+1}**")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    nom = st.text_input(f"Nom", key=f"client_nom_{i}", placeholder="SARL X")
+                with col2:
+                    montant = st.number_input(f"Montant (€)", min_value=0.0, key=f"client_montant_{i}", value=1000.0)
+                with col3:
+                    anciennete = st.number_input(f"Ancienneté (jours)", min_value=0, key=f"client_anc_{i}", value=90)
+                clients_data.append({'Client': nom, 'Montant': montant, 'Ancienneté': anciennete})
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            libelle_risque = st.text_input("📝 Nature du risque", placeholder="Ex: Litige fournisseur")
-        with col2:
-            montant_risque = st.number_input("💰 Montant estimé (€)", min_value=0.0, value=5000.0)
-        with col3:
-            probabilite = st.slider("📊 Probabilité (%)", 0, 100, 70)
+            if st.button("⚠ Calculer les provisions", type="primary", use_container_width=True, key="btn_prov_creances"):
+                df_clients = pd.DataFrame(clients_data)
+                df_resultats, total = calculer_provision_creances(df_clients, taux_douteux, taux_irrecouvrables)
 
-        compte_prov = st.selectbox("📚 Compte de provision", [
-            "151 — Provisions pour risques",
-            "152 — Provisions pour impôts",
-            "153 — Provisions pour pensions",
-            "155 — Provisions pour garanties",
-            "158 — Autres provisions pour charges"
-        ])
+                st.markdown("## 📊 Résultats")
+                st.dataframe(df_resultats, use_container_width=True, hide_index=True)
 
-        if st.button("🛡 Calculer la provision", type="primary", use_container_width=True, key="btn_prov_risque"):
-            compte = compte_prov.split(" — ")[0]
-            result = calculer_provision_risque(libelle_risque, montant_risque, probabilite, compte)
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("💰 Total provisions", f"{total:,.2f} €")
+                with col2:
+                    nb_douteux = len(df_resultats[df_resultats['Taux (%)'] > 0])
+                    st.metric("⚠ Créances à risque", nb_douteux)
+
+                st.divider()
+                st.markdown("### 📚 Écriture comptable")
+                st.info(f"""
+    **Dotation aux provisions :**
+    - Débit **6817** (Dotation provisions créances) : {total:,.2f} €
+    - Crédit **491** (Provision créances douteuses) : {total:,.2f} €
+                """)
+
+                if st.button("💾 Sauvegarder", use_container_width=True, key="save_prov_creances"):
+                    sauvegarder_si_autorise(type_analyse="Provisions créances", resultat=df_resultats.to_string())
+                    st.success("✅ Sauvegardé !")
+
+        with sous_onglet2:
+            st.markdown("#### 🛡 Provisions pour risques et charges")
+            st.caption("Compte 15x — Risques identifiés fin d'exercice")
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("💰 Montant risque", f"{montant_risque:,.2f} €")
+                libelle_risque = st.text_input("📝 Nature du risque", placeholder="Ex: Litige fournisseur")
             with col2:
-                st.metric("📊 Probabilité", f"{probabilite}%")
+                montant_risque = st.number_input("💰 Montant estimé (€)", min_value=0.0, value=5000.0)
             with col3:
-                st.metric("⚠ Provision", f"{result['provision']:,.2f} €")
+                probabilite = st.slider("📊 Probabilité (%)", 0, 100, 70)
+
+            compte_prov = st.selectbox("📚 Compte de provision", [
+                "151 — Provisions pour risques",
+                "152 — Provisions pour impôts",
+                "153 — Provisions pour pensions",
+                "155 — Provisions pour garanties",
+                "158 — Autres provisions pour charges"
+            ])
+
+            if st.button("🛡 Calculer la provision", type="primary", use_container_width=True, key="btn_prov_risque"):
+                compte = compte_prov.split(" — ")[0]
+                result = calculer_provision_risque(libelle_risque, montant_risque, probabilite, compte)
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("💰 Montant risque", f"{montant_risque:,.2f} €")
+                with col2:
+                    st.metric("📊 Probabilité", f"{probabilite}%")
+                with col3:
+                    st.metric("⚠ Provision", f"{result['provision']:,.2f} €")
+
+                st.divider()
+                st.markdown("### 📚 Écriture comptable")
+                st.dataframe(result['ecriture'], use_container_width=True, hide_index=True)
+
+    # ── ONGLET 2 : RÉGULARISATIONS ──
+    with onglet2:
+        st.markdown("### 🔄 Régularisations de fin d'exercice")
+        st.caption("CCA, PCA, Charges à payer, Produits à recevoir")
+
+        with st.expander("ℹ Comprendre les régularisations"):
+            st.markdown("""
+    | Type | Compte | Description |
+    |---|---|---|
+    | **CCA** | 486 | Charges payées mais concernant l'exercice suivant |
+    | **PCA** | 487 | Produits encaissés mais concernant l'exercice suivant |
+    | **CAP** | 408/428 | Charges dues mais pas encore facturées |
+    | **PAR** | 418 | Produits à facturer non encore encaissés |
+            """)
+
+        date_cloture = st.date_input("📅 Date de clôture de l'exercice")
+
+        nb_elements = st.number_input("Nombre d'éléments à régulariser", min_value=1, max_value=10, value=2)
+
+        elements = []
+        for i in range(int(nb_elements)):
+            st.markdown(f"**Élément {i+1}**")
+            col1, col2, col3, col4, col5 = st.columns(5)
+            with col1:
+                type_reg = st.selectbox("Type", ["CCA", "PCA", "CAP", "PAR"], key=f"type_{i}")
+            with col2:
+                lib = st.text_input("Libellé", key=f"lib_{i}", placeholder="Ex: Assurance")
+            with col3:
+                montant = st.number_input("Montant (€)", min_value=0.0, key=f"mont_{i}", value=1200.0)
+            with col4:
+                date_debut = st.date_input("Début", key=f"deb_{i}")
+            with col5:
+                date_fin = st.date_input("Fin", key=f"fin_{i}")
+
+            elements.append({
+                'type': type_reg,
+                'libelle': lib,
+                'montant_total': montant,
+                'date_debut': datetime.combine(date_debut, datetime.min.time()),
+                'date_fin': datetime.combine(date_fin, datetime.min.time()),
+                'date_cloture': datetime.combine(date_cloture, datetime.min.time())
+            })
+
+        if st.button("🔄 Calculer les régularisations", type="primary", use_container_width=True):
+            df_reg = calculer_regularisations(elements)
+
+            st.markdown("## 📊 Résultats des régularisations")
+            st.dataframe(df_reg, use_container_width=True, hide_index=True)
+
+            total_reg = df_reg['Montant régularisé (€)'].sum()
+            st.metric("💰 Total à régulariser", f"{total_reg:,.2f} €")
+
+            if st.button("💾 Sauvegarder", use_container_width=True, key="save_reg"):
+                sauvegarder_si_autorise(type_analyse="Régularisations", resultat=df_reg.to_string())
+                st.success("✅ Sauvegardé !")
+
+    # ── ONGLET 3 : STOCKS ──
+    with onglet3:
+        st.markdown("### 📦 Ajustement des stocks")
+        st.caption("Variation de stock — Écritures comptables automatiques")
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            type_stock = st.selectbox("📦 Type de stock", [
+                "marchandises",
+                "matieres_premieres",
+                "produits_finis",
+                "en_cours"
+            ])
+        with col2:
+            stock_debut = st.number_input("📊 Stock début exercice (€)", min_value=0.0, value=50000.0)
+        with col3:
+            stock_fin = st.number_input("📊 Stock fin exercice (€)", min_value=0.0, value=45000.0)
+
+        if st.button("📦 Calculer la variation", type="primary", use_container_width=True):
+            result = calculer_variation_stock(stock_debut, stock_fin, type_stock)
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("📊 Stock début", f"{stock_debut:,.2f} €")
+            with col2:
+                st.metric("📊 Stock fin", f"{stock_fin:,.2f} €")
+            with col3:
+                delta_color = "normal" if result['variation'] > 0 else "inverse"
+                st.metric(
+                    "🔄 Variation",
+                    f"{abs(result['variation']):,.2f} €",
+                    delta=result['sens'],
+                    delta_color=delta_color
+                )
 
             st.divider()
             st.markdown("### 📚 Écriture comptable")
             st.dataframe(result['ecriture'], use_container_width=True, hide_index=True)
 
-# ── ONGLET 2 : RÉGULARISATIONS ──
-with onglet2:
-    st.markdown("### 🔄 Régularisations de fin d'exercice")
-    st.caption("CCA, PCA, Charges à payer, Produits à recevoir")
-
-    with st.expander("ℹ Comprendre les régularisations"):
-        st.markdown("""
-| Type | Compte | Description |
-|---|---|---|
-| **CCA** | 486 | Charges payées mais concernant l'exercice suivant |
-| **PCA** | 487 | Produits encaissés mais concernant l'exercice suivant |
-| **CAP** | 408/428 | Charges dues mais pas encore facturées |
-| **PAR** | 418 | Produits à facturer non encore encaissés |
-        """)
-
-    date_cloture = st.date_input("📅 Date de clôture de l'exercice")
-
-    nb_elements = st.number_input("Nombre d'éléments à régulariser", min_value=1, max_value=10, value=2)
-
-    elements = []
-    for i in range(int(nb_elements)):
-        st.markdown(f"**Élément {i+1}**")
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1:
-            type_reg = st.selectbox("Type", ["CCA", "PCA", "CAP", "PAR"], key=f"type_{i}")
-        with col2:
-            lib = st.text_input("Libellé", key=f"lib_{i}", placeholder="Ex: Assurance")
-        with col3:
-            montant = st.number_input("Montant (€)", min_value=0.0, key=f"mont_{i}", value=1200.0)
-        with col4:
-            date_debut = st.date_input("Début", key=f"deb_{i}")
-        with col5:
-            date_fin = st.date_input("Fin", key=f"fin_{i}")
-
-        elements.append({
-            'type': type_reg,
-            'libelle': lib,
-            'montant_total': montant,
-            'date_debut': datetime.combine(date_debut, datetime.min.time()),
-            'date_fin': datetime.combine(date_fin, datetime.min.time()),
-            'date_cloture': datetime.combine(date_cloture, datetime.min.time())
-        })
-
-    if st.button("🔄 Calculer les régularisations", type="primary", use_container_width=True):
-        df_reg = calculer_regularisations(elements)
-
-        st.markdown("## 📊 Résultats des régularisations")
-        st.dataframe(df_reg, use_container_width=True, hide_index=True)
-
-        total_reg = df_reg['Montant régularisé (€)'].sum()
-        st.metric("💰 Total à régulariser", f"{total_reg:,.2f} €")
-
-        if st.button("💾 Sauvegarder", use_container_width=True, key="save_reg"):
-            sauvegarder_si_autorise(type_analyse="Régularisations", resultat=df_reg.to_string())
-            st.success("✅ Sauvegardé !")
-
-# ── ONGLET 3 : STOCKS ──
-with onglet3:
-    st.markdown("### 📦 Ajustement des stocks")
-    st.caption("Variation de stock — Écritures comptables automatiques")
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        type_stock = st.selectbox("📦 Type de stock", [
-            "marchandises",
-            "matieres_premieres",
-            "produits_finis",
-            "en_cours"
-        ])
-    with col2:
-        stock_debut = st.number_input("📊 Stock début exercice (€)", min_value=0.0, value=50000.0)
-    with col3:
-        stock_fin = st.number_input("📊 Stock fin exercice (€)", min_value=0.0, value=45000.0)
-
-    if st.button("📦 Calculer la variation", type="primary", use_container_width=True):
-        result = calculer_variation_stock(stock_debut, stock_fin, type_stock)
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("📊 Stock début", f"{stock_debut:,.2f} €")
-        with col2:
-            st.metric("📊 Stock fin", f"{stock_fin:,.2f} €")
-        with col3:
-            delta_color = "normal" if result['variation'] > 0 else "inverse"
-            st.metric(
-                "🔄 Variation",
-                f"{abs(result['variation']):,.2f} €",
-                delta=result['sens'],
-                delta_color=delta_color
-            )
-
-        st.divider()
-        st.markdown("### 📚 Écriture comptable")
-        st.dataframe(result['ecriture'], use_container_width=True, hide_index=True)
-
-        if st.button("💾 Sauvegarder", use_container_width=True, key="save_stock"):
-            sauvegarder_si_autorise(
-                type_analyse="Variation stock",
-                resultat=f"Stock {type_stock} : variation {result['variation']:,.2f} €"
-            )
-            st.success("✅ Sauvegardé !")
-
-# ── ONGLET 4 : CHECK-LIST CLÔTURE ──
-with onglet4:
-    st.markdown("### ✅ Check-list de clôture d'exercice")
-    st.caption("Toutes les opérations à effectuer avant clôture")
-
-    exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
-
-    if st.button("✅ Générer la check-list", type="primary", use_container_width=True):
-        df_checklist = generer_checklist_cloture(exercice)
-
-        # Résumé
-        nb_critique = len(df_checklist[df_checklist['Priorité'] == "🔴 Critique"])
-        nb_important = len(df_checklist[df_checklist['Priorité'] == "🟡 Important"])
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("📋 Total tâches", len(df_checklist))
-        with col2:
-            st.metric("🔴 Critiques", nb_critique)
-        with col3:
-            st.metric("🟡 Importantes", nb_important)
-
-        st.divider()
-
-        # Affichage par catégorie
-        for categorie in df_checklist['Catégorie'].unique():
-            st.markdown(f"#### {categorie}")
-            df_cat = df_checklist[df_checklist['Catégorie'] == categorie][['Tâche', 'Priorité', 'Délai']]
-            st.dataframe(df_cat, use_container_width=True, hide_index=True)
-
-        st.divider()
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("💾 Sauvegarder", use_container_width=True, key="save_checklist"):
+            if st.button("💾 Sauvegarder", use_container_width=True, key="save_stock"):
                 sauvegarder_si_autorise(
-                    type_analyse="Check-list clôture",
-                    resultat=df_checklist.to_string()
+                    type_analyse="Variation stock",
+                    resultat=f"Stock {type_stock} : variation {result['variation']:,.2f} €"
                 )
                 st.success("✅ Sauvegardé !")
-        with col2:
-            try:
-                rapport = f"CHECK-LIST CLÔTURE {exercice}\n\n" + df_checklist.to_string()
-                generer_bouton_word(f"Checklist_Cloture_{exercice}", rapport)
-            except Exception as e:
-                st.error(f"Erreur : {e}")
 
-# -----------------------------------------------------------------------------
-# 9a. PLAN DE FINANCEMENT
-# -----------------------------------------------------------------------------
+    # ── ONGLET 4 : CHECK-LIST CLÔTURE ──
+    with onglet4:
+        st.markdown("### ✅ Check-list de clôture d'exercice")
+        st.caption("Toutes les opérations à effectuer avant clôture")
+
+        exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
+
+        if st.button("✅ Générer la check-list", type="primary", use_container_width=True):
+            df_checklist = generer_checklist_cloture(exercice)
+
+            # Résumé
+            nb_critique = len(df_checklist[df_checklist['Priorité'] == "🔴 Critique"])
+            nb_important = len(df_checklist[df_checklist['Priorité'] == "🟡 Important"])
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("📋 Total tâches", len(df_checklist))
+            with col2:
+                st.metric("🔴 Critiques", nb_critique)
+            with col3:
+                st.metric("🟡 Importantes", nb_important)
+
+            st.divider()
+
+            # Affichage par catégorie
+            for categorie in df_checklist['Catégorie'].unique():
+                st.markdown(f"#### {categorie}")
+                df_cat = df_checklist[df_checklist['Catégorie'] == categorie][['Tâche', 'Priorité', 'Délai']]
+                st.dataframe(df_cat, use_container_width=True, hide_index=True)
+
+            st.divider()
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Sauvegarder", use_container_width=True, key="save_checklist"):
+                    sauvegarder_si_autorise(
+                        type_analyse="Check-list clôture",
+                        resultat=df_checklist.to_string()
+                    )
+                    st.success("✅ Sauvegardé !")
+            with col2:
+                try:
+                    rapport = f"CHECK-LIST CLÔTURE {exercice}\n\n" + df_checklist.to_string()
+                    generer_bouton_word(f"Checklist_Cloture_{exercice}", rapport)
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
+
+    # -----------------------------------------------------------------------------
+    # 9a. PLAN DE FINANCEMENT
+    # -----------------------------------------------------------------------------
 

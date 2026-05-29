@@ -202,135 +202,142 @@ def generer_bilan(df, date_cloture):
     """Wrapper pour compatibilite"""
     return calculer_bilan(df, date_cloture)
 
+
+
 def page_bilan():
     import streamlit as st
     import pandas as pd
     from datetime import datetime
-st.title("📊 Bilan Comptable")
-st.markdown("**Vision patrimoniale** avec ratios financiers selon PCG")
-st.caption("✨ Pour Cabinets, DAF et Dirigeants - FDR, BFR, Trésorerie nette")
+    from utils.page_helpers import (
+        sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
+        banniere_demo, is_demo, appel_mistral_securise,
+        afficher_rapport, afficher_synthese_score,
+    )
+    st.title("📊 Bilan Comptable")
+    st.markdown("**Vision patrimoniale** avec ratios financiers selon PCG")
+    st.caption("✨ Pour Cabinets, DAF et Dirigeants - FDR, BFR, Trésorerie nette")
 
-uploaded_file = st.file_uploader(
-    "📎 Déposer votre balance ou FEC",
-    type=["csv", "xlsx", "txt"]
-)
+    uploaded_file = st.file_uploader(
+        "📎 Déposer votre balance ou FEC",
+        type=["csv", "xlsx", "txt"]
+    )
 
-if uploaded_file:
-    from utils.bilan import calculer_bilan, generer_rapport_bilan
-    from utils.intelligent_parser import parser_balance_intelligent
+    if uploaded_file:
+        from utils.bilan import calculer_bilan, generer_rapport_bilan
+        from utils.intelligent_parser import parser_balance_intelligent
 
-    try:
-        with st.spinner("🤖 Analyse..."):
-            if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
-                df, info = parser_balance_intelligent(uploaded_file)
-                st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} comptes**")
-            else:
-                df, erreur = charger_fichier(uploaded_file)
-                if erreur:
-                    st.error(f"❌ Erreur : {erreur}")
-                    st.stop()
-                st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
-
-        st.divider()
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            nom_entreprise = st.text_input("🏢 Entreprise", value="Entreprise")
-        with col2:
-            exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
-        with col3:
-            date_cloture = st.date_input("📆 Date de clôture")
-
-        if st.button("📊 Générer le Bilan", type="primary", use_container_width=True):
-            with st.spinner("Calcul en cours..."):
-                bilan = calculer_bilan(df, str(date_cloture))
-
-                if 'erreur' in bilan:
-                    st.error(f"❌ {bilan['erreur']}")
+        try:
+            with st.spinner("🤖 Analyse..."):
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
+                    df, info = parser_balance_intelligent(uploaded_file)
+                    st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} comptes**")
                 else:
-                    st.markdown(f"## 💼 Bilan au {date_cloture}")
-                    st.caption(f"{nom_entreprise} - Exercice {exercice}")
+                    df, erreur = charger_fichier(uploaded_file)
+                    if erreur:
+                        st.error(f"❌ Erreur : {erreur}")
+                        st.stop()
+                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
 
-                    totaux = bilan['totaux']
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("📦 Actif", f"{totaux['total_actif']:,.0f} €")
-                    with col2:
-                        st.metric("💼 Passif", f"{totaux['total_passif']:,.0f} €")
-                    with col3:
-                        st.metric("🏦 Capitaux", f"{totaux['capitaux_propres']:,.0f} €")
-                    with col4:
-                        ecart = totaux['ecart']
-                        st.metric("⚖ Écart", f"{ecart:,.2f} €")
+            st.divider()
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                nom_entreprise = st.text_input("🏢 Entreprise", value="Entreprise")
+            with col2:
+                exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
+            with col3:
+                date_cloture = st.date_input("📆 Date de clôture")
 
-                    if ecart < 1:
-                        st.success("✅ Bilan équilibré")
+            if st.button("📊 Générer le Bilan", type="primary", use_container_width=True):
+                with st.spinner("Calcul en cours..."):
+                    bilan = calculer_bilan(df, str(date_cloture))
+
+                    if 'erreur' in bilan:
+                        st.error(f"❌ {bilan['erreur']}")
                     else:
-                        st.warning(f"⚠ Bilan déséquilibré de {ecart:,.2f} €")
+                        st.markdown(f"## 💼 Bilan au {date_cloture}")
+                        st.caption(f"{nom_entreprise} - Exercice {exercice}")
 
-                    st.divider()
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.markdown("### 📦 ACTIF")
-                        st.dataframe(pd.DataFrame([
-                            {'Poste': k, 'Montant (€)': f"{v:,.2f}"} 
-                            for k, v in bilan['actif'].items() if v != 0
-                        ]), use_container_width=True, hide_index=True)
-                    with col2:
-                        st.markdown("### 💼 PASSIF")
-                        st.dataframe(pd.DataFrame([
-                            {'Poste': k, 'Montant (€)': f"{v:,.2f}"} 
-                            for k, v in bilan['passif'].items() if v != 0
-                        ]), use_container_width=True, hide_index=True)
-
-                    st.divider()
-                    if bilan['ratios']:
-                        st.markdown("## 📈 Ratios Financiers")
-                        ratios = bilan['ratios']
-                        col1, col2, col3 = st.columns(3)
+                        totaux = bilan['totaux']
+                        col1, col2, col3, col4 = st.columns(4)
                         with col1:
-                            st.metric("Autonomie", f"{ratios['Autonomie financiere (%)']:.1f}%")
+                            st.metric("📦 Actif", f"{totaux['total_actif']:,.0f} €")
                         with col2:
-                            st.metric("FDR", f"{ratios['Fonds de roulement FDR']:,.0f} €")
+                            st.metric("💼 Passif", f"{totaux['total_passif']:,.0f} €")
                         with col3:
-                            st.metric("Trésorerie nette", f"{ratios['Tresorerie nette']:,.0f} €")
-                        col1, col2, col3 = st.columns(3)
+                            st.metric("🏦 Capitaux", f"{totaux['capitaux_propres']:,.0f} €")
+                        with col4:
+                            ecart = totaux['ecart']
+                            st.metric("⚖ Écart", f"{ecart:,.2f} €")
+
+                        if ecart < 1:
+                            st.success("✅ Bilan équilibré")
+                        else:
+                            st.warning(f"⚠ Bilan déséquilibré de {ecart:,.2f} €")
+
+                        st.divider()
+                        col1, col2 = st.columns(2)
                         with col1:
-                            st.metric("Endettement", f"{ratios['Endettement (%)']:.1f}%")
+                            st.markdown("### 📦 ACTIF")
+                            st.dataframe(pd.DataFrame([
+                                {'Poste': k, 'Montant (€)': f"{v:,.2f}"} 
+                                for k, v in bilan['actif'].items() if v != 0
+                            ]), use_container_width=True, hide_index=True)
                         with col2:
-                            st.metric("BFR", f"{ratios['Besoin FDR BFR']:,.0f} €")
-                        with col3:
-                            st.metric("Liquidité", f"{ratios['Liquidite generale (%)']:.1f}%")
+                            st.markdown("### 💼 PASSIF")
+                            st.dataframe(pd.DataFrame([
+                                {'Poste': k, 'Montant (€)': f"{v:,.2f}"} 
+                                for k, v in bilan['passif'].items() if v != 0
+                            ]), use_container_width=True, hide_index=True)
 
-                    st.divider()
-                    if bilan['analyse']:
-                        st.markdown("## 💡 Analyse Cabinet")
-                        for item in bilan['analyse']:
-                            if item['type'] == 'OK':
-                                st.success(f"✅ {item['message']}")
-                            elif item['type'] == 'WARNING':
-                                st.warning(f"⚠ {item['message']}")
-                            else:
-                                st.error(f"🔴 {item['message']}")
+                        st.divider()
+                        if bilan['ratios']:
+                            st.markdown("## 📈 Ratios Financiers")
+                            ratios = bilan['ratios']
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Autonomie", f"{ratios['Autonomie financiere (%)']:.1f}%")
+                            with col2:
+                                st.metric("FDR", f"{ratios['Fonds de roulement FDR']:,.0f} €")
+                            with col3:
+                                st.metric("Trésorerie nette", f"{ratios['Tresorerie nette']:,.0f} €")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Endettement", f"{ratios['Endettement (%)']:.1f}%")
+                            with col2:
+                                st.metric("BFR", f"{ratios['Besoin FDR BFR']:,.0f} €")
+                            with col3:
+                                st.metric("Liquidité", f"{ratios['Liquidite generale (%)']:.1f}%")
 
-                    st.divider()
-                    rapport = generer_rapport_bilan(bilan, nom_entreprise, exercice)
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("💾 Sauvegarder", use_container_width=True):
-                            sauvegarder_si_autorise(type_analyse="Bilan", resultat=rapport)
-                            st.success("✅ Sauvegardé !")
-                    with col2:
-                        try:
-                            generer_bouton_word(f"Bilan_{nom_entreprise}", rapport)
-                        except Exception as e:
-                            st.error(f"Erreur : {e}")
+                        st.divider()
+                        if bilan['analyse']:
+                            st.markdown("## 💡 Analyse Cabinet")
+                            for item in bilan['analyse']:
+                                if item['type'] == 'OK':
+                                    st.success(f"✅ {item['message']}")
+                                elif item['type'] == 'WARNING':
+                                    st.warning(f"⚠ {item['message']}")
+                                else:
+                                    st.error(f"🔴 {item['message']}")
 
-    except Exception as e:
-        st.error(f"❌ Erreur : {str(e)}")
-        import traceback
-        with st.expander("Détails techniques"):
-            st.code(traceback.format_exc())
-# -----------------------------------------------------------------------------
-# 8. RAPPROCHEMENT BANCAIRE - VERSION PROFESSIONNELLE
-# -----------------------------------------------------------------------------
+                        st.divider()
+                        rapport = generer_rapport_bilan(bilan, nom_entreprise, exercice)
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("💾 Sauvegarder", use_container_width=True):
+                                sauvegarder_si_autorise(type_analyse="Bilan", resultat=rapport)
+                                st.success("✅ Sauvegardé !")
+                        with col2:
+                            try:
+                                generer_bouton_word(f"Bilan_{nom_entreprise}", rapport)
+                            except Exception as e:
+                                st.error(f"Erreur : {e}")
+
+        except Exception as e:
+            st.error(f"❌ Erreur : {str(e)}")
+            import traceback
+            with st.expander("Détails techniques"):
+                st.code(traceback.format_exc())
+    # -----------------------------------------------------------------------------
+    # 8. RAPPROCHEMENT BANCAIRE - VERSION PROFESSIONNELLE
+    # -----------------------------------------------------------------------------
 

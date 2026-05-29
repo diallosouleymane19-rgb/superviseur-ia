@@ -290,156 +290,147 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
     
     return "\n".join(rapport)
 
+
+
 def page_audit_balance():
     import streamlit as st
     import pandas as pd
     from datetime import datetime
-st.title("📊 Audit de Balance Comptable")
-st.markdown("**Analyse approfondie** pour Cabinets, DAF et Dirigeants")
-st.caption("✨ Compatible : Sage, Cegid, EBP, Ciel, ACD, Tiime, Pennylane, QuickBooks")
+    from utils.page_helpers import (
+        sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
+        banniere_demo, is_demo, appel_mistral_securise,
+        afficher_rapport, afficher_synthese_score,
+    )
+    st.title("📊 Audit de Balance Comptable")
+    st.markdown("**Analyse approfondie** pour Cabinets, DAF et Dirigeants")
+    st.caption("✨ Compatible : Sage, Cegid, EBP, Ciel, ACD, Tiime, Pennylane, QuickBooks")
 
-uploaded_file = st.file_uploader(
-    "📎 Déposer votre balance (CSV, XLSX)", 
-    type=["csv", "xlsx"]
-)
-
-if uploaded_file:
-    try:
-        from utils.audit_balance import auditer_balance, generer_rapport_audit
-        from utils.intelligent_parser import parser_balance_intelligent, nettoyer_balance
-    except ImportError as _imp_err:
-        st.error(f"Module d'audit indisponible : {_imp_err}")
-        st.stop()
-
-    mode_lecture = st.radio(
-        "🔧 Mode de lecture",
-        ["🤖 Auto-détection universelle", "📋 Mode manuel"],
-        horizontal=True
+    uploaded_file = st.file_uploader(
+        "📎 Déposer votre balance (CSV, XLSX)", 
+        type=["csv", "xlsx"]
     )
 
-    try:
-        if mode_lecture == "🤖 Auto-détection universelle":
-            with st.spinner("🤖 Analyse intelligente de la balance..."):
-                df, info = parser_balance_intelligent(uploaded_file)
+    if uploaded_file:
+        try:
+            from utils.audit_balance import auditer_balance, generer_rapport_audit
+            from utils.intelligent_parser import parser_balance_intelligent, nettoyer_balance
+        except ImportError as _imp_err:
+            st.error(f"Module d'audit indisponible : {_imp_err}")
+            st.stop()
 
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("📊 Format détecté", info['format_detecte'])
-            with col2:
-                st.metric("📍 Ligne en-tête", info['ligne_entete'])
-            with col3:
-                st.metric("📝 Lignes données", info['nb_lignes_donnees'])
+        mode_lecture = st.radio(
+            "🔧 Mode de lecture",
+            ["🤖 Auto-détection universelle", "📋 Mode manuel"],
+            horizontal=True
+        )
 
-            if info['colonnes_manquantes']:
-                st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
+        try:
+            if mode_lecture == "🤖 Auto-détection universelle":
+                with st.spinner("🤖 Analyse intelligente de la balance..."):
+                    df, info = parser_balance_intelligent(uploaded_file)
 
-            with st.expander("🔍 Détails de la détection", expanded=False):
-                st.write("**Mapping des colonnes :**")
-                for orig, std in info['colonnes_mappees'].items():
-                    st.write(f"- `{orig}` → **{std}**")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("📊 Format détecté", info['format_detecte'])
+                with col2:
+                    st.metric("📍 Ligne en-tête", info['ligne_entete'])
+                with col3:
+                    st.metric("📝 Lignes données", info['nb_lignes_donnees'])
 
-            with st.expander("👀 Aperçu de la balance", expanded=True):
-                st.dataframe(df.head(15), use_container_width=True)
+                if info['colonnes_manquantes']:
+                    st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
 
-        else:
-            col1, col2 = st.columns(2)
-            with col1:
-                a_un_entete = st.checkbox("✅ Mon fichier a une ligne d'en-tête", value=True)
-            with col2:
-                ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else None
+                with st.expander("🔍 Détails de la détection", expanded=False):
+                    st.write("**Mapping des colonnes :**")
+                    for orig, std in info['colonnes_mappees'].items():
+                        st.write(f"- `{orig}` → **{std}**")
 
-            if uploaded_file.name.endswith('xlsx'):
-                df = pd.read_excel(uploaded_file, header=ligne_entete if a_un_entete else None)
+                with st.expander("👀 Aperçu de la balance", expanded=True):
+                    st.dataframe(df.head(15), use_container_width=True)
+
             else:
-                df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
-
-            st.success(f"✅ Balance chargée : **{len(df):,} lignes**")
-
-            with st.expander("👀 Aperçu de la balance", expanded=True):
-                st.dataframe(df.head(15), use_container_width=True)
-
-            st.divider()
-            st.markdown("### 🎯 Identification des Colonnes")
-            colonnes_disponibles = ["-- Aucune --"] + [str(c) for c in df.columns]
-
-            col1, col2 = st.columns(2)
-            with col1:
-                col_compte = st.selectbox("🔢 Compte", colonnes_disponibles, index=1 if len(df.columns) > 0 else 0)
-                col_libelle = st.selectbox("📝 Libellé", colonnes_disponibles, index=2 if len(df.columns) > 1 else 0)
-            with col2:
-                col_debit = st.selectbox("📥 Débit", colonnes_disponibles, index=3 if len(df.columns) > 2 else 0)
-                col_credit = st.selectbox("📤 Crédit", colonnes_disponibles, index=4 if len(df.columns) > 3 else 0)
-
-            renommage = {}
-            if col_compte != "-- Aucune --":
-                renommage[col_compte] = 'CompteNum'
-            if col_libelle != "-- Aucune --":
-                renommage[col_libelle] = 'CompteLib'
-            if col_debit != "-- Aucune --":
-                renommage[col_debit] = 'Debit'
-            if col_credit != "-- Aucune --":
-                renommage[col_credit] = 'Credit'
-
-            df = df.rename(columns=renommage)
-
-        st.divider()
-
-        col1, col2 = st.columns(2)
-        with col1:
-            nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
-        with col2:
-            exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
-
-        if st.button("🔍 Lancer l'audit professionnel", type="primary", use_container_width=True):
-            with st.spinner("Audit en cours..."):
-                audit = auditer_balance(df)
-
-                afficher_synthese_score(
-                    score=audit['score_qualite'],
-                    niveau=audit['niveau'],
-                    kpis=audit['kpis'],
-                    controles=audit['controles'],
-                    anomalies=audit['anomalies'],
-                    recommandations=audit['recommandations'],
-                    devise="€"
-                )
-
-                st.divider()
-                rapport = generer_rapport_audit(audit, nom_entreprise)
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("💾 Sauvegarder", use_container_width=True):
-                        sauvegarder_si_autorise(type_analyse="Audit Balance", resultat=rapport)
-                        st.success("✅ Sauvegardé !")
+                    a_un_entete = st.checkbox("✅ Mon fichier a une ligne d'en-tête", value=True)
                 with col2:
-                    try:
-                        generer_bouton_word(f"Audit_Balance_{nom_entreprise}", rapport)
-                    except Exception as e:
-                        st.error(f"Erreur : {e}")
+                    ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else None
 
-        # ── Analyse IA Approfondie ────────────────────────────────────
-        st.divider()
-        st.markdown("### 🤖 Analyse IA Expert-Comptable")
-        st.caption("Mistral AI détecte risques, anomalies et suggestions de régularisation sur votre balance.")
-        if st.button("🤖 Lancer l'analyse IA approfondie", use_container_width=True):
-            with st.spinner("🤖 Mistral AI en cours d'analyse..."):
-                try:
-                    from utils.compta_auto import analyse_balance_ai
-                    analyse_ia = analyse_balance_ai(df)
-                    st.markdown(analyse_ia)
-                    sauvegarder_si_autorise(type_analyse="Analyse IA Balance", resultat=analyse_ia)
-                except ImportError as _e:
-                    st.error(f"Module compta_auto indisponible : {_e}")
-                except Exception as _e:
-                    st.error(f"Erreur analyse IA : {_e}")
+                if uploaded_file.name.endswith('xlsx'):
+                    df = pd.read_excel(uploaded_file, header=ligne_entete if a_un_entete else None)
+                else:
+                    df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
 
-    except Exception as e:
-        st.error(f"❌ Erreur : {str(e)}")
-        import traceback
-        with st.expander("Détails techniques"):
-            st.code(traceback.format_exc())
+                st.success(f"✅ Balance chargée : **{len(df):,} lignes**")
 
-# -----------------------------------------------------------------------------
-# 4. TRAITEMENT FEC - VERSION PROFESSIONNELLE CABINET
-# -----------------------------------------------------------------------------
+                with st.expander("👀 Aperçu de la balance", expanded=True):
+                    st.dataframe(df.head(15), use_container_width=True)
+
+                st.divider()
+                st.markdown("### 🎯 Identification des Colonnes")
+                colonnes_disponibles = ["-- Aucune --"] + [str(c) for c in df.columns]
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    col_compte = st.selectbox("🔢 Compte", colonnes_disponibles, index=1 if len(df.columns) > 0 else 0)
+                    col_libelle = st.selectbox("📝 Libellé", colonnes_disponibles, index=2 if len(df.columns) > 1 else 0)
+                with col2:
+                    col_debit = st.selectbox("📥 Débit", colonnes_disponibles, index=3 if len(df.columns) > 2 else 0)
+                    col_credit = st.selectbox("📤 Crédit", colonnes_disponibles, index=4 if len(df.columns) > 3 else 0)
+
+                renommage = {}
+                if col_compte != "-- Aucune --":
+                    renommage[col_compte] = 'CompteNum'
+                if col_libelle != "-- Aucune --":
+                    renommage[col_libelle] = 'CompteLib'
+                if col_debit != "-- Aucune --":
+                    renommage[col_debit] = 'Debit'
+                if col_credit != "-- Aucune --":
+                    renommage[col_credit] = 'Credit'
+
+                df = df.rename(columns=renommage)
+
+            st.divider()
+
+            col1, col2 = st.columns(2)
+            with col1:
+                nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+            with col2:
+                exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
+
+            if st.button("🔍 Lancer l'audit professionnel", type="primary", use_container_width=True):
+                with st.spinner("Audit en cours..."):
+                    audit = auditer_balance(df)
+
+                    afficher_synthese_score(
+                        score=audit['score_qualite'],
+                        niveau=audit['niveau'],
+                        kpis=audit['kpis'],
+                        controles=audit['controles'],
+                        anomalies=audit['anomalies'],
+                        recommandations=audit['recommandations'],
+                        devise="€"
+                    )
+
+                    st.divider()
+                    rapport = generer_rapport_audit(audit, nom_entreprise)
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder", use_container_width=True):
+                            sauvegarder_si_autorise(type_analyse="Audit Balance", resultat=rapport)
+                            st.success("✅ Sauvegardé !")
+                    with col2:
+                        try:
+                            generer_bouton_word(f"Audit_Balance_{nom_entreprise}", rapport)
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+
+        except Exception as e:
+            st.error(f"❌ Erreur : {str(e)}")
+            import traceback
+            with st.expander("Détails techniques"):
+                st.code(traceback.format_exc())
+
+    # -----------------------------------------------------------------------------
+    # 4. TRAITEMENT FEC - VERSION PROFESSIONNELLE CABINET
+    # -----------------------------------------------------------------------------
 

@@ -252,132 +252,139 @@ def generer_rapport_coherence(resultat, nom_entreprise="Entreprise"):
     return "\n".join(rapport)
 
 
+
+
 def page_coherence():
     import streamlit as st
     import pandas as pd
     from datetime import datetime
-st.title("✅ Cohérence des Données")
-st.markdown("**Audit qualité** des données comptables")
-st.caption("✨ 7 contrôles automatiques + Score qualité")
+    from utils.page_helpers import (
+        sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
+        banniere_demo, is_demo, appel_mistral_securise,
+        afficher_rapport, afficher_synthese_score,
+    )
+    st.title("✅ Cohérence des Données")
+    st.markdown("**Audit qualité** des données comptables")
+    st.caption("✨ 7 contrôles automatiques + Score qualité")
 
-with st.expander("ℹ Quels contrôles ?"):
-    st.markdown("""
-    1. **Complétude des données** (20 pts)
-    2. **Unicité / Doublons** (15 pts)
-    3. **Équilibre Débit/Crédit** (25 pts)
-    4. **Format des comptes** (15 pts)
-    5. **Format des dates** (15 pts)
-    6. **Libellés renseignés** (10 pts)
+    with st.expander("ℹ Quels contrôles ?"):
+        st.markdown("""
+        1. **Complétude des données** (20 pts)
+        2. **Unicité / Doublons** (15 pts)
+        3. **Équilibre Débit/Crédit** (25 pts)
+        4. **Format des comptes** (15 pts)
+        5. **Format des dates** (15 pts)
+        6. **Libellés renseignés** (10 pts)
 
-    **Total : 100 points**
-    """)
+        **Total : 100 points**
+        """)
 
-uploaded_file = st.file_uploader(
-    "📎 Données comptables",
-    type=["csv", "xlsx", "txt"]
-)
+    uploaded_file = st.file_uploader(
+        "📎 Données comptables",
+        type=["csv", "xlsx", "txt"]
+    )
 
-if uploaded_file:
-    from utils.coherence import verifier_coherence, generer_rapport_coherence
-    from utils.intelligent_parser import parser_balance_intelligent
+    if uploaded_file:
+        from utils.coherence import verifier_coherence, generer_rapport_coherence
+        from utils.intelligent_parser import parser_balance_intelligent
 
-    try:
-        with st.spinner("🤖 Analyse..."):
-            if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
-                try:
-                    df, info = parser_balance_intelligent(uploaded_file)
-                    st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} lignes**")
-                except:
-                    if uploaded_file.name.endswith('xlsx'):
-                        df = pd.read_excel(uploaded_file)
-                    else:
-                        df = pd.read_csv(uploaded_file, sep=None, engine='python')
-                    st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
-            else:
-                df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-                st.success(f"✅ FEC : **{len(df):,} lignes**")
-
-        with st.expander("👀 Aperçu"):
-            st.dataframe(df.head(10), use_container_width=True)
-
-        st.divider()
-
-        nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
-
-        if st.button("🔍 Vérifier la cohérence", type="primary", use_container_width=True):
-            with st.spinner("Vérifications en cours..."):
-                resultat = verifier_coherence(df)
-
-                st.markdown("## 🎯 Score de Qualité")
-
-                score = resultat['score_qualite']
-                niveau = resultat.get('niveau', 'N/A')
-
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
-                    if score >= 90:
-                        st.success(f"### {niveau} : {score}% ✅")
-                    elif score >= 75:
-                        st.info(f"### {niveau} : {score}% ℹ")
-                    elif score >= 50:
-                        st.warning(f"### {niveau} : {score}% ⚠")
-                    else:
-                        st.error(f"### {niveau} : {score}% ❌")
-
-                    st.progress(int(score))
-
-                st.divider()
-
-                kpis = resultat.get('kpis', {})
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("📝 Lignes", f"{kpis.get('nb_lignes', 0):,}")
-                with col2:
-                    st.metric("📊 Colonnes", kpis.get('nb_colonnes', 0))
-                with col3:
-                    st.metric("✅ Complétude", f"{kpis.get('completude', 0):.1f}%")
-                with col4:
-                    st.metric("⚠ Doublons", kpis.get('doublons', 0),
-                             delta_color="inverse" if kpis.get('doublons', 0) > 0 else "normal")
-
-                st.divider()
-
-                st.markdown("## 🔍 Vérifications Effectuées")
-
-                for nom, ctrl in resultat['verifications'].items():
-                    if ctrl['status'] == 'OK':
-                        st.success(f"✅ **{nom}** : {ctrl['message']}")
-                    elif ctrl['status'] == 'WARNING':
-                        st.warning(f"⚠ **{nom}** : {ctrl['message']}")
-                    else:
-                        st.error(f"❌ **{nom}** : {ctrl['message']}")
-
-                st.divider()
-
-                if resultat['recommandations']:
-                    st.markdown("## 💡 Recommandations")
-                    for reco in resultat['recommandations']:
-                        st.info(f"💼 {reco}")
-
-                st.divider()
-
-                rapport = generer_rapport_coherence(resultat, nom_entreprise)
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("💾 Sauvegarder", use_container_width=True):
-                        sauvegarder_si_autorise(type_analyse="Cohérence", resultat=rapport)
-                        st.success("✅ Sauvegardé !")
-                with col2:
+        try:
+            with st.spinner("🤖 Analyse..."):
+                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
                     try:
-                        generer_bouton_word(f"Coherence_{nom_entreprise}", rapport)
-                    except Exception as e:
-                        st.error(f"Erreur : {e}")
+                        df, info = parser_balance_intelligent(uploaded_file)
+                        st.success(f"✅ Format : **{info['format_detecte']}** | **{len(df):,} lignes**")
+                    except:
+                        if uploaded_file.name.endswith('xlsx'):
+                            df = pd.read_excel(uploaded_file)
+                        else:
+                            df = pd.read_csv(uploaded_file, sep=None, engine='python')
+                        st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+                else:
+                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
+                    st.success(f"✅ FEC : **{len(df):,} lignes**")
 
-    except Exception as e:
-        st.error(f"❌ Erreur : {str(e)}")
+            with st.expander("👀 Aperçu"):
+                st.dataframe(df.head(10), use_container_width=True)
 
-# -----------------------------------------------------------------------------
-# 12. VEILLE FISCALE
-# -----------------------------------------------------------------------------
+            st.divider()
+
+            nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+
+            if st.button("🔍 Vérifier la cohérence", type="primary", use_container_width=True):
+                with st.spinner("Vérifications en cours..."):
+                    resultat = verifier_coherence(df)
+
+                    st.markdown("## 🎯 Score de Qualité")
+
+                    score = resultat['score_qualite']
+                    niveau = resultat.get('niveau', 'N/A')
+
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        if score >= 90:
+                            st.success(f"### {niveau} : {score}% ✅")
+                        elif score >= 75:
+                            st.info(f"### {niveau} : {score}% ℹ")
+                        elif score >= 50:
+                            st.warning(f"### {niveau} : {score}% ⚠")
+                        else:
+                            st.error(f"### {niveau} : {score}% ❌")
+
+                        st.progress(int(score))
+
+                    st.divider()
+
+                    kpis = resultat.get('kpis', {})
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("📝 Lignes", f"{kpis.get('nb_lignes', 0):,}")
+                    with col2:
+                        st.metric("📊 Colonnes", kpis.get('nb_colonnes', 0))
+                    with col3:
+                        st.metric("✅ Complétude", f"{kpis.get('completude', 0):.1f}%")
+                    with col4:
+                        st.metric("⚠ Doublons", kpis.get('doublons', 0),
+                                 delta_color="inverse" if kpis.get('doublons', 0) > 0 else "normal")
+
+                    st.divider()
+
+                    st.markdown("## 🔍 Vérifications Effectuées")
+
+                    for nom, ctrl in resultat['verifications'].items():
+                        if ctrl['status'] == 'OK':
+                            st.success(f"✅ **{nom}** : {ctrl['message']}")
+                        elif ctrl['status'] == 'WARNING':
+                            st.warning(f"⚠ **{nom}** : {ctrl['message']}")
+                        else:
+                            st.error(f"❌ **{nom}** : {ctrl['message']}")
+
+                    st.divider()
+
+                    if resultat['recommandations']:
+                        st.markdown("## 💡 Recommandations")
+                        for reco in resultat['recommandations']:
+                            st.info(f"💼 {reco}")
+
+                    st.divider()
+
+                    rapport = generer_rapport_coherence(resultat, nom_entreprise)
+
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder", use_container_width=True):
+                            sauvegarder_si_autorise(type_analyse="Cohérence", resultat=rapport)
+                            st.success("✅ Sauvegardé !")
+                    with col2:
+                        try:
+                            generer_bouton_word(f"Coherence_{nom_entreprise}", rapport)
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+
+        except Exception as e:
+            st.error(f"❌ Erreur : {str(e)}")
+
+    # -----------------------------------------------------------------------------
+    # 12. VEILLE FISCALE
+    # -----------------------------------------------------------------------------
 

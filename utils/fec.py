@@ -310,147 +310,154 @@ def detecter_anomalies_fec(df):
     
     return anomalies
 
+
+
 def page_fec():
     import streamlit as st
     import pandas as pd
     from datetime import datetime
-st.title("📂 Traitement FEC - Audit Conformité DGFiP")
-st.markdown("**Validation et analyse approfondie** des Fichiers des Écritures Comptables (Article L.47 A du LPF)")
+    from utils.page_helpers import (
+        sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
+        banniere_demo, is_demo, appel_mistral_securise,
+        afficher_rapport, afficher_synthese_score,
+    )
+    st.title("📂 Traitement FEC - Audit Conformité DGFiP")
+    st.markdown("**Validation et analyse approfondie** des Fichiers des Écritures Comptables (Article L.47 A du LPF)")
 
-uploaded_file = st.file_uploader(
-    "📎 Déposer votre fichier FEC", 
-    type=["txt", "csv"],
-    help="Format pipe (|) ou tabulation, encodage UTF-8 ou ISO-8859-1"
-)
+    uploaded_file = st.file_uploader(
+        "📎 Déposer votre fichier FEC", 
+        type=["txt", "csv"],
+        help="Format pipe (|) ou tabulation, encodage UTF-8 ou ISO-8859-1"
+    )
 
-if uploaded_file:
-    from utils.fec import lire_fec, valider_fec, analyser_fec, detecter_anomalies_fec
+    if uploaded_file:
+        from utils.fec import lire_fec, valider_fec, analyser_fec, detecter_anomalies_fec
 
-    with st.spinner("📖 Lecture du FEC..."):
-        df, sep, enc = lire_fec(uploaded_file)
+        with st.spinner("📖 Lecture du FEC..."):
+            df, sep, enc = lire_fec(uploaded_file)
 
-    if df is None:
-        st.error("❌ Impossible de lire le FEC. Vérifiez le format (séparateur pipe | ou tabulation).")
-    else:
-        st.success(f"✅ FEC chargé : **{len(df):,} écritures** | Séparateur : `{sep}` | Encodage : `{enc}`")
+        if df is None:
+            st.error("❌ Impossible de lire le FEC. Vérifiez le format (séparateur pipe | ou tabulation).")
+        else:
+            st.success(f"✅ FEC chargé : **{len(df):,} écritures** | Séparateur : `{sep}` | Encodage : `{enc}`")
 
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("📝 Écritures", f"{len(df):,}")
-        with col2:
-            if 'EcritureNum' in df.columns:
-                st.metric("📄 Pièces", f"{df['EcritureNum'].nunique():,}")
-        with col3:
-            if 'CompteNum' in df.columns:
-                st.metric("🔢 Comptes", f"{df['CompteNum'].nunique()}")
-        with col4:
-            if 'JournalCode' in df.columns:
-                st.metric("📚 Journaux", f"{df['JournalCode'].nunique()}")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("📝 Écritures", f"{len(df):,}")
+            with col2:
+                if 'EcritureNum' in df.columns:
+                    st.metric("📄 Pièces", f"{df['EcritureNum'].nunique():,}")
+            with col3:
+                if 'CompteNum' in df.columns:
+                    st.metric("🔢 Comptes", f"{df['CompteNum'].nunique()}")
+            with col4:
+                if 'JournalCode' in df.columns:
+                    st.metric("📚 Journaux", f"{df['JournalCode'].nunique()}")
 
-        with st.expander("👀 Aperçu des données (20 premières lignes)"):
-            st.dataframe(df.head(20), use_container_width=True)
+            with st.expander("👀 Aperçu des données (20 premières lignes)"):
+                st.dataframe(df.head(20), use_container_width=True)
 
-        st.divider()
+            st.divider()
 
-        if st.button("🛡 Lancer la validation DGFiP complète", type="primary", use_container_width=True):
-            with st.spinner("Validation en cours selon Article A.47 A-1 du LPF..."):
-                resultats = valider_fec(df)
+            if st.button("🛡 Lancer la validation DGFiP complète", type="primary", use_container_width=True):
+                with st.spinner("Validation en cours selon Article A.47 A-1 du LPF..."):
+                    resultats = valider_fec(df)
 
-                meta = resultats.pop('_meta', {})
-                score = meta.get('score_conformite', 0)
-                niveau = meta.get('niveau', 'Inconnu')
+                    meta = resultats.pop('_meta', {})
+                    score = meta.get('score_conformite', 0)
+                    niveau = meta.get('niveau', 'Inconnu')
 
-                st.markdown("## 🎯 Score de Conformité DGFiP")
+                    st.markdown("## 🎯 Score de Conformité DGFiP")
 
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
-                    if score >= 90:
-                        st.success(f"### {niveau} : {score}% ✅")
-                    elif score >= 75:
-                        st.info(f"### {niveau} : {score}% ℹ")
-                    elif score >= 50:
-                        st.warning(f"### {niveau} : {score}% ⚠")
-                    else:
-                        st.error(f"### {niveau} : {score}% ❌")
-
-                    st.progress(min(int(score), 100))
-                    st.caption(f"Points obtenus : {meta.get('points', 0)} / {meta.get('points_max', 100)}")
-
-                st.divider()
-
-                st.markdown("## 📋 Détail des Contrôles")
-
-                for verif, status in resultats.items():
-                    if status["valide"]:
-                        st.success(f"✅ **{verif}** : {status.get('message', 'Conforme')}")
-                    else:
-                        st.error(f"❌ **{verif}** : {status.get('message', '')}")
-
-                st.divider()
-
-                st.markdown("## 🔍 Analyse Approfondie")
-                analyse = analyser_fec(df)
-                afficher_rapport(analyse, afficher_kpis_auto=True, afficher_alertes_auto=True, afficher_tables_auto=True)
-
-                st.divider()
-
-                st.markdown("## ⚠ Détection d'Anomalies")
-                anomalies = detecter_anomalies_fec(df)
-
-                if anomalies:
-                    col1, col2, col3 = st.columns(3)
-                    nb_elevees = len([a for a in anomalies if a['gravite'] == 'Elevee'])
-                    nb_moyennes = len([a for a in anomalies if a['gravite'] == 'Moyenne'])
-                    nb_faibles = len([a for a in anomalies if a['gravite'] == 'Faible'])
-
-                    with col1:
-                        st.metric("🔴 Élevées", nb_elevees)
+                    col1, col2, col3 = st.columns([1, 2, 1])
                     with col2:
-                        st.metric("🟡 Moyennes", nb_moyennes)
-                    with col3:
-                        st.metric("🔵 Faibles", nb_faibles)
-
-                    for anomalie in anomalies:
-                        if anomalie['gravite'] == 'Elevee':
-                            st.error(f"🔴 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
-                        elif anomalie['gravite'] == 'Moyenne':
-                            st.warning(f"🟡 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
+                        if score >= 90:
+                            st.success(f"### {niveau} : {score}% ✅")
+                        elif score >= 75:
+                            st.info(f"### {niveau} : {score}% ℹ")
+                        elif score >= 50:
+                            st.warning(f"### {niveau} : {score}% ⚠")
                         else:
-                            st.info(f"🔵 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
-                else:
-                    st.success("✅ Aucune anomalie majeure détectée")
+                            st.error(f"### {niveau} : {score}% ❌")
 
-                st.divider()
+                        st.progress(min(int(score), 100))
+                        st.caption(f"Points obtenus : {meta.get('points', 0)} / {meta.get('points_max', 100)}")
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("💾 Sauvegarder le rapport", use_container_width=True):
-                        sauvegarder_si_autorise(
-                            type_analyse="Audit FEC", 
-                            resultat=f"Score: {score}% - {analyse}"
-                        )
-                        st.success("✅ Rapport sauvegardé !")
+                    st.divider()
 
-                with col2:
-                    rapport_complet = f"""# RAPPORT D'AUDIT FEC
+                    st.markdown("## 📋 Détail des Contrôles")
 
-## Score de Conformité DGFiP : {score}% ({niveau})
+                    for verif, status in resultats.items():
+                        if status["valide"]:
+                            st.success(f"✅ **{verif}** : {status.get('message', 'Conforme')}")
+                        else:
+                            st.error(f"❌ **{verif}** : {status.get('message', '')}")
 
-{analyse}
+                    st.divider()
 
-## Anomalies Détectées
-{chr(10).join([f"- {a['type']} ({a['gravite']}) : {a['description']}" for a in anomalies]) if anomalies else "Aucune anomalie majeure"}
+                    st.markdown("## 🔍 Analyse Approfondie")
+                    analyse = analyser_fec(df)
+                    afficher_rapport(analyse, afficher_kpis_auto=True, afficher_alertes_auto=True, afficher_tables_auto=True)
 
----
-*Rapport généré par SMD Consulting - Superviseur IA Comptable*
-"""
-                    try:
-                        generer_bouton_word("Rapport_Audit_FEC", rapport_complet)
-                    except Exception as e:
-                        st.error(f"Erreur export : {e}")
+                    st.divider()
+
+                    st.markdown("## ⚠ Détection d'Anomalies")
+                    anomalies = detecter_anomalies_fec(df)
+
+                    if anomalies:
+                        col1, col2, col3 = st.columns(3)
+                        nb_elevees = len([a for a in anomalies if a['gravite'] == 'Elevee'])
+                        nb_moyennes = len([a for a in anomalies if a['gravite'] == 'Moyenne'])
+                        nb_faibles = len([a for a in anomalies if a['gravite'] == 'Faible'])
+
+                        with col1:
+                            st.metric("🔴 Élevées", nb_elevees)
+                        with col2:
+                            st.metric("🟡 Moyennes", nb_moyennes)
+                        with col3:
+                            st.metric("🔵 Faibles", nb_faibles)
+
+                        for anomalie in anomalies:
+                            if anomalie['gravite'] == 'Elevee':
+                                st.error(f"🔴 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
+                            elif anomalie['gravite'] == 'Moyenne':
+                                st.warning(f"🟡 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
+                            else:
+                                st.info(f"🔵 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
+                    else:
+                        st.success("✅ Aucune anomalie majeure détectée")
+
+                    st.divider()
+
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("💾 Sauvegarder le rapport", use_container_width=True):
+                            sauvegarder_si_autorise(
+                                type_analyse="Audit FEC", 
+                                resultat=f"Score: {score}% - {analyse}"
+                            )
+                            st.success("✅ Rapport sauvegardé !")
+
+                    with col2:
+                        rapport_complet = f"""# RAPPORT D'AUDIT FEC
+
+    ## Score de Conformité DGFiP : {score}% ({niveau})
+
+    {analyse}
+
+    ## Anomalies Détectées
+    {chr(10).join([f"- {a['type']} ({a['gravite']}) : {a['description']}" for a in anomalies]) if anomalies else "Aucune anomalie majeure"}
+
+    ---
+    *Rapport généré par SMD Consulting - Superviseur IA Comptable*
+    """
+                        try:
+                            generer_bouton_word("Rapport_Audit_FEC", rapport_complet)
+                        except Exception as e:
+                            st.error(f"Erreur export : {e}")
 
 
-# -----------------------------------------------------------------------------
-# 5. LOI DE BENFORD - VERSION PROFESSIONNELLE CABINET D'AUDIT
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # 5. LOI DE BENFORD - VERSION PROFESSIONNELLE CABINET D'AUDIT
+    # -----------------------------------------------------------------------------
 
