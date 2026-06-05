@@ -2,7 +2,7 @@
 """
 smd_mcp_server.py
 =================
-Serveur MCP (Model Context Protocol) - SMD Consulting
+Serveur MCP (Model Context Protocol) - SMD Global Consulting LLC
 Plugin Claude Cowork | Comptable Augmente
 
 5 Skills :
@@ -300,7 +300,7 @@ async def veille_fiscale(name: str, arguments: dict) -> list[types.TextContent]:
 
 Format par article :
 
-=== VEILLE FISCALE SMD CONSULTING - {datetime.today().strftime("%d/%m/%Y")} ===
+=== VEILLE FISCALE SMD Global Consulting LLC - {datetime.today().strftime("%d/%m/%Y")} ===
 
 [Pour chaque article :]
 TITRE : [titre]
@@ -446,6 +446,6 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
-    print("SMD Consulting - Serveur MCP demarre")
+    print("SMD Global Consulting LLC - Serveur MCP demarre")
     print("En attente de connexion Claude Cowork...")
     asyncio.run(main())

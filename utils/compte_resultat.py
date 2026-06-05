@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module Compte de Resultat Professionnel - SMD Consulting
+Module Compte de Resultat Professionnel - SMD Global Consulting LLC
 Calcul des SIG (Soldes Intermediaires de Gestion) selon PCG francais
 Pour Cabinets, DAF et Dirigeants
 """
@@ -306,7 +306,7 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
         rapport.append("")
     
     rapport.append("---")
-    rapport.append("*Rapport genere par SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*Rapport genere par SMD Global Consulting LLC - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
 

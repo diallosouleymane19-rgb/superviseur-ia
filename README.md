@@ -1,5 +1,5 @@
 # 🏠 Superviseur IA Comptable — France 🇫🇷
-> **SMD Consulting** | Comptable Augmenté par Intelligence Artificielle
+> **SMD Global Consulting LLC** | Comptable Augmenté par Intelligence Artificielle
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://superviseur-ia.streamlit.app)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
@@ -11,7 +11,7 @@
 
 ## 🎯 Présentation
 
-Le **Superviseur IA Comptable** est une plateforme professionnelle d'audit et de supervision comptable augmentée par Intelligence Artificielle, développée par **SMD Consulting**.
+Le **Superviseur IA Comptable** est une plateforme professionnelle d'audit et de supervision comptable augmentée par Intelligence Artificielle, développée par **SMD Global Consulting LLC**.
 
 Conçu pour les **experts-comptables**, **DAF** et **TPE/PME françaises**, il automatise les tâches chronophages du cycle comptable tout en garantissant la conformité aux normes **PCG** et **DGFiP**.
 

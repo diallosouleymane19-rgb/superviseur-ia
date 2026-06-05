@@ -4,7 +4,7 @@
 
 \## 1. Éditeur
 
-\*\*SMD Consulting\*\*  
+\*\*SMD Global Consulting LLC\*\*  
 
 Souleymane Diallo  
 
@@ -26,7 +26,7 @@ Transfert de données encadré par les clauses contractuelles types (SCC).
 
 \## 3. Propriété intellectuelle
 
-L’application \*\*Superviseur IA Comptable\*\* (code, interface, logo) est la propriété exclusive de \*\*SMD Consulting\*\*.  
+L’application \*\*Superviseur IA Comptable\*\* (code, interface, logo) est la propriété exclusive de \*\*SMD Global Consulting LLC\*\*.  
 
 Toute reproduction ou utilisation non autorisée est interdite.
 
@@ -52,11 +52,11 @@ Voir la \[politique de confidentialité](confidentialite.md) pour plus de détai
 
 \## 5. Responsabilité
 
-SMD Consulting met tout en œuvre pour assurer la fiabilité du service.  
+SMD Global Consulting LLC met tout en œuvre pour assurer la fiabilité du service.  
 
 L’utilisateur est seul responsable de la conformité des données qu’il soumet.  
 
-SMD Consulting ne peut être tenu responsable d’une perte ou altération des données liée à une mauvaise utilisation.
+SMD Global Consulting LLC ne peut être tenu responsable d’une perte ou altération des données liée à une mauvaise utilisation.
 
 
 

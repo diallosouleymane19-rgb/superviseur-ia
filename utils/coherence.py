@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Module Coherence des Donnees - SMD Consulting"""
+"""Module Coherence des Donnees - SMD Global Consulting LLC"""
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -247,7 +247,7 @@ def generer_rapport_coherence(resultat, nom_entreprise="Entreprise"):
     
     rapport.append("")
     rapport.append("---")
-    rapport.append("*SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
 

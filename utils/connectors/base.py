@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/connectors/base.py - SMD Consulting
+utils/connectors/base.py - SMD Global Consulting LLC
 Classe de base abstraite pour tous les connecteurs ERP.
 Chaque connecteur retourne des DataFrames normalises.
 """

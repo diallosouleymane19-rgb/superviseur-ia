@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/page_inscription.py — SMD Consulting
+utils/page_inscription.py — SMD Global Consulting LLC
 Page d'inscription publique avec choix de plan et onboarding Stripe.
 Compatible PCG France & SYSCOHADA.
 """
@@ -41,7 +41,7 @@ def page_inscription(app_name: str = "pcg") -> None:
     st.markdown(f"""
         <div style='text-align:center;padding:32px 0 24px'>
             <div style='font-size:2.8em;font-weight:900;color:#1a3a5c'>
-                SMD Consulting
+                SMD Global Consulting LLC
             </div>
             <div style='font-size:1.15em;color:#4a90d9;margin-top:4px'>
                 {app_label}

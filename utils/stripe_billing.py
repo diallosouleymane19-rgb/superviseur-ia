@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/stripe_billing.py — SMD Consulting
+utils/stripe_billing.py — SMD Global Consulting LLC
 Intégration Stripe Billing : checkout, customer portal, webhooks.
 Compatible PCG France & SYSCOHADA (mode test par défaut).
 """

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/connectors/quickbooks_connector.py - SMD Consulting
+utils/connectors/quickbooks_connector.py - SMD Global Consulting LLC
 Connecteur QuickBooks Online via API REST OAuth2.
 Doc : https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities
 """

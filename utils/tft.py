@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module TFT PCG France — Méthode indirecte — SMD Consulting
+Module TFT PCG France — Méthode indirecte — SMD Global Consulting LLC
 Tableau de Flux de Trésorerie conforme ANC/CRC 99-02
 Horizon 1 à 3 exercices comparatifs
 """

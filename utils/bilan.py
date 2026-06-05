@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Module Bilan Comptable - SMD Consulting"""
+"""Module Bilan Comptable - SMD Global Consulting LLC"""
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -193,7 +193,7 @@ def generer_rapport_bilan(bilan, nom_entreprise="Entreprise", exercice=""):
             rapport.append(f"- [{item['type']}] {item['message']}")
     
     rapport.append("\n---")
-    rapport.append("*SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
 

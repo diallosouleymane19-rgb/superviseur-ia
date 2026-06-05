@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Parseur Intelligent Universel - SMD Consulting
+Parseur Intelligent Universel - SMD Global Consulting LLC
 Compatible : Sage, Cegid, EBP, Ciel, ACD, Tiime, Pennylane, QuickBooks, Excel
 """
 import pandas as pd

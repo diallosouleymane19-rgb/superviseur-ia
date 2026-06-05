@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module Traitement FEC Professionnel - SMD Consulting
+Module Traitement FEC Professionnel - SMD Global Consulting LLC
 Conforme aux exigences DGFiP (Article L.47 A du LPF)
 """
 import pandas as pd
@@ -449,7 +449,7 @@ def page_fec():
     {chr(10).join([f"- {a['type']} ({a['gravite']}) : {a['description']}" for a in anomalies]) if anomalies else "Aucune anomalie majeure"}
 
     ---
-    *Rapport généré par SMD Consulting - Superviseur IA Comptable*
+    *Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*
     """
                         try:
                             generer_bouton_word("Rapport_Audit_FEC", rapport_complet)

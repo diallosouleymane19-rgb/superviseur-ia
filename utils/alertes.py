@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Module Alertes & Anomalies - SMD Consulting"""
+"""Module Alertes & Anomalies - SMD Global Consulting LLC"""
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -204,7 +204,7 @@ def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
     rapport.append("- Croiser avec module Loi de Benford pour fraude")
     rapport.append("")
     rapport.append("---")
-    rapport.append("*SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module Travaux d'Inventaire - SMD Consulting
+Module Travaux d'Inventaire - SMD Global Consulting LLC
 Provisions, Régularisations, Stocks, Check-list clôture
 """
 import pandas as pd
@@ -241,7 +241,7 @@ def generer_rapport_inventaire(resultats, exercice):
         rapport.append(contenu)
 
     rapport.append("\n---")
-    rapport.append("*SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
     return "\n".join(rapport)
 
 

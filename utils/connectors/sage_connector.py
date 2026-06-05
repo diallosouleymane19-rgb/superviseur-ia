@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/connectors/sage_connector.py - SMD Consulting
+utils/connectors/sage_connector.py - SMD Global Consulting LLC
 Connecteur Sage Business Cloud Comptabilite (API REST OAuth2).
 Doc : https://developer.sage.com/accounting/reference/
 Compatible Sage 50cloud, Sage Business Cloud.

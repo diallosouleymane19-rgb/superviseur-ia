@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/connectors/cegid_connector.py - SMD Consulting
+utils/connectors/cegid_connector.py - SMD Global Consulting LLC
 Connecteur Cegid Loop / Cegid Expert via API REST.
 Doc : https://developer.cegid.com/
 """

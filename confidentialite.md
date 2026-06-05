@@ -4,7 +4,7 @@
 
 \## 1. Responsable du traitement
 
-SMD Consulting – Souleymane Diallo  
+SMD Global Consulting LLC – Souleymane Diallo  
 
 Contact : \[votre email]  
 
@@ -50,7 +50,7 @@ Les fichiers originaux (PDF, images) sont \*\*supprimés immédiatement\*\* apr�
 
 Accès, rectification, effacement, opposition.  
 
-Pour exercer vos droits : \*\*répondez à cet email\*\* ou contactez \*\*SMD Consulting\*\*.
+Pour exercer vos droits : \*\*répondez à cet email\*\* ou contactez \*\*SMD Global Consulting LLC\*\*.
 
 
 

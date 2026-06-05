@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/connectors/pennylane_connector.py - SMD Consulting
+utils/connectors/pennylane_connector.py - SMD Global Consulting LLC
 Connecteur Pennylane via API REST (cle API).
 Doc : https://pennylane.readme.io/reference
 """

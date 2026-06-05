@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Module OCR Autonome - SMD Consulting"""
+"""Module OCR Autonome - SMD Global Consulting LLC"""
 import base64
 import os
 import io

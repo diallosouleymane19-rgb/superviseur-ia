@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/page_connectors.py - SMD Consulting
+utils/page_connectors.py - SMD Global Consulting LLC
 Page de gestion des connecteurs ERP.
 """
 

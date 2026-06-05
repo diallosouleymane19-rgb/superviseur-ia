@@ -2,7 +2,7 @@
 """
 Module Aide TVA CA3 / CA12
 Calcul, vérification et aide à la déclaration TVA France
-SMD Consulting - DGFiP / PCG France
+SMD Global Consulting LLC - DGFiP / PCG France
 """
 import streamlit as st
 import pandas as pd
@@ -437,7 +437,7 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
 
     # ── PIED DE PAGE ──
     footer = Table([[
-        _p("Genere par <b>SMD Consulting</b> — Superviseur IA Comptable", 7, color=colors.grey),
+        _p("Genere par <b>SMD Global Consulting LLC</b> — Superviseur IA Comptable", 7, color=colors.grey),
         _p("ATTENTION : Document d aide. La declaration officielle doit etre deposee sur impots.gouv.fr",
            7, color=colors.grey, align=TA_RIGHT),
     ]], colWidths=[9*cm, 9*cm])

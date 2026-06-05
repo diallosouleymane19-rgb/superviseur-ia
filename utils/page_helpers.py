@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/page_helpers.py - SMD Consulting
+utils/page_helpers.py - SMD Global Consulting LLC
 Fonctions utilitaires partagées par toutes les pages (page_xxx).
 Importées depuis les modules utils/ pour éviter les dépendances circulaires app.py.
 """

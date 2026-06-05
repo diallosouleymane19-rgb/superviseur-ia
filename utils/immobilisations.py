@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module Immobilisations - SMD Consulting
+Module Immobilisations - SMD Global Consulting LLC
 Gestion des amortissements, cessions et plan d'investissement
 """
 import pandas as pd
@@ -195,7 +195,7 @@ def generer_rapport_immobilisation(bien, tableau, mode):
         )
     
     rapport.append("\n---")
-    rapport.append("*SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
     return "\n".join(rapport)
 def generer_ecritures_amortissement(nom_bien, tableau, exercice_courant=None):
     """Génère les écritures comptables d'amortissement"""

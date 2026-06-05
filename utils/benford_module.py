@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module Loi de Benford Professionnel - SMD Consulting
+Module Loi de Benford Professionnel - SMD Global Consulting LLC
 Detection de fraude statistique pour Cabinets d'Audit
 """
 import pandas as pd
@@ -282,7 +282,7 @@ def analyse_benford_complete(df, col_montant):
     
     rapport.append("")
     rapport.append("---")
-    rapport.append("*Analyse generee par SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*Analyse generee par SMD Global Consulting LLC - Superviseur IA Comptable*")
     rapport.append("*Methode : Loi de Benford - 1er chiffre significatif*")
     
     rapport_str = "\n".join(rapport)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/auth_rbac.py - SMD Consulting
+utils/auth_rbac.py - SMD Global Consulting LLC
 Module RBAC : roles, plans, quotas, audit logs.
 Backend : Supabase PostgreSQL (remplace SQLite /tmp/smd_users.db).
 API identique a l'ancienne version — drop-in replacement.

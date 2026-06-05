@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Module de veille fiscale enrichie - SMD Consulting"""
+"""Module de veille fiscale enrichie - SMD Global Consulting LLC"""
 import feedparser
 from datetime import datetime, timedelta
 
@@ -52,7 +52,7 @@ def obtenir_contenu_enrichi():
         {
             'titre': '[ECHEANCES] Calendrier Fiscal Mai 2026',
             'date': aujourd_hui.strftime('%Y-%m-%d'),
-            'source': 'SMD Consulting',
+            'source': 'SMD Global Consulting LLC',
             'resume': """
 **Echeances importantes du mois :**
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Module Analyse de Facture Pro - SMD Consulting"""
+"""Module Analyse de Facture Pro - SMD Global Consulting LLC"""
 import re
 from datetime import datetime
 from utils.ai import appel_mistral
@@ -239,7 +239,7 @@ def generer_rapport_facture(donnees, controles, ecritures):
         rapport.append("---")
         rapport.append("")
     
-    rapport.append("*Rapport genere par SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*Rapport genere par SMD Global Consulting LLC - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
 

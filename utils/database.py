@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/database.py - SMD Consulting
+utils/database.py - SMD Global Consulting LLC
 Gestion clients + analyses (RGPD).
 Backend : Supabase PostgreSQL — remplace SQLite.
 API identique a l'ancienne version — drop-in replacement.

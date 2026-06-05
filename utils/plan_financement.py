@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module Plan de Financement PCG France — SMD Consulting
+Module Plan de Financement PCG France — SMD Global Consulting LLC
 Saisie manuelle + Import balance | Analyse IA Mistral | Export Excel
 """
 import streamlit as st

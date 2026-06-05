@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/security.py - SMD Consulting
+utils/security.py - SMD Global Consulting LLC
 Helpers de securite : sanitisation des entrees utilisateur.
 """
 import re

@@ -2,7 +2,7 @@
 """
 Module Comparatif N vs N-1
 Bilan + Compte de Résultat côte à côte avec écarts €/%
-SMD Consulting - PCG France
+SMD Global Consulting LLC - PCG France
 """
 import streamlit as st
 import pandas as pd

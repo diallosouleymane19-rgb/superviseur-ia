@@ -77,7 +77,7 @@ def login(email: str, password: str) -> bool:
                 _set_session(
                     email   = email,
                     role    = st.secrets.get("AUTH_ROLE", "admin"),
-                    nom     = st.secrets.get("AUTH_NOM", "SMD Consulting"),
+                    nom     = st.secrets.get("AUTH_NOM", "SMD Global Consulting LLC"),
                     plan    = "enterprise",
                 )
                 return True

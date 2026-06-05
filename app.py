@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*- 
 """
-Superviseur IA Comptable - SMD Consulting
+Superviseur IA Comptable - SMD Global Consulting LLC
 Application complète de supervision comptable augmentée par IA
 Auteur: Souleymane Diallo
 """
@@ -34,7 +34,7 @@ from auth import login, logout, is_connecte
 # =============================================================================
 
 st.set_page_config(
-    page_title="SMD Consulting - Superviseur IA", 
+    page_title="SMD Global Consulting LLC - Superviseur IA", 
     layout="wide", 
     page_icon="🔒",
     initial_sidebar_state="expanded"
@@ -101,7 +101,7 @@ if not is_connecte():
             st.markdown("---")
 
         st.divider()
-        st.caption("SMD Consulting © 2026 - Comptable IA Augmenté")
+        st.caption("SMD Global Consulting LLC © 2026 - Comptable IA Augmenté")
 
     with tab_signup:
         from utils.page_inscription import page_inscription
@@ -113,7 +113,7 @@ if not is_connecte():
 # SIDEBAR - NAVIGATION
 # =============================================================================
 
-st.sidebar.title("SMD Consulting")
+st.sidebar.title("SMD Global Consulting LLC")
 st.sidebar.caption(f"👤 {st.session_state.get('user_email', 'Utilisateur')}")
 
 # Badge rôle + plan + quota
@@ -271,7 +271,7 @@ if page == "\U0001f3e0 Accueil":
         + _salut + ", " + _user_nom + " 👋</h1>"
         "<p style='margin:0.3rem 0 0 0;color:#555;font-size:0.9rem;'>"
         "Superviseur IA Comptable &nbsp;·&nbsp; PCG France &nbsp;·&nbsp;"
-        " <b>SMD Consulting</b></p></div>",
+        " <b>SMD Global Consulting LLC</b></p></div>",
         unsafe_allow_html=True,
     )
 
@@ -371,7 +371,7 @@ if page == "\U0001f3e0 Accueil":
     _s4.info("🎭 Rôle : **" + _role.capitalize() + "**")
 
     st.divider()
-    st.caption("SMD Consulting © 2026 — PCG France · ANC/CRC 99-02 · RGPD · contact@smdconsulting.pro")
+    st.caption("SMD Global Consulting LLC © 2026 — PCG France · ANC/CRC 99-02 · RGPD · contact@smdconsulting.pro")
 
 # 2. ANALYSE FACTURE (OCR) - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
@@ -516,7 +516,7 @@ elif page == "💳 Tarifs & Abonnement":
 
 elif page == "🔒 Confidentialité & Sécurité":
     st.title("🔒 Confidentialité & Sécurité")
-    st.markdown("**Engagements SMD Consulting** envers la protection de vos données")
+    st.markdown("**Engagements SMD Global Consulting LLC** envers la protection de vos données")
     st.divider()
 
     col1, col2, col3 = st.columns(3)
@@ -529,4 +529,4 @@ elif page == "🔒 Confidentialité & Sécurité":
     st.divider()
     st.markdown("### 📋 Politique de Conservation (RGPD)")
     st.info("Les analyses sauvegardées sont automatiquement supprimées après **30 jours**.")
-    st.caption("**SMD Consulting** — Superviseur IA Comptable © 2026")
+    st.caption("**SMD Global Consulting LLC** — Superviseur IA Comptable © 2026")

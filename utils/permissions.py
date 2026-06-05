@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/permissions.py — SMD Consulting
+utils/permissions.py — SMD Global Consulting LLC
 Helpers Streamlit pour le contrôle d'accès basé sur les rôles (RBAC).
 Compatible PCG France & SYSCOHADA.
 """

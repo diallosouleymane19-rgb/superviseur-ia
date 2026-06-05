@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Module Rapprochement Bancaire - SMD Consulting"""
+"""Module Rapprochement Bancaire - SMD Global Consulting LLC"""
 import pandas as pd
 from datetime import datetime, timedelta
 from utils.page_helpers import (
@@ -211,7 +211,7 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
     
     rapport.append("")
     rapport.append("---")
-    rapport.append("*SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
 

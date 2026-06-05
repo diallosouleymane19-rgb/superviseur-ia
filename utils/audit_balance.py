@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module Audit Balance Professionnel - SMD Consulting
+Module Audit Balance Professionnel - SMD Global Consulting LLC
 Pour Cabinets, DAF et Dirigeants
 """
 import pandas as pd
@@ -286,7 +286,7 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
     rapport.append("")
     
     rapport.append("---")
-    rapport.append("*Rapport genere par SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*Rapport genere par SMD Global Consulting LLC - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
 

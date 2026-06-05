@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Module Rapport Client - SMD Consulting"""
+"""Module Rapport Client - SMD Global Consulting LLC"""
 import pandas as pd
 from datetime import datetime
 from utils.page_helpers import (
@@ -212,7 +212,7 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     
     rapport.append("---")
     rapport.append("")
-    rapport.append("*Rapport genere par SMD Consulting - Superviseur IA Comptable*")
+    rapport.append("*Rapport genere par SMD Global Consulting LLC - Superviseur IA Comptable*")
     rapport.append(f"*(c) {datetime.now().year} - Tous droits reserves*")
     
     return "\n".join(rapport)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/connectors/odoo_connector.py - SMD Consulting
+utils/connectors/odoo_connector.py - SMD Global Consulting LLC
 Connecteur Odoo via XML-RPC (standard Odoo, aucune dependance externe).
 Compatible Odoo 14, 15, 16, 17 - On-premise & Cloud.
 """

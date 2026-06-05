@@ -1,4 +1,4 @@
-# Guide de Déploiement — SMD Consulting
+# Guide de Déploiement — SMD Global Consulting LLC
 ## Superviseur IA PCG France + RevisionPro SYSCOHADA
 
 ---
@@ -71,7 +71,7 @@ MISTRAL_API_KEY = "votre_cle_mistral_pcg_ici"
 AUTH_EMAIL    = "votre_email_admin"
 AUTH_PASSWORD = "votre_mot_de_passe_admin"
 AUTH_ROLE     = "admin"
-AUTH_NOM      = "SMD Consulting"
+AUTH_NOM      = "SMD Global Consulting LLC"
 
 STRIPE_SECRET_KEY     = "sk_live_VOTRE_CLE_LIVE"
 STRIPE_WEBHOOK_SECRET = "whsec_VOTRE_SECRET"
@@ -163,5 +163,5 @@ STRIPE_WEBHOOK_SECRET=whsec_xxx
 
 ---
 
-*SMD Consulting LLC — Wyoming USA — Opéré depuis Blois, France*
+*SMD Global Consulting LLC LLC — Wyoming USA — Opéré depuis Blois, France*
 *© 2026 Souleymane Diallo*

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/page_tarifs.py — SMD Consulting
+utils/page_tarifs.py — SMD Global Consulting LLC
 Page Tarifs & Abonnement — utilise st.components.v1.html pour contourner
 le sanitizer Streamlit et garantir le rendu HTML des cartes.
 """

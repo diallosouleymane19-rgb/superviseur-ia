@@ -17,7 +17,7 @@ def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice=""
     header = section.header
     p = header.paragraphs[0]
     # Signature de votre cabinet
-    run_header = p.add_run("SMD CONSULTING | Superviseur IA")
+    run_header = p.add_run("SMD Global Consulting LLC | Superviseur IA")
     run_header.font.color.rgb = RGBColor(31, 119, 180) # Bleu institutionnel
     run_header.font.bold = True
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -56,7 +56,7 @@ def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice=""
     # --- PIED DE PAGE ---
     footer = section.footer
     f_p = footer.paragraphs[0]
-    f_p.text = "Document confidentiel généré par SMD Consulting - © 2026"
+    f_p.text = "Document confidentiel généré par SMD Global Consulting LLC - © 2026"
     f_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     # Sauvegarde en mémoire pour le téléchargement Streamlit

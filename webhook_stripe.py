@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-webhook_stripe.py — SMD Consulting / Superviseur IA PCG France
+webhook_stripe.py — SMD Global Consulting LLC / Superviseur IA PCG France
 Serveur FastAPI minimal pour recevoir les webhooks Stripe.
 
 Lancement :
@@ -40,7 +40,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="SMD Consulting — Stripe Webhook",
+    title="SMD Global Consulting LLC — Stripe Webhook",
     description="Récepteur d'événements Stripe pour la plateforme SMD",
     version="1.0.0",
 )
