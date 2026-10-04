@@ -253,23 +253,14 @@ def page_alertes():
 
     if uploaded_file:
         from utils.alertes import detecter_alertes, generer_rapport_alertes
-        from utils.intelligent_parser import parser_balance_intelligent
+        from utils.intelligent_parser import parser_balance_intelligent, charger_balance_ou_fec
 
         try:
             with st.spinner("🤖 Analyse..."):
-                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
-                    try:
-                        df, info = parser_balance_intelligent(uploaded_file)
-                        st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} lignes**")
-                    except:
-                        if uploaded_file.name.endswith('xlsx'):
-                            df = pd.read_excel(uploaded_file)
-                        else:
-                            df = pd.read_csv(uploaded_file, sep=None, engine='python')
-                        st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
-                else:
-                    df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
+                df, _msg, info = charger_balance_ou_fec(uploaded_file)
+                st.success(f"✅ {_msg}")
+                if info and info.get('colonnes_manquantes'):
+                    st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.")
 
             with st.expander("👀 Aperçu"):
                 st.dataframe(df.head(10), width="stretch")

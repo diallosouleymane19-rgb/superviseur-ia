@@ -223,7 +223,7 @@ def page_rapport_client():
 
     df = None
     if uploaded_file:
-        from utils.intelligent_parser import parser_balance_intelligent
+        from utils.intelligent_parser import parser_balance_intelligent, charger_balance_ou_fec
 
         mode_lecture = st.radio(
             "🔧 Mode de lecture",
@@ -235,14 +235,10 @@ def page_rapport_client():
         if mode_lecture == "🤖 Auto-détection":
             try:
                 with st.spinner("🤖 Analyse..."):
-                    if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
-                        df, info = parser_balance_intelligent(uploaded_file)
-                        st.success(f"✅ {info['format_detecte']} | {_nb(len(df))} comptes")
-                        if info['colonnes_manquantes']:
-                            st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
-                    else:
-                        df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-                        st.success(f"✅ FEC chargé : {_nb(len(df))} lignes")
+                    df, _msg, info = charger_balance_ou_fec(uploaded_file)
+                    st.success(f"✅ {_msg}")
+                    if info and info.get('colonnes_manquantes'):
+                        st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.")
             except Exception as e:
                 st.error(f"Erreur : {e}")
 

@@ -327,19 +327,14 @@ def page_compte_resultat():
 
     if uploaded_file:
         from utils.compte_resultat import calculer_compte_resultat, generer_rapport_compte_resultat
-        from utils.intelligent_parser import parser_balance_intelligent
+        from utils.intelligent_parser import parser_balance_intelligent, charger_balance_ou_fec
 
         try:
             with st.spinner("🤖 Analyse de la balance..."):
-                if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
-                    df, info = parser_balance_intelligent(uploaded_file)
-                    st.success(f"✅ Format détecté : **{info['format_detecte']}** | **{len(df):,} comptes**")
-                else:
-                    df, erreur = charger_fichier(uploaded_file)
-                    if erreur:
-                        st.error(f"❌ Erreur : {erreur}")
-                        st.stop()
-                    st.success(f"✅ FEC chargé : **{len(df):,} lignes**")
+                df, _msg, info = charger_balance_ou_fec(uploaded_file)
+                st.success(f"✅ {_msg}")
+                if info and info.get('colonnes_manquantes'):
+                    st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.")
 
             st.divider()
             col1, col2, col3 = st.columns(3)

@@ -238,11 +238,7 @@ def parser_balance_intelligent(fichier):
     if hasattr(fichier, 'name') and fichier.name.endswith('xlsx'):
         df_raw = pd.read_excel(fichier, header=None)
     else:
-        try:
-            df_raw = pd.read_csv(fichier, sep=';', encoding='utf-8', header=None)
-        except:
-            fichier.seek(0)
-            df_raw = pd.read_csv(fichier, sep=',', encoding='utf-8', header=None)
+        df_raw = _lire_texte_brut(fichier)
     
     info['format_detecte'] = detecter_format(df_raw)
     
@@ -295,3 +291,42 @@ def nettoyer_balance(df):
         df = df[~df['CompteNum'].astype(str).str.startswith('**')]
         df = df[~df['CompteNum'].astype(str).str.lower().str.startswith('total')]
     return df.reset_index(drop=True)
+
+
+def _lire_texte_brut(fichier):
+    """Lit un CSV/TXT sans en-tête : séparateur ; , tabulation ou | et encodage UTF-8 ou Windows."""
+    meilleur = None
+    for enc in ("utf-8-sig", "cp1252"):
+        for sep in (";", "\t", ",", "|"):
+            try:
+                fichier.seek(0)
+                d = pd.read_csv(fichier, sep=sep, encoding=enc, header=None, dtype=str)
+            except Exception:
+                continue
+            if meilleur is None or d.shape[1] > meilleur.shape[1]:
+                meilleur = d
+        if meilleur is not None and meilleur.shape[1] >= 3:
+            break
+    fichier.seek(0)
+    if meilleur is None:
+        raise ValueError("Fichier illisible (séparateur ou encodage non reconnu)")
+    return meilleur
+
+
+def charger_balance_ou_fec(fichier):
+    """
+    Charge un FEC (18 colonnes, séparateur | ou tabulation) ou une balance
+    (Excel, CSV ou TXT, tout séparateur).
+    Returns: df, message, info (info = None pour un FEC)
+    """
+    nom = getattr(fichier, "name", "").lower()
+    if not nom.endswith(("xlsx", "xls")):
+        from utils.fec import lire_fec
+        fichier.seek(0)
+        df, sep, enc = lire_fec(fichier)
+        if df is not None and {"CompteNum", "Debit", "Credit"} <= set(df.columns):
+            return df, f"FEC chargé : {len(df):,} lignes".replace(",", " "), None
+    fichier.seek(0)
+    df, info = parser_balance_intelligent(fichier)
+    msg = f"Balance lue : {len(df):,} comptes".replace(",", " ")
+    return df, msg, info
