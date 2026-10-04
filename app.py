@@ -77,7 +77,7 @@ if not is_connecte():
                                      placeholder="contact@cabinet.com")
             password = st.text_input("🔑 Mot de passe", type="password")
 
-            if st.button("🚀 Se connecter", type="primary", use_container_width=True):
+            if st.button("🚀 Se connecter", type="primary", width="stretch"):
                 if login(email, password):
                     st.success("✅ Connexion réussie !")
                     st.rerun()
@@ -86,7 +86,7 @@ if not is_connecte():
 
             st.markdown("---")
             st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
-            if st.button("👀 Accès Démonstration", use_container_width=True, key="btn_demo"):
+            if st.button("👀 Accès Démonstration", width="stretch", key="btn_demo"):
                 st.session_state.update({
                     "authenticated": True,
                     "user_email":    "demo@smdconsulting.pro",
@@ -174,7 +174,7 @@ if page in separateurs:
 
 st.sidebar.divider()
 
-if st.sidebar.button("🚪 Déconnexion", use_container_width=True):
+if st.sidebar.button("🚪 Déconnexion", width="stretch"):
     logout()
 # =============================================================================
 # FONCTIONS UTILITAIRES
@@ -206,7 +206,7 @@ def generer_bouton_word(titre, contenu):
             buf, 
             f"{sanitize_filename(titre)}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True
+            width="stretch"
         )
     except Exception as e:
         st.warning("⚠ Export Word temporairement indisponible. Copiez le contenu manuellement.")
@@ -323,22 +323,22 @@ if page == "\U0001f3e0 Accueil":
     st.markdown("#### 🚀 Accès rapide aux agents")
     _a1, _a2, _a3, _a4, _a5, _a6 = st.columns(6)
     with _a1:
-        st.button("🧾 Facture", use_container_width=True,
+        st.button("🧾 Facture", width="stretch",
                      on_click=_aller_a, args=("🧾 Analyse Facture (OCR)",))
     with _a2:
-        st.button("📊 Balance", use_container_width=True,
+        st.button("📊 Balance", width="stretch",
                      on_click=_aller_a, args=("📊 Audit Balance",))
     with _a3:
-        st.button("📂 FEC", use_container_width=True,
+        st.button("📂 FEC", width="stretch",
                      on_click=_aller_a, args=("📂 Traitement FEC",))
     with _a4:
-        st.button("📈 Résultat", use_container_width=True,
+        st.button("📈 Résultat", width="stretch",
                      on_click=_aller_a, args=("📈 Compte de Résultat",))
     with _a5:
-        st.button("📊 Bilan", use_container_width=True, key="btn_bilan_home",
+        st.button("📊 Bilan", width="stretch", key="btn_bilan_home",
                      on_click=_aller_a, args=("📊 Bilan Comptable",))
     with _a6:
-        st.button("📋 Rapport", use_container_width=True,
+        st.button("📋 Rapport", width="stretch",
                      on_click=_aller_a, args=("📋 Rapport Client",))
 
     st.divider()

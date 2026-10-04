@@ -247,7 +247,7 @@ def page_bilan():
             with col3:
                 date_cloture = st.date_input("📆 Date de clôture")
 
-            if st.button("📊 Générer le Bilan", type="primary", use_container_width=True):
+            if st.button("📊 Générer le Bilan", type="primary", width="stretch"):
                 with st.spinner("Calcul en cours..."):
                     bilan = calculer_bilan(df, str(date_cloture))
 
@@ -281,13 +281,13 @@ def page_bilan():
                             st.dataframe(pd.DataFrame([
                                 {'Poste': k, 'Montant (€)': f"{v:,.2f}"} 
                                 for k, v in bilan['actif'].items() if v != 0
-                            ]), use_container_width=True, hide_index=True)
+                            ]), width="stretch", hide_index=True)
                         with col2:
                             st.markdown("### 💼 PASSIF")
                             st.dataframe(pd.DataFrame([
                                 {'Poste': k, 'Montant (€)': f"{v:,.2f}"} 
                                 for k, v in bilan['passif'].items() if v != 0
-                            ]), use_container_width=True, hide_index=True)
+                            ]), width="stretch", hide_index=True)
 
                         st.divider()
                         if bilan['ratios']:
@@ -323,7 +323,7 @@ def page_bilan():
                         rapport = generer_rapport_bilan(bilan, nom_entreprise, exercice)
                         col1, col2 = st.columns(2)
                         with col1:
-                            if st.button("💾 Sauvegarder", use_container_width=True):
+                            if st.button("💾 Sauvegarder", width="stretch"):
                                 sauvegarder_si_autorise(type_analyse="Bilan", resultat=rapport)
                                 st.success("✅ Sauvegardé !")
                         with col2:

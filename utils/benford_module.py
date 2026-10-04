@@ -337,7 +337,7 @@ def page_benford():
         st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
 
         with st.expander("👀 Aperçu des données"):
-            st.dataframe(df.head(10), use_container_width=True)
+            st.dataframe(df.head(10), width="stretch")
 
         colonnes_num = []
         for col in df.columns:
@@ -360,7 +360,7 @@ def page_benford():
                 df.columns
             )
 
-        if st.button("🔍 Lancer l'audit Benford", type="primary", use_container_width=True):
+        if st.button("🔍 Lancer l'audit Benford", type="primary", width="stretch"):
             with st.spinner("Analyse statistique en cours..."):
                 try:
                     fig, rapport, score_risque = analyse_benford_complete(df, col_choix)
@@ -380,14 +380,14 @@ def page_benford():
 
                     st.divider()
                     if fig:
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
                     st.divider()
                     afficher_rapport(rapport, titre="Analyse Statistique Benford", afficher_kpis_auto=True, afficher_alertes_auto=True, compact=True)
                     st.divider()
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder", use_container_width=True):
+                        if st.button("💾 Sauvegarder", width="stretch"):
                             sauvegarder_si_autorise(type_analyse="Loi de Benford", resultat=rapport)
                             st.success("✅ Sauvegardé !")
                     with col2:

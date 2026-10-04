@@ -346,7 +346,7 @@ def page_audit_balance():
                         st.write(f"- `{orig}` → **{std}**")
 
                 with st.expander("👀 Aperçu de la balance", expanded=True):
-                    st.dataframe(df.head(15), use_container_width=True)
+                    st.dataframe(df.head(15), width="stretch")
 
             else:
                 col1, col2 = st.columns(2)
@@ -363,7 +363,7 @@ def page_audit_balance():
                 st.success(f"✅ Balance chargée : **{len(df):,} lignes**")
 
                 with st.expander("👀 Aperçu de la balance", expanded=True):
-                    st.dataframe(df.head(15), use_container_width=True)
+                    st.dataframe(df.head(15), width="stretch")
 
                 st.divider()
                 st.markdown("### 🎯 Identification des Colonnes")
@@ -397,7 +397,7 @@ def page_audit_balance():
             with col2:
                 exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
 
-            if st.button("🔍 Lancer l'audit professionnel", type="primary", use_container_width=True):
+            if st.button("🔍 Lancer l'audit professionnel", type="primary", width="stretch"):
                 with st.spinner("Audit en cours..."):
                     audit = auditer_balance(df)
 
@@ -415,7 +415,7 @@ def page_audit_balance():
                     rapport = generer_rapport_audit(audit, nom_entreprise)
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder", use_container_width=True):
+                        if st.button("💾 Sauvegarder", width="stretch"):
                             sauvegarder_si_autorise(type_analyse="Audit Balance", resultat=rapport)
                             st.success("✅ Sauvegardé !")
                     with col2:

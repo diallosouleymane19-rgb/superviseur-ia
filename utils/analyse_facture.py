@@ -322,7 +322,7 @@ def page_analyse_facture():
 
             # Étape 2 : Analyse IA structurée
             if st.session_state.fact_donnees is None:
-                if st.button("🤖 Analyser avec IA (extraction structurée)", type="primary", use_container_width=True):
+                if st.button("🤖 Analyser avec IA (extraction structurée)", type="primary", width="stretch"):
                     with st.spinner("🤖 Analyse structurée en cours..."):
                         try:
                             from utils.analyse_facture import extraire_donnees_facture, verifier_conformite_facture, suggerer_comptabilisation
@@ -423,7 +423,7 @@ def page_analyse_facture():
                     df_ecritures['credit'] = df_ecritures['credit'].apply(lambda x: f"{x:,.2f} €" if x > 0 else "")
                     df_ecritures.columns = ['Compte', 'Libellé', 'Débit', 'Crédit']
 
-                    st.dataframe(df_ecritures, use_container_width=True, hide_index=True)
+                    st.dataframe(df_ecritures, width="stretch", hide_index=True)
 
                 st.divider()
 
@@ -433,7 +433,7 @@ def page_analyse_facture():
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("💾 Sauvegarder", use_container_width=True):
+                    if st.button("💾 Sauvegarder", width="stretch"):
                         sauvegarder_si_autorise(type_analyse="Analyse Facture", resultat=rapport)
                         st.success("✅ Sauvegardé !")
                 with col2:

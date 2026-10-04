@@ -344,11 +344,11 @@ def page_comparatif():
             else ('color: #dc3545; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else ''),
             subset=['Écart (€)', 'Écart (%)']
         ),
-        use_container_width=True, hide_index=True
+        width="stretch", hide_index=True
     )
 
     # Graphique SIG
-    st.plotly_chart(_chart_cdr_comparatif(sig_n, sig_n1, label_n, label_n1), use_container_width=True)
+    st.plotly_chart(_chart_cdr_comparatif(sig_n, sig_n1, label_n, label_n1), width="stretch")
 
     # Tableaux charges / produits
     col_p, col_c = st.columns(2)
@@ -358,14 +358,14 @@ def page_comparatif():
         df_prod = df_prod[df_prod[label_n].abs() + df_prod[label_n1].abs() > 0]
         st.dataframe(df_prod.style.format(
             {label_n1: '{:,.0f}', label_n: '{:,.0f}', 'Écart (€)': '{:+,.0f}', 'Écart (%)': '{:+.1f}'}
-        ), use_container_width=True, hide_index=True)
+        ), width="stretch", hide_index=True)
     with col_c:
         st.markdown("### 💸 Charges N vs N-1")
         df_chg = _build_comparatif_df(cdr_n['charges'], cdr_n1['charges'], label_n, label_n1)
         df_chg = df_chg[df_chg[label_n].abs() + df_chg[label_n1].abs() > 0]
         st.dataframe(df_chg.style.format(
             {label_n1: '{:,.0f}', label_n: '{:,.0f}', 'Écart (€)': '{:+,.0f}', 'Écart (%)': '{:+.1f}'}
-        ), use_container_width=True, hide_index=True)
+        ), width="stretch", hide_index=True)
 
     # ═══════════════════════════════════════════
     # SECTION 2 — BILAN
@@ -407,7 +407,7 @@ def page_comparatif():
             lambda v: 'color: #28a745; font-weight:bold' if isinstance(v, (int, float)) and v > 0
             else ('color: #dc3545; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else ''),
             subset=['Écart (€)', 'Écart (%)']
-        ), use_container_width=True, hide_index=True)
+        ), width="stretch", hide_index=True)
     with col_p2:
         st.markdown("### 🏛 PASSIF N vs N-1")
         df_passif = _build_comparatif_df(bilan_n['passif'], bilan_n1['passif'], label_n, label_n1)
@@ -418,10 +418,10 @@ def page_comparatif():
             lambda v: 'color: #28a745; font-weight:bold' if isinstance(v, (int, float)) and v > 0
             else ('color: #dc3545; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else ''),
             subset=['Écart (€)', 'Écart (%)']
-        ), use_container_width=True, hide_index=True)
+        ), width="stretch", hide_index=True)
 
     # Graphique bilan
-    st.plotly_chart(_chart_bilan_comparatif(bilan_n, bilan_n1, label_n, label_n1), use_container_width=True)
+    st.plotly_chart(_chart_bilan_comparatif(bilan_n, bilan_n1, label_n, label_n1), width="stretch")
 
     # ═══════════════════════════════════════════
     # SECTION 3 — ANALYSE AUTOMATIQUE
@@ -495,7 +495,7 @@ def page_comparatif():
             data=excel_bytes,
             file_name=f"Comparatif_{entreprise}_{label_n}_vs_{label_n1}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            width="stretch",
             type="primary"
         )
     except Exception as e:

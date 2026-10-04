@@ -281,7 +281,7 @@ def page_veille_fiscale():
 
         st.divider()
 
-        if st.button("🔄 Actualiser la veille France", type="primary", use_container_width=True):
+        if st.button("🔄 Actualiser la veille France", type="primary", width="stretch"):
             with st.spinner("Récupération des actualités fiscales françaises..."):
                 try:
                     actualites = obtenir_veille_fiscale()
@@ -355,7 +355,7 @@ def page_veille_fiscale():
             })
 
         df_echeances = pd.DataFrame(echeances_enrichies)
-        st.dataframe(df_echeances, use_container_width=True, hide_index=True)
+        st.dataframe(df_echeances, width="stretch", hide_index=True)
         st.caption("Dates décalées au jour ouvré suivant (week-ends et fériés fixes). "
                    "Exercice non clos au 31/12 : liasse dans les 3 mois de la clôture. "
                    f"Données vérifiées : {DATE_MAJ_DONNEES}.")
@@ -370,7 +370,7 @@ def page_veille_fiscale():
             height=120
         )
 
-        if st.button("🤖 Obtenir une réponse IA", type="primary", use_container_width=True) and question:
+        if st.button("🤖 Obtenir une réponse IA", type="primary", width="stretch") and question:
             with st.spinner("Analyse fiscale en cours..."):
                 prompt = f"""En tant qu'expert en fiscalité française (CGI, BOFiP, LPF), réponds à cette question professionnelle :
 
@@ -391,7 +391,7 @@ def page_veille_fiscale():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder", use_container_width=True):
+                        if st.button("💾 Sauvegarder", width="stretch"):
                             sauvegarder_si_autorise(
                                 type_analyse="Question Fiscale IA",
                                 resultat=result["content"]

@@ -59,7 +59,7 @@ def generer_bouton_word(titre: str, contenu):
             buf,
             f"{sanitize_filename(titre)}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True,
+            width="stretch",
         )
     except Exception:
         st.warning("⚠ Export Word temporairement indisponible. Copiez le contenu manuellement.")

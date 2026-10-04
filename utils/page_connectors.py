@@ -173,7 +173,7 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
         col1, col2 = st.columns([1, 1])
         with col1:
             if st.button("Tester la connexion", key="test_" + erp_key,
-                         use_container_width=True, type="primary"):
+                         width="stretch", type="primary"):
                 with st.spinner("Connexion en cours..."):
                     try:
                         conn   = _get_connector(erp_key, creds)
@@ -190,7 +190,7 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
                         st.error("Erreur : " + str(e))
         with col2:
             if est_conn and st.button("Deconnecter", key="disc_" + erp_key,
-                                      use_container_width=True):
+                                      width="stretch"):
                 st.session_state[_session_key(erp_key)] = False
                 st.rerun()
 
@@ -209,7 +209,7 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
         )
 
         if st.button("Importer", key="imp_" + erp_key,
-                     use_container_width=True, type="primary"):
+                     width="stretch", type="primary"):
             with st.spinner("Import en cours depuis " + cfg["nom"] + "..."):
                 try:
                     creds_saved = st.session_state.get(_creds_key(erp_key), {})
@@ -253,7 +253,7 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
                             str(len(df)) + " lignes importees depuis "
                             + cfg["nom"] + " — exercice " + str(exercice)
                         )
-                        st.dataframe(df.head(20), use_container_width=True)
+                        st.dataframe(df.head(20), width="stretch")
                         st.caption("Apercu 20 premieres lignes. Donnees disponibles dans tous les modules d'analyse.")
                     else:
                         st.warning("Aucune donnee retournee. Verifiez les credentials et l'exercice.")

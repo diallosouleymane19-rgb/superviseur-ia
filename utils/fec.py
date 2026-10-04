@@ -355,11 +355,11 @@ def page_fec():
                     st.metric("📚 Journaux", f"{df['JournalCode'].nunique()}")
 
             with st.expander("👀 Aperçu des données (20 premières lignes)"):
-                st.dataframe(df.head(20), use_container_width=True)
+                st.dataframe(df.head(20), width="stretch")
 
             st.divider()
 
-            if st.button("🛡 Lancer la validation DGFiP complète", type="primary", use_container_width=True):
+            if st.button("🛡 Lancer la validation DGFiP complète", type="primary", width="stretch"):
                 with st.spinner("Validation en cours selon Article A.47 A-1 du LPF..."):
                     resultats = valider_fec(df)
 
@@ -431,7 +431,7 @@ def page_fec():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder le rapport", use_container_width=True):
+                        if st.button("💾 Sauvegarder le rapport", width="stretch"):
                             sauvegarder_si_autorise(
                                 type_analyse="Audit FEC", 
                                 resultat=f"Score: {score}% - {analyse}"

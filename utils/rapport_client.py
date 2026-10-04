@@ -295,7 +295,7 @@ def page_rapport_client():
                 st.success(f"✅ Fichier chargé : {len(df):,} lignes")
 
                 with st.expander("👀 Aperçu"):
-                    st.dataframe(df.head(15), use_container_width=True)
+                    st.dataframe(df.head(15), width="stretch")
 
                 st.markdown("#### 🎯 Mapping des colonnes")
                 colonnes_disponibles = ["-- Aucune --"] + [str(c) for c in df.columns]
@@ -343,7 +343,7 @@ def page_rapport_client():
 
     st.divider()
 
-    if st.button("📋 Générer le Rapport Client", type="primary", use_container_width=True):
+    if st.button("📋 Générer le Rapport Client", type="primary", width="stretch"):
         if not nom_client:
             st.error("⚠ Veuillez renseigner le nom du client")
         else:
@@ -401,7 +401,7 @@ def page_rapport_client():
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("💾 Sauvegarder", use_container_width=True):
+                    if st.button("💾 Sauvegarder", width="stretch"):
                         sauvegarder_si_autorise(type_analyse="Rapport Client", resultat=rapport)
                         st.success("✅ Sauvegardé !")
 

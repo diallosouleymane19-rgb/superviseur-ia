@@ -187,15 +187,15 @@ def page_tarifs(app_name="pcg"):
 
             if is_current:
                 st.button("Plan actuel", key="cur_" + plan_key,
-                          disabled=True, use_container_width=True)
+                          disabled=True, width="stretch")
             elif plan_key == "free":
                 st.button("Retrograder", key="down_" + plan_key,
-                          disabled=True, use_container_width=True,
+                          disabled=True, width="stretch",
                           help="Resiliez via le portail Stripe.")
             else:
                 label = "Commencer" if plan_actuel == "free" else "Upgrader"
                 if st.button(label, key="pay_" + plan_key,
-                             use_container_width=True, type="primary"):
+                             width="stretch", type="primary"):
                     if not user_email:
                         st.error("Connectez-vous pour souscrire.")
                     else:
@@ -229,10 +229,10 @@ def page_tarifs(app_name="pcg"):
 
     col1, col2, _ = st.columns([1, 1, 2])
     with col1:
-        if st.button("Multi Starter", use_container_width=True):
+        if st.button("Multi Starter", width="stretch"):
             _checkout_multi(user_email, "starter", billing_key, app_name)
     with col2:
-        if st.button("Multi Pro", use_container_width=True):
+        if st.button("Multi Pro", width="stretch"):
             _checkout_multi(user_email, "pro", billing_key, app_name)
 
     # --- FAQ ---

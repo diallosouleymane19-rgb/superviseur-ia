@@ -274,7 +274,7 @@ def page_immobilisations():
                 "Autre"
             ])
 
-        if st.button("📊 Générer le tableau", type="primary", use_container_width=True):
+        if st.button("📊 Générer le tableau", type="primary", width="stretch"):
             if not nom_bien:
                 st.error("⚠ Veuillez renseigner la désignation du bien")
             else:
@@ -302,7 +302,7 @@ def page_immobilisations():
                         st.metric("📅 Dotation/an", f"{dotation:,.2f} €")
 
                     st.divider()
-                    st.dataframe(tableau, use_container_width=True, hide_index=True)
+                    st.dataframe(tableau, width="stretch", hide_index=True)
 
                     # Graphique VNC
                     st.markdown("### 📈 Évolution de la VNC")
@@ -336,12 +336,12 @@ def page_immobilisations():
                         vnc_val = vnc_actuelle[0] if len(vnc_actuelle) > 0 else 0
                         st.metric("💼 VNC actuelle", f"{vnc_val:,.2f} €")
 
-                    st.dataframe(df_ecritures, use_container_width=True, hide_index=True)
+                    st.dataframe(df_ecritures, width="stretch", hide_index=True)
 
                     st.divider()
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder", use_container_width=True):
+                        if st.button("💾 Sauvegarder", width="stretch"):
                             rapport = generer_rapport_immobilisation(nom_bien, tableau, mode)
                             sauvegarder_si_autorise(type_analyse="Immobilisation", resultat=rapport)
                             st.success("✅ Sauvegardé !")
@@ -366,7 +366,7 @@ def page_immobilisations():
             date_cession = st.date_input("📅 Date de cession", key="cess_date")
             taux_is = st.number_input("🏛 Taux IS (%)", min_value=0, max_value=100, value=25, key="cess_is")
 
-        if st.button("🔄 Calculer la cession", type="primary", use_container_width=True):
+        if st.button("🔄 Calculer la cession", type="primary", width="stretch"):
             with st.spinner("Calcul en cours..."):
                 result = calculer_cession(valeur_origine_c, amort_cumule, prix_cession, date_cession, taux_is)
 
@@ -395,10 +395,10 @@ def page_immobilisations():
 
                 st.divider()
                 st.markdown("### 📚 Écritures Comptables")
-                st.dataframe(result['ecritures'], use_container_width=True, hide_index=True)
+                st.dataframe(result['ecritures'], width="stretch", hide_index=True)
 
                 st.divider()
-                if st.button("💾 Sauvegarder la cession", use_container_width=True):
+                if st.button("💾 Sauvegarder la cession", width="stretch"):
                     rapport_c = f"Cession {nom_bien_c} : {result['type_resultat']} {result['resultat_cession']:,.2f} €"
                     sauvegarder_si_autorise(type_analyse="Cession Immobilisation", resultat=rapport_c)
                     st.success("✅ Sauvegardé !")
@@ -420,7 +420,7 @@ def page_immobilisations():
                 st.error(f"❌ Erreur : {erreur}")
             else:
                 st.success(f"✅ {len(df)} immobilisation(s) chargée(s)")
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df, width="stretch", hide_index=True)
 
                 st.divider()
                 st.markdown("### 📊 Analyse du parc")

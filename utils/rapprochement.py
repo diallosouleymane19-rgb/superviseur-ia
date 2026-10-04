@@ -263,10 +263,10 @@ def page_rapprochement():
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown("**Relevé bancaire**")
-                    st.dataframe(df_releve.head(5), use_container_width=True)
+                    st.dataframe(df_releve.head(5), width="stretch")
                 with col2:
                     st.markdown("**Écritures comptables**")
-                    st.dataframe(df_ecritures.head(5), use_container_width=True)
+                    st.dataframe(df_ecritures.head(5), width="stretch")
 
             st.divider()
 
@@ -277,7 +277,7 @@ def page_rapprochement():
                 tolerance = st.slider("⏱ Tolérance jours", 0, 10, 3,
                                      help="Écart maximum entre date relevé et écriture")
 
-            if st.button("🔄 Lancer le rapprochement", type="primary", use_container_width=True):
+            if st.button("🔄 Lancer le rapprochement", type="primary", width="stretch"):
                 with st.spinner("Matching intelligent en cours..."):
                     resultats = rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=tolerance)
 
@@ -311,17 +311,17 @@ def page_rapprochement():
 
                     if not resultats['rapproches'].empty:
                         with st.expander(f"✅ Opérations rapprochées ({resultats['nb_rapproches']})"):
-                            st.dataframe(resultats['rapproches'], use_container_width=True, hide_index=True)
+                            st.dataframe(resultats['rapproches'], width="stretch", hide_index=True)
 
                     if not resultats['non_rapproches_releve'].empty:
                         with st.expander(f"❌ Relevé non rapproché ({resultats['nb_non_rapproches_releve']})", expanded=True):
                             st.warning("Opérations bancaires sans contrepartie comptable")
-                            st.dataframe(resultats['non_rapproches_releve'], use_container_width=True, hide_index=True)
+                            st.dataframe(resultats['non_rapproches_releve'], width="stretch", hide_index=True)
 
                     if not resultats['non_rapproches_ecritures'].empty:
                         with st.expander(f"❌ Écritures non rapprochées ({resultats['nb_non_rapproches_ecritures']})", expanded=True):
                             st.warning("Écritures sans contrepartie bancaire")
-                            st.dataframe(resultats['non_rapproches_ecritures'], use_container_width=True, hide_index=True)
+                            st.dataframe(resultats['non_rapproches_ecritures'], width="stretch", hide_index=True)
 
                     st.divider()
 
@@ -329,7 +329,7 @@ def page_rapprochement():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder", use_container_width=True):
+                        if st.button("💾 Sauvegarder", width="stretch"):
                             sauvegarder_si_autorise(type_analyse="Rapprochement Bancaire", resultat=rapport)
                             st.success("✅ Sauvegardé !")
                     with col2:

@@ -512,7 +512,7 @@ def page_tva():
         data["Crédit de TVA période précédente"] = st.number_input("Crédit TVA période précédente — 44567 (€)", min_value=0.0, step=10.0, format="%.2f")
 
         st.divider()
-        if st.button("🧮 Calculer la déclaration TVA", type="primary", use_container_width=True):
+        if st.button("🧮 Calculer la déclaration TVA", type="primary", width="stretch"):
             res = _calculer_tva(data)
             _afficher_resultats(res, data, periode, entreprise, regime, siret, adresse)
 
@@ -536,7 +536,7 @@ def page_tva():
                         {"Compte / Rubrique": k, "Montant (€)": f"{v:,.2f}"}
                         for k, v in extrait.items() if v != 0
                     ])
-                    st.dataframe(df_ext, use_container_width=True, hide_index=True)
+                    st.dataframe(df_ext, width="stretch", hide_index=True)
 
                     st.divider()
                     st.markdown("#### ✏ Vérifier / Ajuster les montants avant déclaration")
@@ -561,7 +561,7 @@ def page_tva():
 
                     st.divider()
                     if st.button("🧮 Générer la déclaration CA3/CA12", type="primary",
-                                 use_container_width=True, key="btn_import_decl"):
+                                 width="stretch", key="btn_import_decl"):
                         extrait_ajuste = {
                             "TVA collectée (44571)":            tva_col,
                             "TVA déductible ABS (44566)":       tva_abs,
@@ -591,12 +591,12 @@ def page_tva():
             {"Taux": "2,1%",  "Catégorie": "Taux super-réduit", "Exemples": "Presse, médicaments remboursés SS, spectacles vivants (100 premières représentations)"},
             {"Taux": "0%",    "Catégorie": "Exonéré",           "Exemples": "Exports hors UE, intracommunautaire, activités médicales, enseignement, assurance"},
         ])
-        st.dataframe(df_taux, use_container_width=True, hide_index=True)
+        st.dataframe(df_taux, width="stretch", hide_index=True)
         st.divider()
 
         st.markdown("### 🏦 Comptes PCG — TVA")
         df_pcg = pd.DataFrame([{"Compte": k, "Nature": v} for k, v in COMPTES_TVA_PCG.items()])
-        st.dataframe(df_pcg, use_container_width=True, hide_index=True)
+        st.dataframe(df_pcg, width="stretch", hide_index=True)
         st.divider()
 
         st.markdown("### 📋 CA3 vs CA12 — Comparatif régimes")
@@ -607,7 +607,7 @@ def page_tva():
             {"Critère": "Crédit TVA",            "CA3 (Réel normal)": "Remboursable dès 760 €",                       "CA12 (Réel simplifié)": "Sur demande ou imputation"},
             {"Critère": "Comptabilité",          "CA3 (Réel normal)": "Obligatoirement complète",                     "CA12 (Réel simplifié)": "Simplifiée possible"},
         ])
-        st.dataframe(df_regime, use_container_width=True, hide_index=True)
+        st.dataframe(df_regime, width="stretch", hide_index=True)
         st.divider()
 
         st.markdown("### ⚡ Autoliquidation — Cas principaux")
@@ -617,7 +617,7 @@ def page_tva():
             {"Opération": "Services étrangers (art. 283-1)",        "Mécanisme": "Preneur français autoliquide si prestataire non établi en France"},
             {"Opération": "Livraisons intracommunautaires (LIC)",   "Mécanisme": "Exonéré côté vendeur — TVA du pays acheteur"},
         ])
-        st.dataframe(df_auto, use_container_width=True, hide_index=True)
+        st.dataframe(df_auto, width="stretch", hide_index=True)
 
 
 # ─────────────────────────────────────────────
@@ -651,7 +651,7 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
                 "Taux":        f"{detail['taux']*100:.1f}%",
                 "TVA (€)":     f"{detail['tva']:,.2f}",
             })
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     st.markdown("### 🔻 Détail TVA Déductible")
     rows_ded = []
@@ -660,7 +660,7 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
     if res["tva_ded_intra"]  > 0: rows_ded.append({"Compte": "44563", "Nature": "TVA intracom. déductible",           "Montant (€)": f"{res['tva_ded_intra']:,.2f}"})
     if res["credit_reporte"] > 0: rows_ded.append({"Compte": "44567", "Nature": "Crédit TVA période précédente",      "Montant (€)": f"{res['credit_reporte']:,.2f}"})
     if rows_ded:
-        st.dataframe(pd.DataFrame(rows_ded), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(rows_ded), width="stretch", hide_index=True)
     else:
         st.info("Aucune TVA déductible saisie.")
 
@@ -673,7 +673,7 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
     }.items()):
         cols_s[i].metric(k, f"{v:,.2f} €")
 
-    st.plotly_chart(_chart_tva(res), use_container_width=True)
+    st.plotly_chart(_chart_tva(res), width="stretch")
 
     alertes = _verifier_coherence(res)
     if alertes:
@@ -708,7 +708,7 @@ Débit  44567 — Crédit de TVA        {res['credit_genere']:>12,.2f} €
             data=excel,
             file_name=f"TVA_{entreprise}_{periode.replace('/', '-')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            width="stretch",
         )
     except Exception as e:
         st.warning(f"Export Excel non disponible : {e}")
@@ -722,7 +722,7 @@ Débit  44567 — Crédit de TVA        {res['credit_genere']:>12,.2f} €
             data=pdf_bytes,
             file_name=f"{type_decl}_{entreprise}_{periode.replace('/', '-')}.pdf",
             mime="application/pdf",
-            use_container_width=True,
+            width="stretch",
             type="primary",
         )
     except Exception as e:

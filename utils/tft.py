@@ -290,7 +290,7 @@ def page_tft():
 
         df_section = pd.DataFrame([r for _, r in rows])
         edited = st.data_editor(
-            df_section, use_container_width=True, hide_index=True,
+            df_section, width="stretch", hide_index=True,
             column_config={ex: st.column_config.NumberColumn(ex, format="%.0f €")
                            for ex in exercices},
             key=f"tft_{section[:15]}"
@@ -307,7 +307,7 @@ def page_tft():
     for ex in exercices:
         treso_rows[0][ex] = data.get("Trésorerie à l'ouverture", {}).get(ex, 0.0)
     df_treso = pd.DataFrame(treso_rows)
-    edited_t = st.data_editor(df_treso, use_container_width=True, hide_index=True,
+    edited_t = st.data_editor(df_treso, width="stretch", hide_index=True,
                                column_config={ex: st.column_config.NumberColumn(ex, format="%.0f €")
                                               for ex in exercices},
                                key="tft_treso")
@@ -332,12 +332,12 @@ def page_tft():
             color = "normal" if r["Trésorerie clôture"] >= 0 else "inverse"
             st.metric(f"Tréso clôture {ex}", f"{r['Trésorerie clôture']:,.0f} €", delta_color=color)
 
-    st.plotly_chart(_chart_tft(resultats, exercices), use_container_width=True)
+    st.plotly_chart(_chart_tft(resultats, exercices), width="stretch")
     st.divider()
 
     col_ia, col_xl = st.columns(2)
     with col_ia:
-        if st.button("🤖 Analyse IA", type="primary", use_container_width=True):
+        if st.button("🤖 Analyse IA", type="primary", width="stretch"):
             with st.spinner("Analyse en cours..."):
                 analyse = _analyser_ia(resultats, exercices, entreprise)
             st.markdown("### 🤖 Analyse IA")
@@ -349,5 +349,5 @@ def page_tft():
             data=excel_bytes,
             file_name=f"TFT_{entreprise}_{exercices[-1]}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            width="stretch",
         )

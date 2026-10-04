@@ -222,7 +222,7 @@ def page_plan_financement():
         r_data[a] = [prefill_r.get(lib, 0.0) for lib in RESSOURCES]
     df_r = st.data_editor(
         pd.DataFrame(r_data),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={a: st.column_config.NumberColumn(a, format="%.0f EUR", min_value=0)
                        for a in annees},
@@ -237,7 +237,7 @@ def page_plan_financement():
         e_data[a] = [prefill_e.get(lib, 0.0) for lib in EMPLOIS]
     df_e = st.data_editor(
         pd.DataFrame(e_data),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={a: st.column_config.NumberColumn(a, format="%.0f EUR", min_value=0)
                        for a in annees},
@@ -263,7 +263,7 @@ def page_plan_financement():
     if _PLOTLY_OK:
         fig = _chart_plan(df_r, df_e, annees)
         if fig:
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
     else:
         st.warning("Graphique indisponible - installez plotly.")
 
@@ -272,7 +272,7 @@ def page_plan_financement():
     col_ia, col_xl = st.columns(2)
 
     with col_ia:
-        if st.button("Analyse IA du plan", type="primary", use_container_width=True):
+        if st.button("Analyse IA du plan", type="primary", width="stretch"):
             with st.spinner("Analyse en cours..."):
                 analyse = _analyser_ia(df_r, df_e, annees, entreprise)
             st.markdown("### Analyse IA")
@@ -285,5 +285,5 @@ def page_plan_financement():
             data=excel_bytes,
             file_name=f"Plan_Financement_{entreprise}_{annees[0]}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            width="stretch",
         )

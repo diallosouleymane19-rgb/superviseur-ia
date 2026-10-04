@@ -139,7 +139,7 @@ def _afficher_tableau(df: pd.DataFrame):
     """Affiche un DataFrame avec style professionnel."""
     st.dataframe(
         df,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -311,7 +311,7 @@ def afficher_synthese_score(
             ).sort_values("Nb écritures", ascending=False)
             cols_rep = st.columns([2, 3])
             with cols_rep[0]:
-                st.dataframe(df_rep, use_container_width=True, hide_index=True)
+                st.dataframe(df_rep, width="stretch", hide_index=True)
             with cols_rep[1]:
                 st.bar_chart(df_rep.set_index("Classe"))
 
@@ -329,7 +329,7 @@ def afficher_synthese_score(
             "Détail": ctrl.get('message', '')
         })
     if rows_ctrl:
-        st.dataframe(pd.DataFrame(rows_ctrl), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(rows_ctrl), width="stretch", hide_index=True)
 
     st.divider()
 
@@ -346,7 +346,7 @@ def afficher_synthese_score(
                 "Description": a.get('description', '')
             })
         df_anom = pd.DataFrame(rows_anom)
-        st.dataframe(df_anom, use_container_width=True, hide_index=True)
+        st.dataframe(df_anom, width="stretch", hide_index=True)
         st.divider()
 
     # Recommandations ──────────────────────────────────────────────────────
@@ -397,4 +397,4 @@ def afficher_tableau_financier(
     for col in df.select_dtypes(include='number').columns:
         styled = styled.format({col: f"{{:,.0f}} {devise}".strip()})
 
-    st.dataframe(styled, use_container_width=True)
+    st.dataframe(styled, width="stretch")

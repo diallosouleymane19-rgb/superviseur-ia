@@ -305,13 +305,13 @@ def page_coherence():
                     st.success(f"✅ FEC : **{len(df):,} lignes**")
 
             with st.expander("👀 Aperçu"):
-                st.dataframe(df.head(10), use_container_width=True)
+                st.dataframe(df.head(10), width="stretch")
 
             st.divider()
 
             nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
 
-            if st.button("🔍 Vérifier la cohérence", type="primary", use_container_width=True):
+            if st.button("🔍 Vérifier la cohérence", type="primary", width="stretch"):
                 with st.spinner("Vérifications en cours..."):
                     resultat = verifier_coherence(df)
 
@@ -372,7 +372,7 @@ def page_coherence():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder", use_container_width=True):
+                        if st.button("💾 Sauvegarder", width="stretch"):
                             sauvegarder_si_autorise(type_analyse="Cohérence", resultat=rapport)
                             st.success("✅ Sauvegardé !")
                     with col2:

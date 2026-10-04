@@ -205,7 +205,7 @@ def page_admin_users(app_name: str = "") -> None:
         "created_at": "Créé le"
     }
     df_display = df_display.rename(columns=rename)
-    st.dataframe(df_display, use_container_width=True)
+    st.dataframe(df_display, width="stretch")
 
     st.divider()
     st.subheader("📋 Audit logs (50 derniers)")

@@ -310,12 +310,12 @@ def page_inventaire():
                     anciennete = st.number_input(f"Ancienneté (jours)", min_value=0, key=f"client_anc_{i}", value=90)
                 clients_data.append({'Client': nom, 'Montant': montant, 'Ancienneté': anciennete})
 
-            if st.button("⚠ Calculer les provisions", type="primary", use_container_width=True, key="btn_prov_creances"):
+            if st.button("⚠ Calculer les provisions", type="primary", width="stretch", key="btn_prov_creances"):
                 df_clients = pd.DataFrame(clients_data)
                 df_resultats, total = calculer_provision_creances(df_clients, taux_douteux, taux_irrecouvrables)
 
                 st.markdown("## 📊 Résultats")
-                st.dataframe(df_resultats, use_container_width=True, hide_index=True)
+                st.dataframe(df_resultats, width="stretch", hide_index=True)
 
                 col1, col2 = st.columns(2)
                 with col1:
@@ -332,7 +332,7 @@ def page_inventaire():
     - Crédit **491** (Provision créances douteuses) : {total:,.2f} €
                 """)
 
-                if st.button("💾 Sauvegarder", use_container_width=True, key="save_prov_creances"):
+                if st.button("💾 Sauvegarder", width="stretch", key="save_prov_creances"):
                     sauvegarder_si_autorise(type_analyse="Provisions créances", resultat=df_resultats.to_string())
                     st.success("✅ Sauvegardé !")
 
@@ -356,7 +356,7 @@ def page_inventaire():
                 "158 — Autres provisions pour charges"
             ])
 
-            if st.button("🛡 Calculer la provision", type="primary", use_container_width=True, key="btn_prov_risque"):
+            if st.button("🛡 Calculer la provision", type="primary", width="stretch", key="btn_prov_risque"):
                 compte = compte_prov.split(" — ")[0]
                 result = calculer_provision_risque(libelle_risque, montant_risque, probabilite, compte)
 
@@ -370,7 +370,7 @@ def page_inventaire():
 
                 st.divider()
                 st.markdown("### 📚 Écriture comptable")
-                st.dataframe(result['ecriture'], use_container_width=True, hide_index=True)
+                st.dataframe(result['ecriture'], width="stretch", hide_index=True)
 
     # ── ONGLET 2 : RÉGULARISATIONS ──
     with onglet2:
@@ -415,16 +415,16 @@ def page_inventaire():
                 'date_cloture': datetime.combine(date_cloture, datetime.min.time())
             })
 
-        if st.button("🔄 Calculer les régularisations", type="primary", use_container_width=True):
+        if st.button("🔄 Calculer les régularisations", type="primary", width="stretch"):
             df_reg = calculer_regularisations(elements)
 
             st.markdown("## 📊 Résultats des régularisations")
-            st.dataframe(df_reg, use_container_width=True, hide_index=True)
+            st.dataframe(df_reg, width="stretch", hide_index=True)
 
             total_reg = df_reg['Montant régularisé (€)'].sum()
             st.metric("💰 Total à régulariser", f"{total_reg:,.2f} €")
 
-            if st.button("💾 Sauvegarder", use_container_width=True, key="save_reg"):
+            if st.button("💾 Sauvegarder", width="stretch", key="save_reg"):
                 sauvegarder_si_autorise(type_analyse="Régularisations", resultat=df_reg.to_string())
                 st.success("✅ Sauvegardé !")
 
@@ -446,7 +446,7 @@ def page_inventaire():
         with col3:
             stock_fin = st.number_input("📊 Stock fin exercice (€)", min_value=0.0, value=45000.0)
 
-        if st.button("📦 Calculer la variation", type="primary", use_container_width=True):
+        if st.button("📦 Calculer la variation", type="primary", width="stretch"):
             result = calculer_variation_stock(stock_debut, stock_fin, type_stock)
 
             col1, col2, col3 = st.columns(3)
@@ -465,9 +465,9 @@ def page_inventaire():
 
             st.divider()
             st.markdown("### 📚 Écriture comptable")
-            st.dataframe(result['ecriture'], use_container_width=True, hide_index=True)
+            st.dataframe(result['ecriture'], width="stretch", hide_index=True)
 
-            if st.button("💾 Sauvegarder", use_container_width=True, key="save_stock"):
+            if st.button("💾 Sauvegarder", width="stretch", key="save_stock"):
                 sauvegarder_si_autorise(
                     type_analyse="Variation stock",
                     resultat=f"Stock {type_stock} : variation {result['variation']:,.2f} €"
@@ -481,7 +481,7 @@ def page_inventaire():
 
         exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
 
-        if st.button("✅ Générer la check-list", type="primary", use_container_width=True):
+        if st.button("✅ Générer la check-list", type="primary", width="stretch"):
             df_checklist = generer_checklist_cloture(exercice)
 
             # Résumé
@@ -502,13 +502,13 @@ def page_inventaire():
             for categorie in df_checklist['Catégorie'].unique():
                 st.markdown(f"#### {categorie}")
                 df_cat = df_checklist[df_checklist['Catégorie'] == categorie][['Tâche', 'Priorité', 'Délai']]
-                st.dataframe(df_cat, use_container_width=True, hide_index=True)
+                st.dataframe(df_cat, width="stretch", hide_index=True)
 
             st.divider()
 
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 Sauvegarder", use_container_width=True, key="save_checklist"):
+                if st.button("💾 Sauvegarder", width="stretch", key="save_checklist"):
                     sauvegarder_si_autorise(
                         type_analyse="Check-list clôture",
                         resultat=df_checklist.to_string()

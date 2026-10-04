@@ -359,7 +359,7 @@ def page_compte_resultat():
                     ["Mixte", "Commerciale", "Industrielle", "Services"]
                 )
 
-            if st.button("📊 Générer le Compte de Résultat", type="primary", use_container_width=True):
+            if st.button("📊 Générer le Compte de Résultat", type="primary", width="stretch"):
                 with st.spinner("Calcul des SIG en cours..."):
                     resultat = calculer_compte_resultat(df, type_entreprise)
 
@@ -391,7 +391,7 @@ def page_compte_resultat():
                             {'Indicateur': nom, 'Montant (€)': f"{val:,.2f}"} 
                             for nom, val in sig.items()
                         ])
-                        st.dataframe(df_sig, use_container_width=True, hide_index=True)
+                        st.dataframe(df_sig, width="stretch", hide_index=True)
                         st.bar_chart(pd.DataFrame([
                             {'Indicateur': nom, 'Montant': val} 
                             for nom, val in sig.items()
@@ -422,13 +422,13 @@ def page_compte_resultat():
                             st.dataframe(pd.DataFrame([
                                 {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
                                 for k, v in resultat['produits'].items() if v != 0
-                            ]), use_container_width=True, hide_index=True)
+                            ]), width="stretch", hide_index=True)
                         with col2:
                             st.markdown("### 💸 CHARGES")
                             st.dataframe(pd.DataFrame([
                                 {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
                                 for k, v in resultat['charges'].items() if v != 0
-                            ]), use_container_width=True, hide_index=True)
+                            ]), width="stretch", hide_index=True)
 
                         st.divider()
                         if resultat['analyse']:
@@ -445,7 +445,7 @@ def page_compte_resultat():
                         rapport = generer_rapport_compte_resultat(resultat, nom_entreprise, exercice)
                         col1, col2 = st.columns(2)
                         with col1:
-                            if st.button("💾 Sauvegarder", use_container_width=True):
+                            if st.button("💾 Sauvegarder", width="stretch"):
                                 sauvegarder_si_autorise(type_analyse="Compte de Résultat", resultat=rapport)
                                 st.success("✅ Sauvegardé !")
                         with col2:

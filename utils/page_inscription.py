@@ -120,7 +120,7 @@ def page_inscription(app_name: str = "pcg") -> None:
 
             submitted = st.form_submit_button(
                 "✅ Créer mon compte" if plan_choisi == "free" else "✅ Créer et payer",
-                use_container_width=True,
+                width="stretch",
                 type="primary",
             )
 
@@ -186,7 +186,7 @@ def page_inscription(app_name: str = "pcg") -> None:
                                 unsafe_allow_html=True
                             )
                             st.link_button("💳 Accéder au paiement Stripe", url,
-                                           use_container_width=True)
+                                           width="stretch")
                         except Exception as e:
                             st.warning(
                                 f"Compte créé, mais erreur Stripe : {e}\n"
