@@ -1,0 +1,33 @@
+# Empêche la mise en pause automatique du projet Supabase (plan gratuit)
+# en effectuant une petite requête de lecture tous les 3 jours.
+# Secrets GitHub requis : SUPABASE_URL et SUPABASE_ANON_KEY
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: "17 6 */3 * *"   # tous les 3 jours à 06:17 UTC
+  workflow_dispatch:          # lancement manuel possible depuis l'onglet Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Requête de lecture Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Secrets SUPABASE_URL / SUPABASE_ANON_KEY manquants" >&2
+            exit 1
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/analyses?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          echo "Réponse Supabase : HTTP $code"
+          # Table "analyses" : la table "users" a une règle RLS en boucle (erreur 42P17)
+          case "$code" in
+            200) exit 0 ;;
+            *) exit 1 ;;
+          esac
