@@ -211,4 +211,7 @@ def page_admin_users(app_name: str = "") -> None:
     st.subheader("📋 Audit logs (50 derniers)")
     logs = get_audit_logs(limit=50)
     if logs:
-        df_logs
+        df_logs = pd.DataFrame(logs)
+        st.dataframe(df_logs, width="stretch", hide_index=True)
+    else:
+        st.info("Aucun journal d'audit pour le moment.")

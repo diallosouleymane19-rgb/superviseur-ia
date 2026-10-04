@@ -3,6 +3,7 @@
 import re
 from datetime import datetime
 from utils.ai import appel_mistral
+from utils.ocr import ocr_image_mistral
 from utils.page_helpers import (
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
     banniere_demo, is_demo, appel_mistral_securise,

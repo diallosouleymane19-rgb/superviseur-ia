@@ -19,3 +19,4 @@ supabase>=2.4.0
 stripe>=8.0.0
 fastapi>=0.110.0
 uvicorn>=0.27.0
+pymupdf>=1.24.0
