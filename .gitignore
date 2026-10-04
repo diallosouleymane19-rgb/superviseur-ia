@@ -6,6 +6,7 @@ DEPLOIEMENT.md
 
 # Bases de données locales
 *.db
+*.db-journal
 *.sqlite
 *.sqlite3
 
