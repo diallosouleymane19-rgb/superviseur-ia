@@ -126,6 +126,11 @@ if st.session_state.get("role") == "demo":
 
 st.sidebar.divider()
 
+def _aller_a(nom_page):
+    """Callback des boutons d'acces rapide : change la page du menu."""
+    st.session_state["nav_page"] = nom_page
+
+
 page = st.sidebar.selectbox(
     "Navigation",
     [
@@ -156,7 +161,8 @@ page = st.sidebar.selectbox(
         "💳 Tarifs & Abonnement",
         "🔒 Confidentialité & Sécurité",
     ],
-    label_visibility="collapsed"
+    label_visibility="collapsed",
+    key="nav_page",
 )
 
 # Neutraliser les séparateurs
@@ -256,7 +262,9 @@ if page == "\U0001f3e0 Accueil":
 
     # --- En-tete ---
     _user_email = st.session_state.get("user_email", "")
-    _user_nom   = st.session_state.get("user_nom", _user_email.split("@")[0] if "@" in _user_email else "Utilisateur")
+    _user_nom   = (st.session_state.get("nom")
+                   or st.session_state.get("user_nom")
+                   or (_user_email.split("@")[0] if "@" in _user_email else "Utilisateur"))
     _role       = st.session_state.get("role", "client")
     _plan       = st.session_state.get("plan", "free")
     from datetime import datetime as _dtnow
@@ -315,29 +323,23 @@ if page == "\U0001f3e0 Accueil":
     st.markdown("#### 🚀 Accès rapide aux agents")
     _a1, _a2, _a3, _a4, _a5, _a6 = st.columns(6)
     with _a1:
-        if st.button("🧾 Facture", use_container_width=True):
-            st.session_state["_nav_page"] = "🧾 Analyse Facture (OCR)"
-            st.rerun()
+        st.button("🧾 Facture", use_container_width=True,
+                     on_click=_aller_a, args=("🧾 Analyse Facture (OCR)",))
     with _a2:
-        if st.button("📊 Balance", use_container_width=True):
-            st.session_state["_nav_page"] = "📊 Audit Balance"
-            st.rerun()
+        st.button("📊 Balance", use_container_width=True,
+                     on_click=_aller_a, args=("📊 Audit Balance",))
     with _a3:
-        if st.button("📂 FEC", use_container_width=True):
-            st.session_state["_nav_page"] = "📂 Traitement FEC"
-            st.rerun()
+        st.button("📂 FEC", use_container_width=True,
+                     on_click=_aller_a, args=("📂 Traitement FEC",))
     with _a4:
-        if st.button("📈 Résultat", use_container_width=True):
-            st.session_state["_nav_page"] = "📈 Compte de Résultat"
-            st.rerun()
+        st.button("📈 Résultat", use_container_width=True,
+                     on_click=_aller_a, args=("📈 Compte de Résultat",))
     with _a5:
-        if st.button("📊 Bilan", use_container_width=True, key="btn_bilan_home"):
-            st.session_state["_nav_page"] = "📊 Bilan Comptable"
-            st.rerun()
+        st.button("📊 Bilan", use_container_width=True, key="btn_bilan_home",
+                     on_click=_aller_a, args=("📊 Bilan Comptable",))
     with _a6:
-        if st.button("📋 Rapport", use_container_width=True):
-            st.session_state["_nav_page"] = "📋 Rapport Client"
-            st.rerun()
+        st.button("📋 Rapport", use_container_width=True,
+                     on_click=_aller_a, args=("📋 Rapport Client",))
 
     st.divider()
 

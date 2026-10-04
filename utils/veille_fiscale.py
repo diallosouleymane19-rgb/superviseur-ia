@@ -43,79 +43,132 @@ def obtenir_veille_fiscale():
     return actualites
 
 
+# Date de la derniere verification des chiffres ci-dessous sur sources officielles
+DATE_MAJ_DONNEES = "octobre 2026"
+
+# Jours feries fixes (France metropolitaine). Les feries mobiles (Paques,
+# Ascension, Pentecote) ne sont pas geres : verifier le calendrier officiel.
+_FERIES_FIXES = {(1, 1), (5, 1), (5, 8), (7, 14), (8, 15), (11, 1), (11, 11), (12, 25)}
+
+
+def _jour_ouvre(d):
+    """Decale une date au prochain jour ouvre (week-end et feries fixes)."""
+    from datetime import timedelta
+    while d.weekday() >= 5 or (d.month, d.day) in _FERIES_FIXES:
+        d += timedelta(days=1)
+    return d
+
+
+def _deuxieme_jour_ouvre_apres_1er_mai(annee):
+    """Date legale de depot de la liasse IS (exercice clos le 31/12)."""
+    from datetime import timedelta
+    d = datetime(annee, 5, 1)
+    compte = 0
+    while compte < 2:
+        d += timedelta(days=1)
+        if d.weekday() < 5 and (d.month, d.day) not in _FERIES_FIXES:
+            compte += 1
+    return d
+
+
+def calendrier_fiscal(annee):
+    """
+    Principales echeances fiscales des societes a l'IS pour l'annee donnee.
+    Retourne une liste de dicts : date (datetime), obligation, concerne.
+    """
+    from datetime import timedelta
+    liasse = _deuxieme_jour_ouvre_apres_1er_mai(annee)
+    j = lambda m, d: _jour_ouvre(datetime(annee, m, d))
+    return [
+        {"date": j(3, 15), "obligation": "Acompte IS n°1", "concerne": "Societes IS"},
+        {"date": liasse, "obligation": f"Liasse fiscale IS, CA12, CVAE (1330) - exercice clos 31/12/{annee-1}", "concerne": "Societes IS"},
+        {"date": j(5, 15), "obligation": f"Solde IS - exercice clos 31/12/{annee-1}", "concerne": "Societes IS"},
+        {"date": liasse + timedelta(days=15), "obligation": "Liasse fiscale teledeclaree (delai supplementaire 15 jours)", "concerne": "Societes IS"},
+        {"date": j(6, 15), "obligation": "Acompte IS n°2 + acompte CFE (si CFE N-1 >= 3 000 EUR)", "concerne": "Societes IS"},
+        {"date": j(9, 15), "obligation": "Acompte IS n°3", "concerne": "Societes IS"},
+        {"date": j(12, 15), "obligation": "Acompte IS n°4 + solde CFE", "concerne": "Societes IS"},
+    ]
+
+
 def obtenir_contenu_enrichi():
-    """Contenu fiscal detaille et toujours disponible"""
-    
+    """Contenu fiscal detaille et toujours disponible (verifie : voir DATE_MAJ_DONNEES)"""
+
     aujourd_hui = datetime.now()
-    
+    date_str = aujourd_hui.strftime('%Y-%m-%d')
+
+    # Echeances des 90 prochains jours, calculees (plus de mois fige)
+    a_venir = [e for e in calendrier_fiscal(aujourd_hui.year) + calendrier_fiscal(aujourd_hui.year + 1)
+               if 0 <= (e["date"] - aujourd_hui).days <= 90]
+    lignes = "\n".join(f"- **{e['date'].strftime('%d/%m/%Y')}** : {e['obligation']}" for e in a_venir) \
+        or "- Aucune echeance IS/CFE dans les 90 prochains jours."
+
     actualites = [
         {
-            'titre': '[ECHEANCES] Calendrier Fiscal Mai 2026',
-            'date': aujourd_hui.strftime('%Y-%m-%d'),
+            'titre': '[ECHEANCES] Prochaines echeances (90 jours)',
+            'date': date_str,
             'source': 'SMD Global Consulting LLC',
-            'resume': """
-**Echeances importantes du mois :**
+            'resume': f"""
+**Echeances a venir :**
 
-- **15 Mai** : TVA mensuelle (regime reel normal) - Declaration CA3
-- **15 Mai** : Acompte d'impot sur les societes (IS) - Premier acompte
-- **20 Mai** : DAS2 - Declaration des honoraires verses en 2025
-- **31 Mai** : DSN - Declaration sociale nominative mensuelle
-- **31 Mai** : Liasse fiscale (cloture 31 decembre 2025)
+{lignes}
+
+**Echeances mensuelles :**
+- TVA CA3 (reel normal) : entre le 15 et le 24 de chaque mois selon l'entreprise
+- DSN : le 5 du mois suivant (50 salaries et plus, paie dans le mois), le 15 pour les autres
 
 **Penalites en cas de retard :**
-- Retard declaration : 10% minimum
-- Retard paiement : 5% + interets de retard (0.20% / mois)
-- Defaut declaration : 40% (mauvaise foi)
+- Interet de retard : 0,20 % par mois
+- Majoration de 10 % pour depot tardif (sauf regularisation)
+- Majoration de 40 % en cas de manquement delibere
 
 **Conseil SMD :** Anticipez les declarations et provisionnez les echeances pour eviter les penalites.
             """,
             'lien': 'https://www.impots.gouv.fr'
         },
         {
-            'titre': '[TVA] Nouveautes 2026 - Facturation Electronique',
-            'date': aujourd_hui.strftime('%Y-%m-%d'),
-            'source': 'BOFiP',
+            'titre': '[TVA] Facturation electronique - en vigueur depuis le 1er septembre 2026',
+            'date': date_str,
+            'source': 'DGFiP',
             'resume': """
-**Reforme de la facturation electronique :**
+**Calendrier de la reforme :**
 
-Generalisation progressive de la facturation electronique B2B :
+- **1er septembre 2026** : reception obligatoire pour TOUTES les entreprises assujetties a la TVA
+- **1er septembre 2026** : emission et e-reporting obligatoires pour les grandes entreprises et ETI
+- **1er septembre 2027** : emission et e-reporting obligatoires pour les PME, TPE et micro-entreprises
 
-- **Septembre 2026** : Reception obligatoire pour TOUTES les entreprises
-- **Septembre 2026** : Emission obligatoire pour grandes entreprises et ETI
-- **Septembre 2027** : Emission obligatoire pour PME et TPE
-
-**Plateformes autorisees :**
-- Portail Public de Facturation (PPF) - gratuit
-- Plateformes de Dematerialisation Partenaires (PDP) - immatriculation
+**Plateformes :**
+- Les factures circulent uniquement via des **Plateformes Agreees (PA)**, privees, immatriculees par l'administration (ex-PDP)
+- Le **Portail Public de Facturation (PPF)** ne transmet plus de factures : il gere l'annuaire national et concentre les donnees pour l'administration
+- La plateforme publique gratuite initialement prevue a ete abandonnee
 
 **Donnees a transmettre (e-reporting) :**
 - Operations B2B internationales
 - Operations B2C
 - Statuts de paiement
 
-**Conseil SMD :** Preparez la transition des maintenant - audit des outils, formation des equipes, choix de plateforme.
+**Conseil SMD :** Verifiez que vos clients ont choisi une PA pour la reception ; preparez les PME a l'emission de 2027.
             """,
             'lien': 'https://www.impots.gouv.fr/professionnel/je-passe-la-facturation-electronique'
         },
         {
             'titre': '[IS] Taux Reduit IS 15% - Conditions 2026',
-            'date': aujourd_hui.strftime('%Y-%m-%d'),
+            'date': date_str,
             'source': 'CGI Article 219',
             'resume': """
-**Taux reduit a 15% sur les premiers 42 500 EUR de benefices :**
+**Taux reduit a 15 % sur les premiers 42 500 EUR de benefices** (non modifie par la loi de finances 2026) :
 
 **Conditions a remplir :**
 1. Chiffre d'affaires HT < 10 millions EUR
 2. Capital entierement libere
-3. Capital detenu pour 75% au moins par des personnes physiques (ou societes remplissant les memes conditions)
+3. Capital detenu pour 75 % au moins par des personnes physiques (ou societes remplissant les memes conditions)
 
 **Application :**
-- Tranche de benefice 0 - 42 500 EUR : taux 15%
-- Au-dela de 42 500 EUR : taux normal 25%
+- Tranche de benefice 0 - 42 500 EUR : taux 15 %
+- Au-dela de 42 500 EUR : taux normal 25 %
 
 **Exemple concret :**
 - Benefice de 60 000 EUR
-- IS = (42 500 x 15%) + (17 500 x 25%) = 6 375 + 4 375 = 10 750 EUR
+- IS = (42 500 x 15 %) + (17 500 x 25 %) = 6 375 + 4 375 = 10 750 EUR
 - Economie vs taux plein : 4 250 EUR
 
 **Conseil SMD :** Optimisez la structure capitalistique pour beneficier du taux reduit.
@@ -123,20 +176,19 @@ Generalisation progressive de la facturation electronique B2B :
             'lien': 'https://bofip.impots.gouv.fr'
         },
         {
-            'titre': '[CONTROLE FISCAL] Tendances 2026 et Points de Vigilance',
-            'date': aujourd_hui.strftime('%Y-%m-%d'),
-            'source': 'DGFiP',
+            'titre': '[CONTROLE FISCAL] Points de vigilance (avis SMD)',
+            'date': date_str,
+            'source': 'SMD Global Consulting LLC',
             'resume': """
-**Axes de controle prioritaires 2026 :**
+**Points de vigilance recommandes :**
 
 1. **TVA et facturation electronique**
-   - Verification de la conformite des systemes
+   - Conformite des flux via Plateforme Agreee
    - Coherence factures emises / declarations CA3
    - Auto-liquidation TVA
 
 2. **Prix de transfert (groupes internationaux)**
-   - Documentation obligatoire si CA > 50 M EUR
-   - Examen des transactions intra-groupe
+   - Documentation des transactions intra-groupe
 
 3. **Charges deductibles**
    - Frais de representation et reception
@@ -157,33 +209,32 @@ Generalisation progressive de la facturation electronique B2B :
         },
         {
             'titre': '[SOCIAL] Charges Sociales 2026 - Taux et Plafonds',
-            'date': aujourd_hui.strftime('%Y-%m-%d'),
-            'source': 'URSSAF',
+            'date': date_str,
+            'source': 'URSSAF / CLEISS',
             'resume': """
-**Plafonds Securite Sociale 2026 :**
+**Plafonds et SMIC 2026 :**
 
-- PMSS (Plafond Mensuel) : 3 925 EUR
-- PASS (Plafond Annuel) : 47 100 EUR
-- SMIC horaire : 11.65 EUR
-- SMIC mensuel (35h) : 1 766.92 EUR brut
+- PMSS (Plafond Mensuel) : 4 005 EUR
+- PASS (Plafond Annuel) : 48 060 EUR
+- SMIC horaire brut : 12,31 EUR (depuis le 1er juin 2026 ; 12,02 EUR du 1er janvier au 31 mai)
+- SMIC mensuel brut (35h) : 1 867,02 EUR (depuis le 1er juin 2026)
 
-**Cotisations principales (taux salarial / patronal) :**
+**Cotisations principales au 1er janvier 2026 (taux salarial / patronal) :**
 
 | Cotisation | Salarial | Patronal |
 |-----------|----------|----------|
-| Maladie | 0% | 7% (ou 13%) |
-| Vieillesse plafonnee | 6.90% | 8.55% |
-| Vieillesse deplafonnee | 0.40% | 2.02% |
-| Famille | 0% | 3.45% / 5.25% |
-| AT/MP | 0% | Variable |
-| Chomage | 0% | 4.05% |
-| AGS | 0% | 0.20% |
+| Maladie | 0 % | 13 % (ou 7 %) |
+| Vieillesse plafonnee | 6,90 % | 8,55 % |
+| Vieillesse deplafonnee | 0,40 % | 2,11 % |
+| Famille | 0 % | 5,25 % (ou 3,45 %) |
+| AT/MP | 0 % | Variable |
+| Chomage | 0 % | 4,00 % |
+| AGS | 0 % | 0,25 % |
 | Retraite complementaire | Variable | Variable |
-| CSG/CRDS | 9.70% | 0% |
+| CSG / CRDS | 9,20 % + 0,50 % (sur 98,25 % du brut) | 0 % |
 
 **Reductions :**
-- Reduction generale (Fillon) : sous SMIC x 1.6
-- Reduction TO-DE : agriculture
+- Reduction generale degressive unique (RGDU) depuis le 1er janvier 2026 : jusqu'a 3 SMIC (remplace la reduction Fillon)
 - Aides a l'embauche : selon dispositifs
 
 **Conseil SMD :** Audit annuel des charges sociales pour optimiser les exonerations applicables.
@@ -191,7 +242,7 @@ Generalisation progressive de la facturation electronique B2B :
             'lien': 'https://www.urssaf.fr'
         }
     ]
-    
+
     return actualites
 
 
@@ -286,52 +337,28 @@ def page_veille_fiscale():
         annee = datetime.now().year
         st.markdown(f"### 📅 Calendrier Fiscal France {annee}")
 
-        echeances = [
-            {"Échéance": f"15 janvier", "Obligation": "TVA mensuelle — décembre N-1", "Concerne": "Régime réel normal"},
-            {"Échéance": f"31 janvier", "Obligation": "DSN mensuelle", "Concerne": "Employeurs"},
-            {"Échéance": f"15 février", "Obligation": "TVA mensuelle — janvier", "Concerne": "Régime réel normal"},
-            {"Échéance": f"31 mars", "Obligation": f"Liasse fiscale IS — clôture 31/12/{annee-1}", "Concerne": "Sociétés IS"},
-            {"Échéance": f"30 avril", "Obligation": f"Déclaration revenus {annee-1}", "Concerne": "Particuliers"},
-            {"Échéance": f"15 juin", "Obligation": "Acompte IS — 1er versement", "Concerne": "Sociétés IS"},
-            {"Échéance": f"30 juin", "Obligation": f"Liasse fiscale IS — clôture 31/03/{annee}", "Concerne": "Sociétés IS"},
-            {"Échéance": f"15 septembre", "Obligation": "Acompte IS — 2ème versement", "Concerne": "Sociétés IS"},
-            {"Échéance": f"15 décembre", "Obligation": "Acompte IS — 4ème versement", "Concerne": "Sociétés IS"},
-        ]
-
-        _MOIS_FR = {
-            "janvier": 1, "février": 2, "mars": 3, "avril": 4,
-            "mai": 5, "juin": 6, "juillet": 7, "août": 8,
-            "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12
-        }
-
-        def _parse_echeance(date_str, annee):
-            """Parse une date FR sans dépendance locale."""
-            parts = date_str.strip().split()
-            if len(parts) == 2:
-                jour, mois_str = parts
-                mois_num = _MOIS_FR.get(mois_str.lower())
-                if mois_num:
-                    return datetime(int(annee), mois_num, int(jour))
-            return None
-
         aujourd_hui = datetime.now()
         echeances_enrichies = []
-        for e in echeances:
-            date_echeance = _parse_echeance(e["Échéance"], annee)
-            if date_echeance:
-                jours_restants = (date_echeance - aujourd_hui).days
-                if 0 <= jours_restants <= 30:
-                    e["Statut"] = f"⚠ Dans {jours_restants} jours"
-                elif jours_restants < 0:
-                    e["Statut"] = "✅ Passée"
-                else:
-                    e["Statut"] = f"📅 Dans {jours_restants} jours"
+        for e in calendrier_fiscal(annee):
+            jours_restants = (e["date"] - aujourd_hui).days
+            if 0 <= jours_restants <= 30:
+                statut = f"⚠ Dans {jours_restants} jours"
+            elif jours_restants < 0:
+                statut = "✅ Passée"
             else:
-                e["Statut"] = "📅"
-            echeances_enrichies.append(e)
+                statut = f"📅 Dans {jours_restants} jours"
+            echeances_enrichies.append({
+                "Échéance": e["date"].strftime("%d/%m/%Y"),
+                "Obligation": e["obligation"],
+                "Concerne": e["concerne"],
+                "Statut": statut,
+            })
 
         df_echeances = pd.DataFrame(echeances_enrichies)
         st.dataframe(df_echeances, use_container_width=True, hide_index=True)
+        st.caption("Dates décalées au jour ouvré suivant (week-ends et fériés fixes). "
+                   "Exercice non clos au 31/12 : liasse dans les 3 mois de la clôture. "
+                   f"Données vérifiées : {DATE_MAJ_DONNEES}.")
 
     with onglet2:
         st.markdown("### 🤖 Posez votre question fiscale à l'IA")
