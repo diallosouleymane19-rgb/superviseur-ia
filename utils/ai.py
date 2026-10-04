@@ -129,7 +129,11 @@ def test_dns_resolution():
 
 def get_api_key():
     """Récupère la clé API de manière sécurisée"""
-    key = st.secrets.get("MISTRAL_API_KEY") or os.getenv("MISTRAL_API_KEY")
+    try:
+        key = st.secrets.get("MISTRAL_API_KEY")
+    except Exception:  # pas de secrets.toml (exécution locale avec .env)
+        key = None
+    key = key or os.getenv("MISTRAL_API_KEY")
     if not key:
         raise ValueError("❌ Clé MISTRAL_API_KEY manquante dans Settings > Secrets ou .env")
     return key
@@ -198,7 +202,16 @@ def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
             if response.status_code == 401:
                 return {"success": False, "content": "", "error": "🔑 Clé API invalide"}
             elif response.status_code == 429:
-                return {"success": False, "content": "", "error": "⏱ Rate limit atteint - patientez quelques minutes"}
+                # Limite Mistral sur ce modèle : on tente une fois le modèle plus léger
+                if not use_fallback:
+                    logger.info("429 sur le modèle principal, bascule vers le modèle fallback")
+                    return appel_mistral(prompt, temperature, max_tokens, use_fallback=True)
+                raison = response.text[:200] if response.text else "aucun détail"
+                return {"success": False, "content": "",
+                        "error": ("⏱ Mistral refuse temporairement les appels (HTTP 429, modèle "
+                                  f"{model}). Patientez 1 à 2 minutes puis réessayez. "
+                                  "Si cela persiste, vérifiez votre palier et votre quota sur "
+                                  f"console.mistral.ai. Détail Mistral : {raison}")}
             elif response.status_code >= 500:
                 return {"success": False, "content": "", "error": f"🔥 Erreur serveur Mistral ({response.status_code})"}
             
