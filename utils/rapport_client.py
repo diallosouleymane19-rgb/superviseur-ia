@@ -9,6 +9,21 @@ from utils.page_helpers import (
 )
 
 
+def _nb(x, dec=0):
+    """Nombre au format français : 61 497 ou 82,8"""
+    return f"{x:,.{dec}f}".replace(",", " ").replace(".", ",")
+
+
+def _eur(x):
+    """Montant en euros au format français : 61 497 €"""
+    return _nb(x) + " €"
+
+
+def _pct(x):
+    """Pourcentage au format français : 82,8 %"""
+    return _nb(x, 1) + " %"
+
+
 def analyser_donnees_client(df):
     """Analyse les donnees comptables et calcule les KPIs"""
     if 'CompteNum' not in df.columns:
@@ -105,10 +120,10 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
         
         rapport.append(f"L'analyse de la periode {periode} {exercice} pour **{nom_client}** revele :")
         rapport.append("")
-        rapport.append(f"- **Chiffre d'affaires** : {ca:,.0f} EUR")
-        rapport.append(f"- **Resultat net** : {rn:,.0f} EUR ({kpis['taux_rentabilite']:.1f}% du CA)")
-        rapport.append(f"- **EBE** : {ebe:,.0f} EUR ({kpis['taux_marge_brute']:.1f}% du CA)")
-        rapport.append(f"- **Valeur ajoutee** : {kpis['valeur_ajoutee']:,.0f} EUR ({kpis['taux_va']:.1f}% du CA)")
+        rapport.append(f"- **Chiffre d'affaires** : {_eur(ca)}")
+        rapport.append(f"- **Resultat net** : {_eur(rn)} ({_pct(kpis['taux_rentabilite'])} du CA)")
+        rapport.append(f"- **EBE** : {_eur(ebe)} ({_pct(kpis['taux_marge_brute'])} du CA)")
+        rapport.append(f"- **Valeur ajoutee** : {_eur(kpis['valeur_ajoutee'])} ({_pct(kpis['taux_va'])} du CA)")
         rapport.append("")
         
         if rn > 0 and ebe > 0:
@@ -131,29 +146,29 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
         rapport.append("")
         rapport.append("### Compte de Resultat")
         rapport.append("")
-        rapport.append("| Indicateur | Montant (EUR) | % du CA |")
+        rapport.append("| Indicateur | Montant (€) | % du CA |")
         rapport.append("|------------|---------------|---------|")
         ca = kpis['chiffre_affaires']
-        rapport.append(f"| Chiffre d'affaires | {ca:,.0f} | 100% |")
-        rapport.append(f"| Total produits | {kpis['total_produits']:,.0f} | {kpis['total_produits']/ca*100:.1f}% |")
-        rapport.append(f"| Total charges | {kpis['total_charges']:,.0f} | {kpis['total_charges']/ca*100:.1f}% |")
-        rapport.append(f"| Resultat net | {kpis['resultat_net']:,.0f} | {kpis['taux_rentabilite']:.1f}% |")
-        rapport.append(f"| Valeur ajoutee | {kpis['valeur_ajoutee']:,.0f} | {kpis['taux_va']:.1f}% |")
-        rapport.append(f"| EBE | {kpis['ebe']:,.0f} | {kpis['taux_marge_brute']:.1f}% |")
-        rapport.append(f"| Masse salariale | {kpis['masse_salariale']:,.0f} | {kpis['poids_charges_personnel']:.1f}% |")
+        rapport.append(f"| Chiffre d'affaires | {_nb(ca)} | 100 % |")
+        rapport.append(f"| Total produits | {_nb(kpis['total_produits'])} | {_pct(kpis['total_produits']/ca*100)} |")
+        rapport.append(f"| Total charges | {_nb(kpis['total_charges'])} | {_pct(kpis['total_charges']/ca*100)} |")
+        rapport.append(f"| Resultat net | {_nb(kpis['resultat_net'])} | {_pct(kpis['taux_rentabilite'])} |")
+        rapport.append(f"| Valeur ajoutee | {_nb(kpis['valeur_ajoutee'])} | {_pct(kpis['taux_va'])} |")
+        rapport.append(f"| EBE | {_nb(kpis['ebe'])} | {_pct(kpis['taux_marge_brute'])} |")
+        rapport.append(f"| Masse salariale | {_nb(kpis['masse_salariale'])} | {_pct(kpis['poids_charges_personnel'])} |")
         rapport.append("")
         
         rapport.append("### Bilan")
         rapport.append("")
-        rapport.append("| Poste | Montant (EUR) |")
+        rapport.append("| Poste | Montant (€) |")
         rapport.append("|-------|---------------|")
-        rapport.append(f"| Immobilisations | {kpis['immobilisations']:,.0f} |")
-        rapport.append(f"| Stocks | {kpis['stocks']:,.0f} |")
-        rapport.append(f"| Creances clients | {kpis['creances_clients']:,.0f} |")
-        rapport.append(f"| Tresorerie | {kpis['tresorerie']:,.0f} |")
-        rapport.append(f"| Capital | {kpis['capital']:,.0f} |")
-        rapport.append(f"| Dettes financieres | {kpis['dettes_financieres']:,.0f} |")
-        rapport.append(f"| Dettes fournisseurs | {kpis['dettes_fournisseurs']:,.0f} |")
+        rapport.append(f"| Immobilisations | {_nb(kpis['immobilisations'])} |")
+        rapport.append(f"| Stocks | {_nb(kpis['stocks'])} |")
+        rapport.append(f"| Creances clients | {_nb(kpis['creances_clients'])} |")
+        rapport.append(f"| Tresorerie | {_nb(kpis['tresorerie'])} |")
+        rapport.append(f"| Capital | {_nb(kpis['capital'])} |")
+        rapport.append(f"| Dettes financieres | {_nb(kpis['dettes_financieres'])} |")
+        rapport.append(f"| Dettes fournisseurs | {_nb(kpis['dettes_fournisseurs'])} |")
         rapport.append("")
         rapport.append("---")
         rapport.append("")
@@ -163,7 +178,7 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     
     if kpis and kpis.get('chiffre_affaires', 0) > 0:
         if kpis['taux_rentabilite'] > 10:
-            rapport.append("- **Rentabilite excellente** : marge nette > 10%")
+            rapport.append("- **Rentabilite excellente** : marge nette > 10 %")
         elif kpis['taux_rentabilite'] > 5:
             rapport.append("- **Bonne rentabilite** : marge nette satisfaisante")
         elif kpis['taux_rentabilite'] > 0:
@@ -177,7 +192,7 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
             rapport.append("- **Faible valeur ajoutee** : revoir la chaine de valeur")
         
         if kpis['poids_charges_personnel'] > 50:
-            rapport.append("- **Charges personnel elevees** (>50% CA) : optimiser productivite")
+            rapport.append("- **Charges personnel elevees** (>50 % CA) : optimiser productivite")
         
         if kpis['tresorerie'] < 0:
             rapport.append("- **Tresorerie negative** : risque d'illiquidite")
@@ -270,12 +285,12 @@ def page_rapport_client():
                 with st.spinner("🤖 Analyse..."):
                     if uploaded_file.name.endswith('xlsx') or uploaded_file.name.endswith('csv'):
                         df, info = parser_balance_intelligent(uploaded_file)
-                        st.success(f"✅ {info['format_detecte']} | {len(df):,} comptes")
+                        st.success(f"✅ {info['format_detecte']} | {_nb(len(df))} comptes")
                         if info['colonnes_manquantes']:
                             st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
                     else:
                         df = pd.read_csv(uploaded_file, sep='|', encoding='utf-8')
-                        st.success(f"✅ FEC chargé : {len(df):,} lignes")
+                        st.success(f"✅ FEC chargé : {_nb(len(df))} lignes")
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
@@ -292,7 +307,7 @@ def page_rapport_client():
                 else:
                     df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
 
-                st.success(f"✅ Fichier chargé : {len(df):,} lignes")
+                st.success(f"✅ Fichier chargé : {_nb(len(df))} lignes")
 
                 with st.expander("👀 Aperçu"):
                     st.dataframe(df.head(15), width="stretch")
@@ -370,26 +385,26 @@ def page_rapport_client():
 
                         col1, col2, col3, col4 = st.columns(4)
                         with col1:
-                            st.metric("CA", f"{kpis['chiffre_affaires']:,.0f} €")
+                            st.metric("CA", f"{_eur(kpis['chiffre_affaires'])}")
                         with col2:
                             rn = kpis['resultat_net']
-                            st.metric("Résultat Net", f"{rn:,.0f} €",
+                            st.metric("Résultat Net", f"{_eur(rn)}",
                                      delta="Bénéfice" if rn > 0 else "Déficit",
                                      delta_color="normal" if rn > 0 else "inverse")
                         with col3:
-                            st.metric("EBE", f"{kpis['ebe']:,.0f} €")
+                            st.metric("EBE", f"{_eur(kpis['ebe'])}")
                         with col4:
-                            st.metric("Trésorerie", f"{kpis['tresorerie']:,.0f} €")
+                            st.metric("Trésorerie", f"{_eur(kpis['tresorerie'])}")
 
                         col1, col2, col3, col4 = st.columns(4)
                         with col1:
-                            st.metric("Marge nette", f"{kpis['taux_rentabilite']:.1f}%")
+                            st.metric("Marge nette", f"{_pct(kpis['taux_rentabilite'])}")
                         with col2:
-                            st.metric("Marge brute", f"{kpis['taux_marge_brute']:.1f}%")
+                            st.metric("Marge brute", f"{_pct(kpis['taux_marge_brute'])}")
                         with col3:
-                            st.metric("Taux VA", f"{kpis['taux_va']:.1f}%")
+                            st.metric("Taux VA", f"{_pct(kpis['taux_va'])}")
                         with col4:
-                            st.metric("Poids personnel", f"{kpis['poids_charges_personnel']:.1f}%")
+                            st.metric("Poids personnel", f"{_pct(kpis['poids_charges_personnel'])}")
 
                         st.divider()
 
