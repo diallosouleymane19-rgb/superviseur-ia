@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 Module TFT PCG France — Méthode indirecte — SMD Global Consulting LLC
-Tableau de Flux de Trésorerie conforme ANC/CRC 99-02
+Tableau de Flux de Trésorerie conforme modèle OEC
 Horizon 1 à 3 exercices comparatifs
 """
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from io import BytesIO
+from utils.sig_pcg import eur_fr
 
 # ─── Structure TFT méthode indirecte (ANC / CRC 99-02) ───────────────────────
 
@@ -81,38 +82,74 @@ def _calculer_tft(data: dict, exercices: list) -> dict:
     return resultats
 
 
-@st.cache_data(show_spinner=False)
-def _extraire_depuis_balance(fichier_bytes: bytes, nom: str) -> dict:
-    """Extrait résultat net, dotations, variation stocks/créances/dettes depuis balance PCG."""
-    try:
-        if nom.endswith(".xlsx"):
-            df = pd.read_excel(BytesIO(fichier_bytes))
-        else:
-            df = pd.read_csv(BytesIO(fichier_bytes), sep=None, engine="python")
-        df.columns = [str(c).strip().lower() for c in df.columns]
-        col_c = next((c for c in df.columns if any(k in c for k in ["compte", "cpte"])), None)
-        col_s = next((c for c in df.columns if any(k in c for k in ["solde", "credit", "crédit"])), None)
-        if not col_c or not col_s:
-            return {}
-        df[col_c] = df[col_c].astype(str).str.strip()
+def _extraire_tft(df_n, df_n1) -> dict:
+    """
+    TFT méthode indirecte à partir de deux balances de clôture (N et N-1), avant affectation.
+    Retourne {libellé: montant signé} + clés techniques '_treso_ouverture', '_treso_cloture', '_alertes'.
+    """
+    from utils.sig_pcg import _preparer, _solde
+    dn, d1 = _preparer(df_n), _preparer(df_n1)
+    c  = lambda d, p, ex=(): _solde(d, p, ex, "credit")
+    db = lambda d, p, ex=(): _solde(d, p, ex, "debit")
+    var_d = lambda p, ex=(): db(dn, p, ex) - db(d1, p, ex)   # variation d'un solde débiteur
+    var_c = lambda p, ex=(): c(dn, p, ex) - c(d1, p, ex)     # variation d'un solde créditeur
 
-        def s(prefixes):
-            m = df[col_c].str.startswith(tuple(prefixes), na=False)
-            return abs(df.loc[m, col_s].apply(pd.to_numeric, errors="coerce").fillna(0).sum())
+    resultat_net = c(dn, ["7"]) - db(dn, ["6"])
+    dotations = db(dn, ["681", "686", "687"]) - c(dn, ["781", "786", "787"])
+    plus_value = c(dn, ["775"]) - db(dn, ["675"])            # résultat de cession (avant impôt)
+    prix_cession = c(dn, ["775"])
 
-        return {
-            "Résultat net (bénéfice + / perte -)": s(["120", "121"]) - s(["129"]),
-            "Dotations aux amortissements et provisions (nettes de reprises)": s(["681", "682", "686", "687"]) - s(["781", "786", "787"]),
-            "Variation des stocks (augmentation -)": -s(["3"]),
-            "Variation des créances d'exploitation (augmentation -)": -s(["411", "413", "409"]),
-            "Variation des dettes d'exploitation (augmentation +)": s(["401", "403", "421", "431", "437", "445"]),
-            "Acquisitions d'immobilisations corporelles": -s(["21", "22", "23"]),
-            "Acquisitions d'immobilisations incorporelles": -s(["20"]),
-            "Émission d'emprunts": s(["164", "165", "166", "167"]),
-            "Dividendes versés aux actionnaires": -s(["457"]),
-        }
-    except Exception:
-        return {}
+    tresorerie = lambda d: db(d, ["50", "51", "53", "54"], ["519"])   # hors concours bancaires
+    resultat_n1 = c(d1, ["7"]) - db(d1, ["6"])
+    reserves_var = var_c(["106", "11", "12"])
+    dividendes = resultat_n1 - reserves_var                   # résultat N-1 non mis en réserve
+
+    capital_var = var_c(["101", "104", "108", "109"])
+    emprunts_var = var_c(["16", "17", "455"])               # 455 : comptes courants d'associés
+    # Brut sorti lors des cessions = VNC (675) + amortissements cédés
+    # amortissements cédés = dotations aux amortissements (6811, 6812) - variation des comptes 28
+    amort_cedes = max(db(dn, ["6811", "6812"]) - var_c(["28"]), 0.0)
+    brut_cede = db(dn, ["675"]) + amort_cedes
+    brut_corp = var_d(["21", "22", "23"]) + brut_cede - var_c(["404", "405"])   # net des dettes sur immobilisations
+    brut_incorp = var_d(["20"])
+    brut_fin = var_d(["26", "27"])
+
+    v = {
+        "Résultat net (bénéfice + / perte -)": resultat_net,
+        "Dotations aux amortissements et provisions (nettes de reprises)": dotations,
+        "Plus-values de cessions nettes d'impôts": -plus_value if plus_value > 0 else 0.0,
+        "Moins-values de cessions nettes d'impôts": -plus_value if plus_value < 0 else 0.0,
+        "Variation des stocks (augmentation -)": -var_d(["3"], ["39"]),          # brut : dépréciations dans les dotations
+        "Variation des créances d'exploitation (augmentation -)": -var_d(["409", "411", "413", "416", "417", "418"]),  # brut
+        "Variation des dettes d'exploitation (augmentation +)": var_c(["401", "403", "408", "419", "42", "43", "445", "447"]),
+        "Variation des autres créances (augmentation -)": -var_d(["46", "47", "48"]),
+        "Variation des autres dettes (augmentation +)": var_c(["44"], ["445", "447"]),  # dont IS (444)
+        "Impôts sur les sociétés payés": 0.0,
+        "Acquisitions d'immobilisations incorporelles": -max(brut_incorp, 0.0),
+        "Acquisitions d'immobilisations corporelles": -max(brut_corp, 0.0),
+        "Acquisitions d'immobilisations financières": -max(brut_fin, 0.0),
+        "Cessions d'immobilisations corporelles": prix_cession,
+        "Augmentation de capital en numéraire": max(capital_var, 0.0),
+        "Remboursements de capital": min(capital_var, 0.0),
+        "Émission d'emprunts": max(emprunts_var, 0.0),
+        "Remboursements d'emprunts": min(emprunts_var, 0.0),
+        "Dividendes versés aux actionnaires": -dividendes,
+        "Variation des concours bancaires courants": var_c(["519"]),
+    }
+    alertes = []
+    if prix_cession or db(dn, ["675"]):
+        alertes.append("Cessions détectées : la valeur brute sortie est reconstituée (VNC + amortissements cédés). "
+                       "À rapprocher du tableau des immobilisations.")
+    ouverture, cloture = tresorerie(d1), tresorerie(dn)
+    variation = sum(v.values())
+    ecart = round(variation - (cloture - ouverture), 2)
+    if abs(ecart) >= 1:
+        alertes.append(f"Contrôle : la variation calculée diffère de {ecart:,.0f} € de la variation réelle "
+                       "de trésorerie (comptes non classés ou balances incohérentes).".replace(",", " "))
+    v["_treso_ouverture"] = ouverture
+    v["_treso_cloture"] = cloture
+    v["_alertes"] = alertes
+    return v
 
 
 # ─── Graphique ───────────────────────────────────────────────────────────────
@@ -235,14 +272,14 @@ Sois concis et professionnel."""
 
 def page_tft():
     st.title("💹 Tableau de Flux de Trésorerie")
-    st.markdown("*Méthode indirecte — ANC/CRC 99-02 — PCG France*")
+    st.markdown("*Méthode indirecte — modèle OEC — PCG France*")
     st.divider()
 
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         entreprise = st.text_input("Entreprise", value="Mon Entreprise")
     with col2:
-        annee_ref = st.number_input("Exercice de référence", value=2024,
+        annee_ref = st.number_input("Exercice de référence", value=pd.Timestamp.now().year - 1,
                                      min_value=2000, max_value=2050, step=1)
     with col3:
         nb_ex = st.slider("Exercices comparatifs", 1, 3, 2)
@@ -256,25 +293,36 @@ def page_tft():
         st.session_state.tft_data = {}
     data = st.session_state.tft_data
 
-    # ── Import balance optionnel
-    with st.expander("📂 Importer une balance PCG pour pré-remplir"):
-        col_f, col_ex = st.columns([2, 1])
-        with col_f:
-            fichier = st.file_uploader("Balance (.xlsx ou .csv)", type=["xlsx", "csv"], key="balance_tft")
+    # ── Import de deux balances (N et N-1)
+    with st.expander("📂 Importer les balances N et N-1 pour pré-remplir", expanded=True):
+        st.caption("Balances de clôture avant affectation du résultat (Excel, CSV ou TXT). "
+                   "Les variations sont calculées entre les deux exercices.")
+        col_n, col_n1, col_ex = st.columns([2, 2, 1])
+        with col_n:
+            f_n = st.file_uploader("Balance de l'exercice (N)", type=["xlsx", "csv", "txt"], key="balance_tft_n")
+        with col_n1:
+            f_n1 = st.file_uploader("Balance de l'exercice précédent (N-1)", type=["xlsx", "csv", "txt"], key="balance_tft_n1")
         with col_ex:
-            ex_import = st.selectbox("Pour l'exercice", exercices, key="ex_import_tft")
-        if fichier and st.button("Extraire", key="btn_extract_tft"):
+            ex_import = st.selectbox("Exercice N", exercices, index=len(exercices) - 1, key="ex_import_tft")
+        if f_n and f_n1 and st.button("Calculer le TFT", key="btn_extract_tft", type="primary"):
+            from utils.intelligent_parser import charger_balance_ou_fec
             with st.spinner("Extraction..."):
-                vals = _extraire_depuis_balance(fichier.read(), fichier.name)
-            if vals:
-                for lib, val in vals.items():
-                    if lib not in data:
-                        data[lib] = {}
-                    data[lib][ex_import] = round(val, 2)
-                st.session_state.tft_data = data
-                st.success(f"{len(vals)} postes extraits pour {ex_import}")
-            else:
-                st.warning("Extraction impossible — saisissez manuellement.")
+                df_n, _, _ = charger_balance_ou_fec(f_n)
+                df_n1, _, _ = charger_balance_ou_fec(f_n1)
+                vals = _extraire_tft(df_n, df_n1)
+            for alerte in vals.pop("_alertes"):
+                st.warning(alerte)
+            data.setdefault("Trésorerie à l'ouverture", {})[ex_import] = round(vals.pop("_treso_ouverture"), 2)
+            vals.pop("_treso_cloture")
+            for lib, val in vals.items():
+                data.setdefault(lib, {})[ex_import] = round(val, 2)
+            st.session_state.tft_data = data
+            for k in list(st.session_state.keys()):
+                if str(k).startswith("tft_"):
+                    del st.session_state[k]   # force le rafraîchissement des tableaux
+            st.success(f"TFT pré-rempli pour {ex_import}")
+        elif f_n and not f_n1:
+            st.info("Ajoutez aussi la balance N-1 : un TFT se calcule sur des variations.")
 
     st.divider()
 
@@ -326,11 +374,12 @@ def page_tft():
     for i, ex in enumerate(exercices):
         r = resultats[ex]
         with cols[i]:
-            st.metric(f"Activité {ex}", f"{r['Flux activité (I)']:+,.0f} €")
-            st.metric(f"Investissement {ex}", f"{r['Flux investissement (II)']:+,.0f} €")
-            st.metric(f"Financement {ex}", f"{r['Flux financement (III)']:+,.0f} €")
+            sg = lambda x: ("+" if x > 0 else "") + eur_fr(x)
+            st.metric(f"Activité {ex}", sg(r['Flux activité (I)']))
+            st.metric(f"Investissement {ex}", sg(r['Flux investissement (II)']))
+            st.metric(f"Financement {ex}", sg(r['Flux financement (III)']))
             color = "normal" if r["Trésorerie clôture"] >= 0 else "inverse"
-            st.metric(f"Tréso clôture {ex}", f"{r['Trésorerie clôture']:,.0f} €", delta_color=color)
+            st.metric(f"Tréso clôture {ex}", eur_fr(r['Trésorerie clôture']), delta_color=color)
 
     st.plotly_chart(_chart_tft(resultats, exercices), width="stretch")
     st.divider()
