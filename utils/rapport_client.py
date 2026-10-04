@@ -11,6 +11,7 @@ from utils.page_helpers import (
 
 def _nb(x, dec=0):
     """Nombre au format français : 61 497 ou 82,8"""
+    x = round(float(x), dec) + 0.0  # évite l'affichage « -0 »
     return f"{x:,.{dec}f}".replace(",", " ").replace(".", ",")
 
 
@@ -25,68 +26,11 @@ def _pct(x):
 
 
 def analyser_donnees_client(df):
-    """Analyse les donnees comptables et calcule les KPIs"""
+    """KPIs du client : SIG et postes du bilan selon le PCG (voir utils/sig_pcg.py)."""
     if 'CompteNum' not in df.columns:
         return {'erreur': 'Colonne CompteNum manquante', 'chiffre_affaires': 0}
-    
-    df = df.copy()
-    if 'Debit' in df.columns:
-        df['_debit'] = pd.to_numeric(df['Debit'].astype(str).str.replace(',', '.').str.replace(' ', ''), errors='coerce').fillna(0)
-    else:
-        df['_debit'] = 0
-    
-    if 'Credit' in df.columns:
-        df['_credit'] = pd.to_numeric(df['Credit'].astype(str).str.replace(',', '.').str.replace(' ', ''), errors='coerce').fillna(0)
-    else:
-        df['_credit'] = 0
-    
-    df['_compte'] = df['CompteNum'].astype(str).str.strip()
-    df['_classe'] = df['_compte'].str[0]
-    df['_sous_classe'] = df['_compte'].str[:2]
-    
-    ca = df[df['_sous_classe'] == '70']['_credit'].sum() - df[df['_sous_classe'] == '70']['_debit'].sum()
-    
-    charges_60 = df[df['_sous_classe'] == '60']['_debit'].sum() - df[df['_sous_classe'] == '60']['_credit'].sum()
-    charges_61 = df[df['_sous_classe'] == '61']['_debit'].sum() - df[df['_sous_classe'] == '61']['_credit'].sum()
-    charges_62 = df[df['_sous_classe'] == '62']['_debit'].sum() - df[df['_sous_classe'] == '62']['_credit'].sum()
-    charges_63 = df[df['_sous_classe'] == '63']['_debit'].sum() - df[df['_sous_classe'] == '63']['_credit'].sum()
-    charges_64 = df[df['_sous_classe'] == '64']['_debit'].sum() - df[df['_sous_classe'] == '64']['_credit'].sum()
-    
-    total_charges = df[df['_classe'] == '6']['_debit'].sum() - df[df['_classe'] == '6']['_credit'].sum()
-    total_produits = df[df['_classe'] == '7']['_credit'].sum() - df[df['_classe'] == '7']['_debit'].sum()
-    
-    resultat_net = total_produits - total_charges
-    valeur_ajoutee = total_produits - (charges_60 + charges_61 + charges_62)
-    ebe = valeur_ajoutee - charges_63 - charges_64
-    
-    immobilisations = df[df['_classe'] == '2']['_debit'].sum() - df[df['_classe'] == '2']['_credit'].sum()
-    stocks = df[df['_classe'] == '3']['_debit'].sum() - df[df['_classe'] == '3']['_credit'].sum()
-    creances = df[df['_sous_classe'] == '41']['_debit'].sum() - df[df['_sous_classe'] == '41']['_credit'].sum()
-    tresorerie = df[df['_sous_classe'].isin(['51', '53'])]['_debit'].sum() - df[df['_sous_classe'].isin(['51', '53'])]['_credit'].sum()
-    capital = df[df['_sous_classe'] == '10']['_credit'].sum() - df[df['_sous_classe'] == '10']['_debit'].sum()
-    dettes_fin = df[df['_sous_classe'] == '16']['_credit'].sum() - df[df['_sous_classe'] == '16']['_debit'].sum()
-    dettes_four = df[df['_sous_classe'] == '40']['_credit'].sum() - df[df['_sous_classe'] == '40']['_debit'].sum()
-    
-    return {
-        'chiffre_affaires': ca,
-        'total_produits': total_produits,
-        'total_charges': total_charges,
-        'resultat_net': resultat_net,
-        'valeur_ajoutee': valeur_ajoutee,
-        'ebe': ebe,
-        'masse_salariale': charges_64,
-        'immobilisations': immobilisations,
-        'stocks': stocks,
-        'creances_clients': creances,
-        'tresorerie': tresorerie,
-        'capital': capital,
-        'dettes_financieres': dettes_fin,
-        'dettes_fournisseurs': dettes_four,
-        'taux_marge_brute': (ebe / ca * 100) if ca > 0 else 0,
-        'taux_rentabilite': (resultat_net / ca * 100) if ca > 0 else 0,
-        'taux_va': (valeur_ajoutee / ca * 100) if ca > 0 else 0,
-        'poids_charges_personnel': (charges_64 / ca * 100) if ca > 0 else 0
-    }
+    from utils.sig_pcg import calculer_sig
+    return calculer_sig(df)
 
 
 def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observations="", objectifs=""):
@@ -121,9 +65,9 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
         rapport.append(f"L'analyse de la periode {periode} {exercice} pour **{nom_client}** revele :")
         rapport.append("")
         rapport.append(f"- **Chiffre d'affaires** : {_eur(ca)}")
-        rapport.append(f"- **Resultat net** : {_eur(rn)} ({_pct(kpis['taux_rentabilite'])} du CA)")
-        rapport.append(f"- **EBE** : {_eur(ebe)} ({_pct(kpis['taux_marge_brute'])} du CA)")
-        rapport.append(f"- **Valeur ajoutee** : {_eur(kpis['valeur_ajoutee'])} ({_pct(kpis['taux_va'])} du CA)")
+        rapport.append(f"- **Résultat net** : {_eur(rn)} ({_pct(kpis['taux_rentabilite'])} du CA)")
+        rapport.append(f"- **EBE** : {_eur(ebe)} ({_pct(kpis['taux_ebe'])} du CA)")
+        rapport.append(f"- **Valeur ajoutée** : {_eur(kpis['valeur_ajoutee'])} ({_pct(kpis['taux_va'])} du CA)")
         rapport.append("")
         
         if rn > 0 and ebe > 0:
@@ -144,30 +88,38 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     if kpis and kpis.get('chiffre_affaires', 0) > 0:
         rapport.append("## INDICATEURS CLES")
         rapport.append("")
-        rapport.append("### Compte de Resultat")
+        rapport.append("### Soldes intermédiaires de gestion")
         rapport.append("")
         rapport.append("| Indicateur | Montant (€) | % du CA |")
         rapport.append("|------------|---------------|---------|")
         ca = kpis['chiffre_affaires']
         rapport.append(f"| Chiffre d'affaires | {_nb(ca)} | 100 % |")
-        rapport.append(f"| Total produits | {_nb(kpis['total_produits'])} | {_pct(kpis['total_produits']/ca*100)} |")
-        rapport.append(f"| Total charges | {_nb(kpis['total_charges'])} | {_pct(kpis['total_charges']/ca*100)} |")
-        rapport.append(f"| Resultat net | {_nb(kpis['resultat_net'])} | {_pct(kpis['taux_rentabilite'])} |")
-        rapport.append(f"| Valeur ajoutee | {_nb(kpis['valeur_ajoutee'])} | {_pct(kpis['taux_va'])} |")
-        rapport.append(f"| EBE | {_nb(kpis['ebe'])} | {_pct(kpis['taux_marge_brute'])} |")
-        rapport.append(f"| Masse salariale | {_nb(kpis['masse_salariale'])} | {_pct(kpis['poids_charges_personnel'])} |")
+        if kpis['ventes_marchandises'] > 0:
+            rapport.append(f"| Marge commerciale | {_nb(kpis['marge_commerciale'])} | {_pct(kpis['taux_marge_commerciale'])} des ventes de marchandises |")
+        rapport.append(f"| Production de l'exercice | {_nb(kpis['production_exercice'])} | {_pct(kpis['production_exercice']/ca*100)} |")
+        rapport.append(f"| Valeur ajoutée | {_nb(kpis['valeur_ajoutee'])} | {_pct(kpis['taux_va'])} |")
+        rapport.append(f"| Excédent brut d'exploitation | {_nb(kpis['ebe'])} | {_pct(kpis['taux_ebe'])} |")
+        rapport.append(f"| Résultat d'exploitation | {_nb(kpis['resultat_exploitation'])} | {_pct(kpis['resultat_exploitation']/ca*100)} |")
+        rapport.append(f"| Résultat financier | {_nb(kpis['resultat_financier'])} | {_pct(kpis['resultat_financier']/ca*100)} |")
+        rapport.append(f"| Résultat exceptionnel | {_nb(kpis['resultat_exceptionnel'])} | {_pct(kpis['resultat_exceptionnel']/ca*100)} |")
+        rapport.append(f"| Résultat net | {_nb(kpis['resultat_net'])} | {_pct(kpis['taux_rentabilite'])} |")
+        rapport.append(f"| Charges de personnel | {_nb(kpis['masse_salariale'])} | {_pct(kpis['poids_charges_personnel'])} |")
+        if abs(kpis.get('ecart_controle', 0)) >= 0.01:
+            rapport.append("")
+            rapport.append(f"⚠ Contrôle : écart de {_eur(kpis['ecart_controle'])} entre le résultat par les SIG et classe 7 - classe 6. Vérifier le plan de comptes.")
         rapport.append("")
         
         rapport.append("### Bilan")
         rapport.append("")
         rapport.append("| Poste | Montant (€) |")
         rapport.append("|-------|---------------|")
-        rapport.append(f"| Immobilisations | {_nb(kpis['immobilisations'])} |")
-        rapport.append(f"| Stocks | {_nb(kpis['stocks'])} |")
-        rapport.append(f"| Creances clients | {_nb(kpis['creances_clients'])} |")
-        rapport.append(f"| Tresorerie | {_nb(kpis['tresorerie'])} |")
-        rapport.append(f"| Capital | {_nb(kpis['capital'])} |")
-        rapport.append(f"| Dettes financieres | {_nb(kpis['dettes_financieres'])} |")
+        rapport.append(f"| Immobilisations nettes | {_nb(kpis['immobilisations'])} |")
+        rapport.append(f"| Stocks nets | {_nb(kpis['stocks'])} |")
+        rapport.append(f"| Créances clients nettes | {_nb(kpis['creances_clients'])} |")
+        rapport.append(f"| Trésorerie nette | {_nb(kpis['tresorerie'])} |")
+        rapport.append(f"| Capital social | {_nb(kpis['capital'])} |")
+        rapport.append(f"| Capitaux propres (résultat inclus) | {_nb(kpis['capitaux_propres'])} |")
+        rapport.append(f"| Dettes financières | {_nb(kpis['dettes_financieres'])} |")
         rapport.append(f"| Dettes fournisseurs | {_nb(kpis['dettes_fournisseurs'])} |")
         rapport.append("")
         rapport.append("---")
@@ -394,17 +346,17 @@ def page_rapport_client():
                         with col3:
                             st.metric("EBE", f"{_eur(kpis['ebe'])}")
                         with col4:
-                            st.metric("Trésorerie", f"{_eur(kpis['tresorerie'])}")
+                            st.metric("Trésorerie nette", f"{_eur(kpis['tresorerie'])}")
 
                         col1, col2, col3, col4 = st.columns(4)
                         with col1:
                             st.metric("Marge nette", f"{_pct(kpis['taux_rentabilite'])}")
                         with col2:
-                            st.metric("Marge brute", f"{_pct(kpis['taux_marge_brute'])}")
+                            st.metric("Taux d'EBE", f"{_pct(kpis['taux_ebe'])}")
                         with col3:
-                            st.metric("Taux VA", f"{_pct(kpis['taux_va'])}")
+                            st.metric("Taux de VA", f"{_pct(kpis['taux_va'])}")
                         with col4:
-                            st.metric("Poids personnel", f"{_pct(kpis['poids_charges_personnel'])}")
+                            st.metric("Charges de personnel / CA", f"{_pct(kpis['poids_charges_personnel'])}")
 
                         st.divider()
 
