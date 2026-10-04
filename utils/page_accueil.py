@@ -80,13 +80,12 @@ def page_accueil(aller_a):
            or (email.split("@")[0] if "@" in email else "Utilisateur"))
     plan = st.session_state.get("plan", "free")
     role = st.session_state.get("role", "client")
-    salut = "Bonjour" if maintenant.hour < 18 else "Bonsoir"
 
     if role == "demo":
         st.info("Mode démonstration : données fictives, sauvegarde désactivée.")
 
     st.markdown(
-        f"<div class='smd-entete'><div><h1>{salut}, {escape(nom)}</h1>"
+        f"<div class='smd-entete'><div><h1>Bienvenue à {escape(nom)}</h1>"
         f"<p>Superviseur IA Comptable, référentiel PCG France</p></div>"
         f"<div class='smd-date'>{_date_fr(maintenant)}</div></div>",
         unsafe_allow_html=True,
