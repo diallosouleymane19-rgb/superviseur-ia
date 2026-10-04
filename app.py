@@ -37,8 +37,12 @@ st.set_page_config(
     page_title="SMD Global Consulting LLC - Superviseur IA", 
     layout="wide", 
     page_icon="🔒",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto"
 )
+
+# Charte graphique
+from utils.theme import appliquer_theme
+appliquer_theme()
 
 # Initialisation de la base de données
 init_db()
@@ -52,41 +56,38 @@ if not is_connecte():
     from utils.stripe_billing import gerer_retour_stripe
     gerer_retour_stripe()
 
-    tab_login, tab_signup = st.tabs(["🔑 Se connecter", "📝 Créer un compte"])
+    tab_login, tab_signup = st.tabs(["Se connecter", "Créer un compte"])
 
     with tab_login:
-        st.title("🔒 Superviseur IA Comptable")
-        st.subheader("Accès réservé aux cabinets clients")
-
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.markdown("---")
-            st.markdown("""
-            <div style='background:#f0fdf4;padding:12px;border-radius:8px;
-                        margin-bottom:10px;font-size:0.85em'>
-            ✅ <b>Données anonymisées</b> — SIRET masqués, noms supprimés<br>
-            ✅ <b>Non stockées</b> — Aucune conservation après analyse<br>
-            ✅ <b>Non utilisées pour entraîner l'IA</b> — Politique Mistral garantie
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown("---")
-
+        col_marque, _, col_form = st.columns([5, 1, 4])
+        with col_marque:
+            st.markdown(
+                "<div class='smd-marque'>SMD Global Consulting LLC</div>"
+                "<h1 style='margin:0 0 .75rem'>Superviseur IA Comptable</h1>"
+                "<p class='smd-accroche'>Audit et supervision comptable pour les cabinets, "
+                "conformes au PCG et aux exigences de la DGFiP.</p>"
+                "<ul class='smd-engagements'>"
+                "<li>Données anonymisées <span>: SIRET masqués, noms supprimés</span></li>"
+                "<li>Non stockées <span>: aucune conservation après analyse</span></li>"
+                "<li>Non utilisées pour entraîner l'IA <span>: politique Mistral garantie</span></li>"
+                "</ul>",
+                unsafe_allow_html=True,
+            )
+        with col_form:
             prefill = st.session_state.pop("prefill_email", "")
-            email    = st.text_input("📧 Email professionnel",
-                                     value=prefill,
-                                     placeholder="contact@cabinet.com")
-            password = st.text_input("🔑 Mot de passe", type="password")
-
-            if st.button("🚀 Se connecter", type="primary", width="stretch"):
+            with st.form("form_connexion", border=True):
+                st.markdown("#### Connexion")
+                email    = st.text_input("Email professionnel", value=prefill,
+                                         placeholder="contact@cabinet.com")
+                password = st.text_input("Mot de passe", type="password")
+                envoye = st.form_submit_button("Se connecter", type="primary", width="stretch")
+            if envoye:
                 if login(email, password):
-                    st.success("✅ Connexion réussie !")
                     st.rerun()
                 else:
-                    st.error("❌ Email ou mot de passe incorrect")
+                    st.error("Email ou mot de passe incorrect. Vérifiez la saisie ou demandez un accès.")
 
-            st.markdown("---")
-            st.markdown("##### 🎯 Vous souhaitez tester l'application ?")
-            if st.button("👀 Accès Démonstration", width="stretch", key="btn_demo"):
+            if st.button("Essayer la démonstration", width="stretch", key="btn_demo"):
                 st.session_state.update({
                     "authenticated": True,
                     "user_email":    "demo@smdconsulting.pro",
@@ -96,12 +97,9 @@ if not is_connecte():
                     "login_time":    datetime.now().isoformat(),
                 })
                 st.rerun()
+            st.caption("Demander un accès : contact@smdconsulting.pro")
 
-            st.caption("📧 Demander un accès : contact@smdconsulting.pro")
-            st.markdown("---")
-
-        st.divider()
-        st.caption("SMD Global Consulting LLC © 2026 - Comptable IA Augmenté")
+        st.caption("SMD Global Consulting LLC © 2026")
 
     with tab_signup:
         from utils.page_inscription import page_inscription
@@ -114,7 +112,7 @@ if not is_connecte():
 # =============================================================================
 
 st.sidebar.title("SMD Global Consulting LLC")
-st.sidebar.caption(f"👤 {st.session_state.get('user_email', 'Utilisateur')}")
+st.sidebar.caption(st.session_state.get('user_email', 'Utilisateur'))
 
 # Badge rôle + plan + quota
 afficher_badge_role()
@@ -174,7 +172,7 @@ if page in separateurs:
 
 st.sidebar.divider()
 
-if st.sidebar.button("🚪 Déconnexion", width="stretch"):
+if st.sidebar.button("Se déconnecter", width="stretch"):
     logout()
 # =============================================================================
 # FONCTIONS UTILITAIRES
@@ -258,122 +256,8 @@ def charger_fichier(uploaded_file, header=0):
 # -----------------------------------------------------------------------------
 
 if page == "\U0001f3e0 Accueil":
-    banniere_demo()
-
-    # --- En-tete ---
-    _user_email = st.session_state.get("user_email", "")
-    _user_nom   = (st.session_state.get("nom")
-                   or st.session_state.get("user_nom")
-                   or (_user_email.split("@")[0] if "@" in _user_email else "Utilisateur"))
-    _role       = st.session_state.get("role", "client")
-    _plan       = st.session_state.get("plan", "free")
-    from datetime import datetime as _dtnow
-    _heure = _dtnow.now().hour
-    _salut = "Bonjour" if _heure < 18 else "Bonsoir"
-
-    st.markdown(
-        "<div style='padding:1.4rem 1rem 1rem 1rem;border-left:5px solid #1F4E79;"
-        "background:linear-gradient(90deg,#f0f4ff,#ffffff);"
-        "border-radius:0 10px 10px 0;margin-bottom:1.2rem;'>"
-        "<h1 style='margin:0;color:#1F4E79;font-size:1.8rem;'>"
-        + _salut + ", " + _user_nom + " 👋</h1>"
-        "<p style='margin:0.3rem 0 0 0;color:#555;font-size:0.9rem;'>"
-        "Superviseur IA Comptable &nbsp;·&nbsp; PCG France &nbsp;·&nbsp;"
-        " <b>SMD Global Consulting LLC</b></p></div>",
-        unsafe_allow_html=True,
-    )
-
-    # --- KPIs Supabase ---
-    from datetime import datetime as _dtm
-    _mois_kpi = _dtm.now().strftime("%Y-%m")
-    _nb_users = "—"; _nb_analyses = "—"
-    _quota_label = "—"; _quota_pct = 0; _last_label = "—"
-    _sb_ok = False
-    try:
-        from utils.db_supabase import get_supabase, supabase_disponible
-        from utils.auth_rbac import get_quota_used, get_quota_limit, get_user, PLANS
-        _sb_ok = supabase_disponible()
-        if _sb_ok:
-            _sb2 = get_supabase()
-            _r_u = _sb2.table("users").select("id", count="exact").eq("is_active", True).execute()
-            _nb_users = _r_u.count or 0
-            _r_a = _sb2.table("analyses").select("id", count="exact").gte("created_at", _mois_kpi + "-01").execute()
-            _nb_analyses = _r_a.count or 0
-            _uobj = get_user(_user_email) if _user_email else None
-            _qused  = get_quota_used(_user_email) if _user_email else 0
-            _qlimit = get_quota_limit(_uobj) if _uobj else PLANS.get(_plan, {}).get("quota", 10)
-            _quota_label = str(_qused) + "/" + (str(_qlimit) if _qlimit != -1 else "Inf")
-            _quota_pct   = int(_qused / _qlimit * 100) if _qlimit and _qlimit > 0 else 0
-            _last = (_uobj or {}).get("last_login", "")
-            _last_label  = _last[:10] if _last else "Aujourd'hui"
-    except Exception:
-        pass
-
-    _c1, _c2, _c3, _c4 = st.columns(4)
-    _c1.metric("👥 Utilisateurs actifs", _nb_users)
-    _c2.metric("📊 Analyses ce mois", _nb_analyses)
-    _c3.metric("⚡ Quota utilisé", _quota_label,
-               delta=str(_quota_pct) + "%" if _quota_pct > 0 else None,
-               delta_color="inverse" if _quota_pct > 80 else "normal")
-    _c4.metric("🔐 Dernière connexion", _last_label)
-
-    st.divider()
-
-    # --- Acces rapide ---
-    st.markdown("#### 🚀 Accès rapide aux agents")
-    _a1, _a2, _a3, _a4, _a5, _a6 = st.columns(6)
-    with _a1:
-        st.button("🧾 Facture", width="stretch",
-                     on_click=_aller_a, args=("🧾 Analyse Facture (OCR)",))
-    with _a2:
-        st.button("📊 Balance", width="stretch",
-                     on_click=_aller_a, args=("📊 Audit Balance",))
-    with _a3:
-        st.button("📂 FEC", width="stretch",
-                     on_click=_aller_a, args=("📂 Traitement FEC",))
-    with _a4:
-        st.button("📈 Résultat", width="stretch",
-                     on_click=_aller_a, args=("📈 Compte de Résultat",))
-    with _a5:
-        st.button("📊 Bilan", width="stretch", key="btn_bilan_home",
-                     on_click=_aller_a, args=("📊 Bilan Comptable",))
-    with _a6:
-        st.button("📋 Rapport", width="stretch",
-                     on_click=_aller_a, args=("📋 Rapport Client",))
-
-    st.divider()
-
-    # --- Modules disponibles ---
-    st.markdown("#### 📦 Agents disponibles (20 modules)")
-    _m1, _m2, _m3, _m4 = st.columns(4)
-    with _m1:
-        st.markdown("**🔍 Analyse & Audit**")
-        st.caption("Factures OCR · Audit balance · Benford · Alertes · Cohérence")
-    with _m2:
-        st.markdown("**📈 États Financiers**")
-        st.caption("Bilan · CdR/SIG · TFT · Plan Financement · Comparatif N/N-1")
-    with _m3:
-        st.markdown("**📦 Gestion & Clôture**")
-        st.caption("Immobilisations · Amortissements · Inventaire · Rapprochement")
-    with _m4:
-        st.markdown("**📁 Reporting & Fiscal**")
-        st.caption("FEC DGFiP · TVA CA3/CA12 · Rapport client · Veille fiscale")
-
-    st.divider()
-
-    # --- Statut plateforme ---
-    st.markdown("#### 🛠 Statut plateforme")
-    _s1, _s2, _s3, _s4 = st.columns(4)
-    if _sb_ok:
-        _s1.success("✅ Supabase connecté")
-    else:
-        _s1.warning("⚠️ Supabase hors ligne")
-    _s2.success("✅ Mistral AI actif")
-    _s3.info("📋 Plan : **" + _plan.capitalize() + "**")
-    _s4.info("🎭 Rôle : **" + _role.capitalize() + "**")
-
-    st.divider()
-    st.caption("SMD Global Consulting LLC © 2026 — PCG France · ANC/CRC 99-02 · RGPD · contact@smdconsulting.pro")
+    from utils.page_accueil import page_accueil
+    page_accueil(_aller_a)
 
 # 2. ANALYSE FACTURE (OCR) - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
