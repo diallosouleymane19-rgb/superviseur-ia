@@ -5,6 +5,7 @@ Calcul des SIG (Soldes Intermediaires de Gestion) selon PCG francais
 Pour Cabinets, DAF et Dirigeants
 """
 import pandas as pd
+from utils.sig_pcg import nb_fr, eur_fr, pct_fr
 import numpy as np
 from datetime import datetime
 from utils.page_helpers import (
@@ -171,97 +172,90 @@ def calculer_compte_resultat(df, type_entreprise='Mixte'):
         'Impots sur benefices (69)': charges_69,
     }
     
-    # ===== CALCUL DES SIG =====
-    
-    # 1. Marge commerciale
-    marge_commerciale = ventes_marchandises - achats_marchandises - var_stocks
-    
-    # 2. Production de l'exercice
-    # Deja calcule plus haut
-    
-    # 3. Valeur ajoutee
-    consommations_externes = charges_61 + charges_62 + (charges_60 - achats_marchandises)
-    valeur_ajoutee = marge_commerciale + production_exercice - consommations_externes
-    
-    # 4. Excedent Brut d'Exploitation (EBE)
-    ebe = valeur_ajoutee + produits_74 - charges_63 - charges_64
-    
-    # 5. Resultat d'exploitation
-    resultat_exploitation = ebe + produits_75 + produits_78 + produits_79 - charges_65 - charges_68
-    
-    # 6. Resultat financier
-    resultat_financier = produits_76 - charges_66
-    
-    # 7. Resultat courant avant impots
-    resultat_courant = resultat_exploitation + resultat_financier
-    
-    # 8. Resultat exceptionnel
-    resultat_exceptionnel = produits_77 - charges_67
-    
-    # 9. Resultat net
-    resultat_net = resultat_courant + resultat_exceptionnel - charges_69
-    
-    resultat['sig'] = {
-        'Chiffre d\'affaires': chiffre_affaires,
-        'Production de l\'exercice': production_exercice,
-        'Marge commerciale': marge_commerciale,
-        'Consommations externes': consommations_externes,
-        'Valeur ajoutée (VA)': valeur_ajoutee,
-        'Excedent Brut d\'Exploitation (EBE)': ebe,
-        'Resultat d\'exploitation': resultat_exploitation,
-        'Resultat financier': resultat_financier,
-        'Resultat courant avant impots': resultat_courant,
-        'Resultat exceptionnel': resultat_exceptionnel,
-        'Resultat net': resultat_net
-    }
-    
+    # ===== CALCUL DES SIG (PCG, module commun utils/sig_pcg.py) =====
+    from utils.sig_pcg import calculer_sig
+    k = calculer_sig(df)
+    chiffre_affaires = k['chiffre_affaires']
+    resultat_net = k['resultat_net']
+    ebe = k['ebe']
+
+    sig = {"Chiffre d'affaires": chiffre_affaires}
+    if k['ventes_marchandises'] or k['cout_achat_marchandises']:
+        sig["Ventes de marchandises"] = k['ventes_marchandises']
+        sig["Coût d'achat des marchandises vendues"] = k['cout_achat_marchandises']
+        sig["Marge commerciale"] = k['marge_commerciale']
+    sig.update({
+        "Production de l'exercice": k['production_exercice'],
+        "Consommations en provenance des tiers": k['consommations_tiers'],
+        "Valeur ajoutée (VA)": k['valeur_ajoutee'],
+        "Subventions d'exploitation": k['subventions'],
+        "Impôts et taxes": k['impots_taxes'],
+        "Charges de personnel": k['masse_salariale'],
+        "Excédent brut d'exploitation (EBE)": ebe,
+        "Résultat d'exploitation": k['resultat_exploitation'],
+        "Résultat financier": k['resultat_financier'],
+        "Résultat courant avant impôts": k['resultat_courant'],
+        "Résultat exceptionnel": k['resultat_exceptionnel'],
+        "Participation et impôts sur les bénéfices": k['participation_impots'],
+        "Résultat net": resultat_net,
+    })
+    resultat['sig'] = sig
+    resultat['ecart_controle'] = k['ecart_controle']
+
     # ===== RATIOS DE PERFORMANCE =====
     if chiffre_affaires > 0:
-        resultat['ratios'] = {
-            'Taux de marge commerciale (%)': (marge_commerciale / ventes_marchandises * 100) if ventes_marchandises > 0 else 0,
-            'Taux de valeur ajoutee (%)': (valeur_ajoutee / chiffre_affaires * 100),
-            'Taux de marge brute - EBE (%)': (ebe / chiffre_affaires * 100),
-            'Taux de rentabilite exploitation (%)': (resultat_exploitation / chiffre_affaires * 100),
-            'Taux de rentabilite nette (%)': (resultat_net / chiffre_affaires * 100),
-            'Poids charges personnel (%)': (charges_64 / chiffre_affaires * 100),
-            'Poids consommations externes (%)': (consommations_externes / chiffre_affaires * 100),
-            'Productivite par salarie (€)': valeur_ajoutee  # A diviser par effectif si connu
-        }
-    
+        resultat['ratios'] = {}
+        if k['ventes_marchandises'] > 0:
+            resultat['ratios']['Taux de marge commerciale (%)'] = k['taux_marge_commerciale']
+        resultat['ratios'].update({
+            'Taux de valeur ajoutée (%)': k['taux_va'],
+            "Taux d'EBE (%)": k['taux_ebe'],
+            "Taux de rentabilité d'exploitation (%)": k['resultat_exploitation'] / chiffre_affaires * 100,
+            'Taux de rentabilité nette (%)': k['taux_rentabilite'],
+            'Poids des charges de personnel (%)': k['poids_charges_personnel'],
+            'Poids des consommations externes (%)': k['consommations_tiers'] / chiffre_affaires * 100,
+        })
+
+    if abs(k['ecart_controle']) >= 0.01:
+        resultat['analyse'].append({
+            'type': 'CRITIQUE',
+            'message': f"Contrôle : écart de {eur_fr(k['ecart_controle'], 2)} entre le résultat par les SIG et classe 7 - classe 6. Vérifier le plan de comptes."
+        })
+
     # ===== ANALYSE QUALITATIVE =====
     if resultat_net > 0:
         resultat['analyse'].append({
             'type': 'OK',
-            'message': f'Resultat net BENEFICIAIRE de {resultat_net:,.2f} EUR'
+            'message': f'Résultat net bénéficiaire de {eur_fr(resultat_net, 2)}'
         })
     else:
         resultat['analyse'].append({
             'type': 'WARNING',
-            'message': f'Resultat net DEFICITAIRE de {resultat_net:,.2f} EUR'
+            'message': f'Résultat net déficitaire de {eur_fr(resultat_net, 2)}'
         })
     
     if ebe > 0:
         resultat['analyse'].append({
             'type': 'OK',
-            'message': f'EBE positif : capacite a generer du cash sur l\'activite'
+            'message': "EBE positif : capacité à générer de la trésorerie sur l'activité"
         })
     else:
         resultat['analyse'].append({
             'type': 'CRITIQUE',
-            'message': f'EBE negatif : difficulte a couvrir les charges courantes'
+            'message': 'EBE négatif : difficulté à couvrir les charges courantes'
         })
     
-    if 'Taux de valeur ajoutee (%)' in resultat['ratios']:
-        taux_va = resultat['ratios']['Taux de valeur ajoutee (%)']
+    if 'Taux de valeur ajoutée (%)' in resultat['ratios']:
+        taux_va = resultat['ratios']['Taux de valeur ajoutée (%)']
         if taux_va > 30:
             resultat['analyse'].append({
                 'type': 'OK',
-                'message': f'Bon taux de valeur ajoutee ({taux_va:.1f}%)'
+                'message': f'Bon taux de valeur ajoutée ({pct_fr(taux_va)})'
             })
         elif taux_va < 15:
             resultat['analyse'].append({
                 'type': 'WARNING',
-                'message': f'Faible taux de valeur ajoutee ({taux_va:.1f}%) - revoir la chaine de valeur'
+                'message': f'Faible taux de valeur ajoutée ({pct_fr(taux_va)}) : revoir la chaîne de valeur'
             })
     
     return resultat
@@ -282,7 +276,7 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
     rapport.append("| Indicateur | Montant |")
     rapport.append("|------------|---------|")
     for nom, valeur in resultat['sig'].items():
-        rapport.append(f"| **{nom}** | {valeur:,.2f} EUR |")
+        rapport.append(f"| **{nom}** | {eur_fr(valeur, 2)} |")
     rapport.append("")
     
     # RATIOS
@@ -292,9 +286,9 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
         rapport.append("|-------|--------|")
         for nom, valeur in resultat['ratios'].items():
             if '€' in nom:
-                rapport.append(f"| {nom} | {valeur:,.2f} |")
+                rapport.append(f"| {nom} | {nb_fr(valeur, 2)} |")
             else:
-                rapport.append(f"| {nom} | {valeur:.2f}% |")
+                rapport.append(f"| {nom} | {pct_fr(valeur)} |")
         rapport.append("")
     
     # ANALYSE
@@ -373,22 +367,22 @@ def page_compte_resultat():
                         col1, col2, col3, col4 = st.columns(4)
                         with col1:
                             _ca = sig.get("Chiffre d'affaires", 0)
-                            st.metric("💰 CA", f"{_ca:,.0f} €")
+                            st.metric("💰 CA", eur_fr(_ca))
                         with col2:
-                            st.metric("⚙ VA", f"{sig['Valeur ajoutée (VA)']:,.0f} €")
+                            st.metric("⚙ VA", eur_fr(sig['Valeur ajoutée (VA)']))
                         with col3:
-                            _ebe = sig.get("Excedent Brut d'Exploitation (EBE)", 0)
-                            st.metric("📈 EBE", f"{_ebe:,.0f} €")
+                            _ebe = sig.get("Excédent brut d'exploitation (EBE)", 0)
+                            st.metric("📈 EBE", eur_fr(_ebe))
                         with col4:
-                            rn = sig['Resultat net']
-                            st.metric("🎯 Résultat Net", f"{rn:,.0f} €",
+                            rn = sig['Résultat net']
+                            st.metric("🎯 Résultat Net", eur_fr(rn),
                                      delta="Bénéfice" if rn > 0 else "Déficit",
                                      delta_color="normal" if rn > 0 else "inverse")
 
                         st.divider()
                         st.markdown("### 📋 Détail des Soldes Intermédiaires")
                         df_sig = pd.DataFrame([
-                            {'Indicateur': nom, 'Montant (€)': f"{val:,.2f}"} 
+                            {'Indicateur': nom, 'Montant (€)': nb_fr(val, 2)} 
                             for nom, val in sig.items()
                         ])
                         st.dataframe(df_sig, width="stretch", hide_index=True)
@@ -403,30 +397,30 @@ def page_compte_resultat():
                             ratios = resultat['ratios']
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
-                                if 'Taux de valeur ajoutee (%)' in ratios:
-                                    st.metric("Taux VA", f"{ratios['Taux de valeur ajoutee (%)']:.1f}%")
+                                if 'Taux de valeur ajoutée (%)' in ratios:
+                                    st.metric("Taux de VA", pct_fr(ratios['Taux de valeur ajoutée (%)']))
                             with col2:
-                                if 'Taux de marge brute - EBE (%)' in ratios:
-                                    st.metric("Marge EBE", f"{ratios['Taux de marge brute - EBE (%)']:.1f}%")
+                                if "Taux d'EBE (%)" in ratios:
+                                    st.metric("Taux d'EBE", pct_fr(ratios["Taux d'EBE (%)"]))
                             with col3:
-                                if 'Taux de rentabilite exploitation (%)' in ratios:
-                                    st.metric("Rentab. Exploit.", f"{ratios['Taux de rentabilite exploitation (%)']:.1f}%")
+                                if "Taux de rentabilité d'exploitation (%)" in ratios:
+                                    st.metric("Rentab. exploitation", pct_fr(ratios["Taux de rentabilité d'exploitation (%)"]))
                             with col4:
-                                if 'Taux de rentabilite nette (%)' in ratios:
-                                    st.metric("Rentab. Nette", f"{ratios['Taux de rentabilite nette (%)']:.1f}%")
+                                if 'Taux de rentabilité nette (%)' in ratios:
+                                    st.metric("Rentab. nette", pct_fr(ratios['Taux de rentabilité nette (%)']))
 
                         st.divider()
                         col1, col2 = st.columns(2)
                         with col1:
                             st.markdown("### 💰 PRODUITS")
                             st.dataframe(pd.DataFrame([
-                                {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
+                                {'Rubrique': k, 'Montant (€)': nb_fr(v, 2)} 
                                 for k, v in resultat['produits'].items() if v != 0
                             ]), width="stretch", hide_index=True)
                         with col2:
                             st.markdown("### 💸 CHARGES")
                             st.dataframe(pd.DataFrame([
-                                {'Rubrique': k, 'Montant (€)': f"{v:,.2f}"} 
+                                {'Rubrique': k, 'Montant (€)': nb_fr(v, 2)} 
                                 for k, v in resultat['charges'].items() if v != 0
                             ]), width="stretch", hide_index=True)
 

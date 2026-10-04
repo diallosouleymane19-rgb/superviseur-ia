@@ -10,6 +10,22 @@ Contrôle intégré : le résultat net issu des SIG doit égaler classe 7 - clas
 import pandas as pd
 
 
+def nb_fr(x, dec=0):
+    """Nombre au format français : 61 497 ou 82,8"""
+    x = round(float(x), dec) + 0.0  # évite « -0 »
+    return f"{x:,.{dec}f}".replace(",", " ").replace(".", ",")
+
+
+def eur_fr(x, dec=0):
+    """Montant au format français : 61 497 €"""
+    return nb_fr(x, dec) + " €"
+
+
+def pct_fr(x):
+    """Pourcentage au format français : 82,8 %"""
+    return nb_fr(x, 1) + " %"
+
+
 def _preparer(df):
     d = df.copy()
     for col, cible in (("Debit", "_d"), ("Credit", "_c")):
@@ -86,7 +102,11 @@ def calculer_sig(df):
     return {
         "chiffre_affaires": chiffre_affaires,
         "ventes_marchandises": ventes_marchandises,
+        "cout_achat_marchandises": cout_achat_marchandises,
         "marge_commerciale": marge_commerciale,
+        "subventions": subventions,
+        "impots_taxes": impots_taxes,
+        "participation_impots": participation_impots,
         "production_exercice": production_exercice,
         "consommations_tiers": consommations_tiers,
         "valeur_ajoutee": valeur_ajoutee,

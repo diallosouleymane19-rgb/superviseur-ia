@@ -100,16 +100,16 @@ def _chart_cdr_comparatif(sig_n: dict, sig_n1: dict, label_n: str, label_n1: str
         "Chiffre d'affaires",
         "Marge commerciale",
         "Valeur ajoutée (VA)",
-        "Excedent Brut d'Exploitation (EBE)",
-        "Resultat d'exploitation",
-        "Resultat net"
+        "Excédent brut d'exploitation (EBE)",
+        "Résultat d'exploitation",
+        "Résultat net"
     ]
     labels, vals_n1, vals_n = [], [], []
     for ind in indicateurs:
         vn = sig_n.get(ind, 0) or 0
         vn1 = sig_n1.get(ind, 0) or 0
         if vn != 0 or vn1 != 0:
-            labels.append(ind.replace("Excedent Brut d'Exploitation", "EBE"))
+            labels.append(ind.replace("Excédent brut d'exploitation", "EBE"))
             vals_n1.append(vn1)
             vals_n.append(vn)
 
@@ -315,8 +315,8 @@ def page_comparatif():
     indicateurs_cles = [
         ("💰 CA", "Chiffre d'affaires"),
         ("⚙ VA", "Valeur ajoutée (VA)"),
-        ("📈 EBE", "Excedent Brut d'Exploitation (EBE)"),
-        ("🎯 Résultat Net", "Resultat net"),
+        ("📈 EBE", "Excédent brut d'exploitation (EBE)"),
+        ("🎯 Résultat Net", "Résultat net"),
     ]
     cols = st.columns(4)
     for i, (label_m, cle) in enumerate(indicateurs_cles):
@@ -443,8 +443,8 @@ def page_comparatif():
             alertes.append(('info', f"ℹ CA stable ({ea_ca:+.1f}%)"))
 
     # Résultat net
-    rn_n = sig_n.get("Resultat net", 0) or 0
-    rn_n1 = sig_n1.get("Resultat net", 0) or 0
+    rn_n = sig_n.get("Résultat net", 0) or 0
+    rn_n1 = sig_n1.get("Résultat net", 0) or 0
     if rn_n < 0 and rn_n1 >= 0:
         alertes.append(('error', "🔴 Résultat net : passage en déficit — vigilance requise"))
     elif rn_n > 0 and rn_n1 < 0:
