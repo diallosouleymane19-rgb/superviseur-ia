@@ -13,6 +13,11 @@ from utils.page_helpers import (
 )
 
 
+def _eur(x):
+    """Montant au format français : 198 970,40 €"""
+    return f"{x:,.2f}".replace(",", " ").replace(".", ",") + " €"
+
+
 # Colonnes obligatoires du FEC (Article A.47 A-1 du LPF)
 COLONNES_FEC_OBLIGATOIRES = [
     'JournalCode', 'JournalLib', 'EcritureNum', 'EcritureDate',
@@ -24,7 +29,7 @@ COLONNES_FEC_OBLIGATOIRES = [
 
 def lire_fec(fichier):
     """
-    Lit un fichier FEC en testant differents separateurs et encodages
+    Lit un fichier FEC en testant différents séparateurs et encodages
     """
     separateurs = ['|', '\t', ';']
     encodages = ['utf-8', 'iso-8859-1', 'cp1252']
@@ -44,10 +49,10 @@ def lire_fec(fichier):
 
 def valider_fec(df):
     """
-    Validation complete du FEC selon normes DGFiP
+    Validation complète du FEC selon normes DGFiP
     
     Returns:
-        dict: Resultats detailles de validation avec score de conformite
+        dict: Résultats détaillés de validation avec score de conformité
     """
     resultats = {}
     points = 0
@@ -62,7 +67,7 @@ def valider_fec(df):
     if not colonnes_manquantes:
         resultats['Structure (18 colonnes)'] = {
             "valide": True,
-            "message": "Toutes les colonnes obligatoires sont presentes"
+            "message": "Toutes les colonnes obligatoires sont présentes"
         }
         points += 20
     else:
@@ -76,15 +81,15 @@ def valider_fec(df):
     if 'EcritureDate' in df.columns:
         nb_dates_manquantes = df['EcritureDate'].isna().sum()
         if nb_dates_manquantes == 0:
-            resultats['Dates ecritures'] = {
+            resultats['Dates écritures'] = {
                 "valide": True,
-                "message": "100% des ecritures sont datees"
+                "message": "100% des écritures sont datées"
             }
             points += 15
         else:
-            resultats['Dates ecritures'] = {
+            resultats['Dates écritures'] = {
                 "valide": False,
-                "message": f"{nb_dates_manquantes} ecritures sans date"
+                "message": f"{nb_dates_manquantes} écritures sans date"
             }
     
     # 3. VERIFICATION FORMAT DATES (AAAAMMJJ)
@@ -125,18 +130,18 @@ def valider_fec(df):
             ecart = abs(total_debit - total_credit)
             
             if ecart < 0.01:
-                resultats['Equilibre Debit/Credit'] = {
+                resultats['Équilibre Débit/Crédit'] = {
                     "valide": True,
-                    "message": f"Equilibre parfait : {total_debit:,.2f} EUR"
+                    "message": f"Équilibre parfait : {_eur(total_debit)}"
                 }
                 points += 25
             else:
-                resultats['Equilibre Debit/Credit'] = {
+                resultats['Équilibre Débit/Crédit'] = {
                     "valide": False,
-                    "message": f"Ecart de {ecart:,.2f} EUR detecte"
+                    "message": f"Écart de {_eur(ecart)} détecté"
                 }
         except Exception as e:
-            resultats['Equilibre Debit/Credit'] = {
+            resultats['Équilibre Débit/Crédit'] = {
                 "valide": False,
                 "message": f"Impossible de calculer : {e}"
             }
@@ -147,15 +152,15 @@ def valider_fec(df):
         comptes_uniques = df['CompteNum'].nunique()
         comptes_vides = df['CompteNum'].isna().sum()
         if comptes_vides == 0:
-            resultats['Numeros de comptes'] = {
+            resultats['Numéros de comptes'] = {
                 "valide": True,
-                "message": f"{comptes_uniques} comptes utilises - 100% renseignes"
+                "message": f"{comptes_uniques} comptes utilisés, 100 % renseignés"
             }
             points += 15
         else:
-            resultats['Numeros de comptes'] = {
+            resultats['Numéros de comptes'] = {
                 "valide": False,
-                "message": f"{comptes_vides} ecritures sans compte"
+                "message": f"{comptes_vides} écritures sans compte"
             }
     
     # 6. VERIFICATION JOURNAUX
@@ -165,13 +170,13 @@ def valider_fec(df):
         if journaux > 0:
             resultats['Journaux comptables'] = {
                 "valide": True,
-                "message": f"{journaux} journaux distincts identifies"
+                "message": f"{journaux} journaux distincts identifiés"
             }
             points += 15
         else:
             resultats['Journaux comptables'] = {
                 "valide": False,
-                "message": "Aucun journal identifie"
+                "message": "Aucun journal identifié"
             }
     
     # SCORE DE CONFORMITE
@@ -181,7 +186,7 @@ def valider_fec(df):
         'score_conformite': round(score_conformite, 1),
         'points': points,
         'points_max': points_max,
-        'niveau': 'Excellent' if score_conformite >= 90 else 'Bon' if score_conformite >= 75 else 'A ameliorer' if score_conformite >= 50 else 'Non conforme'
+        'niveau': 'Excellent' if score_conformite >= 90 else 'Bon' if score_conformite >= 75 else 'À améliorer' if score_conformite >= 50 else 'Non conforme'
     }
     
     return resultats
@@ -198,24 +203,24 @@ def analyser_fec(df):
     rapport.append(f"*Date d'analyse : {datetime.now().strftime('%d/%m/%Y %H:%M')}*\n")
     
     # 1. STATISTIQUES GENERALES
-    rapport.append("### 1. STATISTIQUES GENERALES")
-    rapport.append(f"- **Nombre total d'ecritures** : {len(df):,}")
+    rapport.append("### 1. STATISTIQUES GÉNÉRALES")
+    rapport.append(f"- **Nombre total d'écritures** : {len(df):,}")
     rapport.append(f"- **Nombre de colonnes** : {len(df.columns)}")
     
     if 'EcritureNum' in df.columns:
         nb_pieces = df['EcritureNum'].nunique()
-        rapport.append(f"- **Nombre de pieces comptables** : {nb_pieces:,}")
+        rapport.append(f"- **Nombre de pièces comptables** : {nb_pieces:,}")
     
     if 'CompteNum' in df.columns:
         nb_comptes = df['CompteNum'].nunique()
-        rapport.append(f"- **Nombre de comptes utilises** : {nb_comptes}")
+        rapport.append(f"- **Nombre de comptes utilisés** : {nb_comptes}")
     
     if 'JournalCode' in df.columns:
         nb_journaux = df['JournalCode'].nunique()
         rapport.append(f"- **Nombre de journaux** : {nb_journaux}")
     
     # 2. ANALYSE FINANCIERE
-    rapport.append("\n### 2. ANALYSE FINANCIERE")
+    rapport.append("\n### 2. ANALYSE FINANCIÈRE")
     if 'Debit' in df.columns and 'Credit' in df.columns:
         try:
             df_calc = df.copy()
@@ -226,46 +231,46 @@ def analyser_fec(df):
             total_credit = df_calc['Credit_num'].sum()
             volume_total = total_debit + total_credit
             
-            rapport.append(f"- **Total Debit** : {total_debit:,.2f} EUR")
-            rapport.append(f"- **Total Credit** : {total_credit:,.2f} EUR")
-            rapport.append(f"- **Volume total** : {volume_total:,.2f} EUR")
-            rapport.append(f"- **Ecart D/C** : {abs(total_debit - total_credit):,.2f} EUR")
-            rapport.append(f"- **Montant moyen ecriture** : {volume_total / len(df):,.2f} EUR")
+            rapport.append(f"- **Total Débit** : {_eur(total_debit)}")
+            rapport.append(f"- **Total Crédit** : {_eur(total_credit)}")
+            rapport.append(f"- **Volume total** : {_eur(volume_total)}")
+            rapport.append(f"- **Écart D/C** : {_eur(abs(total_debit - total_credit))}")
+            rapport.append(f"- **Montant moyen écriture** : {_eur(volume_total / len(df))}")
         except Exception as e:
             rapport.append(f"*Erreur calcul : {e}*")
     
     # 3. ANALYSE PAR JOURNAL
     if 'JournalCode' in df.columns:
-        rapport.append("\n### 3. REPARTITION PAR JOURNAL")
+        rapport.append("\n### 3. RÉPARTITION PAR JOURNAL")
         repartition = df['JournalCode'].value_counts().head(10)
         for journal, count in repartition.items():
             pct = (count / len(df)) * 100
-            rapport.append(f"- **{journal}** : {count:,} ecritures ({pct:.1f}%)")
+            rapport.append(f"- **{journal}** : {count:,} écritures ({pct:.1f}%)")
     
     # 4. ANALYSE PERIODE
     if 'EcritureDate' in df.columns:
-        rapport.append("\n### 4. PERIODE COMPTABLE")
+        rapport.append("\n### 4. PÉRIODE COMPTABLE")
         try:
             dates = pd.to_datetime(df['EcritureDate'], format='%Y%m%d', errors='coerce').dropna()
             if len(dates) > 0:
-                rapport.append(f"- **Date debut** : {dates.min().strftime('%d/%m/%Y')}")
+                rapport.append(f"- **Date début** : {dates.min().strftime('%d/%m/%Y')}")
                 rapport.append(f"- **Date fin** : {dates.max().strftime('%d/%m/%Y')}")
-                rapport.append(f"- **Duree** : {(dates.max() - dates.min()).days} jours")
+                rapport.append(f"- **Durée** : {(dates.max() - dates.min()).days} jours")
         except Exception:
             rapport.append("*Format de dates non standard*")
     
     # 5. CONCLUSION
-    rapport.append("\n### 5. SYNTHESE")
-    rapport.append("Le FEC analyse contient les donnees comptables de l'exercice.")
-    rapport.append("Les controles automatiques portent sur la conformite formelle (article A.47 A-1 du LPF).")
-    rapport.append("\n**Recommandation** : Croiser cette analyse avec les modules Audit Balance et Loi de Benford pour une expertise complete.")
+    rapport.append("\n### 5. SYNTHÈSE")
+    rapport.append("Le FEC analysé contient les données comptables de l'exercice.")
+    rapport.append("Les contrôles automatiques portent sur la conformité formelle (article A.47 A-1 du LPF).")
+    rapport.append("\n**Recommandation** : Croiser cette analyse avec les modules Audit Balance et Loi de Benford pour une expertise complète.")
     
     return "\n".join(rapport)
 
 
 def detecter_anomalies_fec(df):
     """
-    Detection d'anomalies dans le FEC - Approche audit
+    Détection d'anomalies dans le FEC - Approche audit
     """
     anomalies = []
     
@@ -274,10 +279,10 @@ def detecter_anomalies_fec(df):
         sans_libelle = df['EcritureLib'].isna().sum()
         if sans_libelle > 0:
             anomalies.append({
-                'type': 'Libelle manquant',
+                'type': 'Libellé manquant',
                 'gravite': 'Moyenne',
                 'count': int(sans_libelle),
-                'description': f"{sans_libelle} ecritures sans libelle"
+                'description': f"{sans_libelle} écritures sans libellé"
             })
     
     # Montants nuls Debit ET Credit
@@ -290,10 +295,10 @@ def detecter_anomalies_fec(df):
             
             if ecritures_nulles > 0:
                 anomalies.append({
-                    'type': 'Ecritures montants nuls',
+                    'type': 'Écritures montants nuls',
                     'gravite': 'Faible',
                     'count': int(ecritures_nulles),
-                    'description': f"{ecritures_nulles} ecritures avec Debit=0 et Credit=0"
+                    'description': f"{ecritures_nulles} écritures avec Débit=0 et Crédit=0"
                 })
         except:
             pass
@@ -303,9 +308,9 @@ def detecter_anomalies_fec(df):
     if duplicates > 0:
         anomalies.append({
             'type': 'Doublons exacts',
-            'gravite': 'Elevee',
+            'gravite': 'Élevée',
             'count': int(duplicates),
-            'description': f"{duplicates} lignes en doublons exacts detectees"
+            'description': f"{duplicates} lignes en doublons exacts détectées"
         })
     
     return anomalies
@@ -406,7 +411,7 @@ def page_fec():
 
                     if anomalies:
                         col1, col2, col3 = st.columns(3)
-                        nb_elevees = len([a for a in anomalies if a['gravite'] == 'Elevee'])
+                        nb_elevees = len([a for a in anomalies if a['gravite'] == 'Élevée'])
                         nb_moyennes = len([a for a in anomalies if a['gravite'] == 'Moyenne'])
                         nb_faibles = len([a for a in anomalies if a['gravite'] == 'Faible'])
 
@@ -418,7 +423,7 @@ def page_fec():
                             st.metric("🔵 Faibles", nb_faibles)
 
                         for anomalie in anomalies:
-                            if anomalie['gravite'] == 'Elevee':
+                            if anomalie['gravite'] == 'Élevée':
                                 st.error(f"🔴 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
                             elif anomalie['gravite'] == 'Moyenne':
                                 st.warning(f"🟡 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
