@@ -1,450 +1,237 @@
 # -*- coding: utf-8 -*-
-"""Module Analyse de Facture Pro - SMD Global Consulting LLC"""
-import re
+"""
+Module Analyse et comptabilisation de factures - SMD Global Consulting LLC
+Fonctionne SANS API : lecture locale (PDF texte, TXT, CSV), règles PCG (utils/compta_facture.py).
+L'OCR Mistral n'est utilisé que pour les images et les PDF scannés, s'il est disponible.
+"""
+import io
 from datetime import datetime
-from utils.ai import appel_mistral
-from utils.ocr import ocr_image_mistral
-from utils.page_helpers import (
-    sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
-    banniere_demo, is_demo, appel_mistral_securise,
-    afficher_rapport, afficher_synthese_score,
+
+from utils.compta_facture import (
+    PCG, lire_document, analyser, proposer_compte,
+    generer_ecriture, controler, nature_compte, export_fec,
 )
+from utils.sig_pcg import eur_fr, nb_fr
+
+OPTIONS_TVA = {
+    "exigibilite": "Selon l'exigibilité : prestations de services en 445800 jusqu'au paiement (sauf option pour les débits)",
+    "directe": "Directement en 445660 dès la facture",
+}
 
 
-def extraire_donnees_facture(texte):
-    """
-    Extrait les donnees structurees d'une facture
-    
-    Returns:
-        dict: Donnees structurees
-    """
-    prompt = f"""Tu es un expert-comptable. Analyse cette facture et extrait les informations suivantes au format JSON strict.
+def _comptes_possibles(sens):
+    classes = ("2", "6") if sens == "achat" else ("7",)
+    autres = ["471000"]
+    return [c for c in PCG if c.startswith(classes)] + autres
 
-Facture :
-{texte}
 
-Reponds UNIQUEMENT avec un JSON valide (pas de markdown, pas de commentaires) :
-{{
-  "fournisseur": {{
-    "nom": "nom du fournisseur",
-    "siret": "siret si present sinon vide",
-    "adresse": "adresse",
-    "tva_intra": "numero TVA intra si present"
-  }},
-  "client": {{
-    "nom": "nom du client",
-    "adresse": "adresse client"
-  }},
-  "facture": {{
-    "numero": "numero de facture",
-    "date": "date de facture format JJ/MM/AAAA",
-    "echeance": "date echeance",
-    "mode_paiement": "mode de paiement"
-  }},
-  "montants": {{
-    "total_ht": 0.00,
-    "total_tva": 0.00,
-    "total_ttc": 0.00,
-    "taux_tva": 20.0
-  }},
-  "lignes": [
-    {{
-      "description": "description article/service",
-      "quantite": 1,
-      "prix_unitaire": 0.00,
-      "total_ht": 0.00
-    }}
-  ],
-  "mentions_obligatoires": {{
-    "siret_fournisseur": true,
-    "tva_intra_fournisseur": true,
-    "numero_facture": true,
-    "date_facture": true,
-    "mention_tva": true
-  }},
-  "type_charge_suggere": "compte 60x ou 61x ou 62x suggere selon nature"
-}}"""
-    
-    result = appel_mistral(prompt, temperature=0.1)
-    
-    if result.get('success'):
+def _ocr_images(pieces):
+    """Images et PDF scannés : OCR Mistral si une clé est configurée (facultatif)."""
+    out, infos = [], []
+    for p in pieces:
+        if "image" not in p:
+            out.append(p)
+            continue
         try:
-            import json
-            content = result['content']
-            # Nettoyer si markdown
-            if '```' in content:
-                content = re.sub(r'```(?:json)?\n?', '', content)
-                content = content.replace('```', '').strip()
-            
-            data = json.loads(content)
-            return {'success': True, 'data': data}
+            from utils.ocr import ocr_image_mistral
+            f = io.BytesIO(p["image"])
+            f.name = p["source"]
+            texte, err = ocr_image_mistral(f)
         except Exception as e:
-            return {'success': False, 'error': f'Parsing JSON: {e}', 'raw': result.get('content')}
-    else:
-        return {'success': False, 'error': result.get('error', 'Erreur API')}
-
-
-def verifier_conformite_facture(donnees):
-    """Verifie la conformite legale de la facture"""
-    controles = []
-    
-    if not donnees:
-        return controles
-    
-    fournisseur = donnees.get('fournisseur', {})
-    facture = donnees.get('facture', {})
-    montants = donnees.get('montants', {})
-    
-    # Mentions obligatoires (Article 242 nonies A du CGI)
-    if fournisseur.get('siret'):
-        controles.append({'statut': 'OK', 'mention': 'SIRET fournisseur present'})
-    else:
-        controles.append({'statut': 'KO', 'mention': 'SIRET fournisseur manquant'})
-    
-    if fournisseur.get('tva_intra'):
-        controles.append({'statut': 'OK', 'mention': 'TVA intra fournisseur'})
-    else:
-        controles.append({'statut': 'WARNING', 'mention': 'TVA intra non verifiee'})
-    
-    if facture.get('numero'):
-        controles.append({'statut': 'OK', 'mention': 'Numero de facture'})
-    else:
-        controles.append({'statut': 'KO', 'mention': 'Numero de facture manquant'})
-    
-    if facture.get('date'):
-        controles.append({'statut': 'OK', 'mention': 'Date de facture'})
-    else:
-        controles.append({'statut': 'KO', 'mention': 'Date de facture manquante'})
-    
-    # Calculs
-    if montants.get('total_ht') and montants.get('total_tva') and montants.get('total_ttc'):
-        ht = float(montants['total_ht'])
-        tva = float(montants['total_tva'])
-        ttc = float(montants['total_ttc'])
-        
-        if abs((ht + tva) - ttc) < 0.02:
-            controles.append({'statut': 'OK', 'mention': 'Coherence HT + TVA = TTC'})
+            texte, err = None, str(e)
+        if texte:
+            out.append({"source": p["source"], "texte": texte})
         else:
-            controles.append({'statut': 'KO', 'mention': f'Incoherence HT+TVA != TTC (ecart {abs((ht+tva)-ttc):.2f} EUR)'})
-    
-    return controles
+            infos.append(f"{p['source']} : OCR indisponible ({err}). Déposez plutôt le PDF d'origine.")
+    return out, infos
 
 
-def suggerer_comptabilisation(donnees):
-    """Suggere une ecriture comptable"""
-    if not donnees:
-        return None
-    
-    montants = donnees.get('montants', {})
-    type_charge = donnees.get('type_charge_suggere', '60')
-    
-    ht = float(montants.get('total_ht', 0))
-    tva = float(montants.get('total_tva', 0))
-    ttc = float(montants.get('total_ttc', 0))
-    
-    # Extraire le compte de charge suggere
-    match = re.search(r'\d{2,7}', str(type_charge))
-    compte_charge = match.group(0) if match else '606'
-    
-    # Construire l'ecriture
-    ecritures = [
-        {
-            'compte': compte_charge,
-            'libelle': f"Achats - {donnees.get('fournisseur', {}).get('nom', '')}",
-            'debit': ht,
-            'credit': 0
-        },
-        {
-            'compte': '44566',
-            'libelle': 'TVA deductible',
-            'debit': tva,
-            'credit': 0
-        },
-        {
-            'compte': '401',
-            'libelle': f"Fournisseur - {donnees.get('fournisseur', {}).get('nom', '')}",
-            'debit': 0,
-            'credit': ttc
-        }
-    ]
-    
-    return ecritures
+def _recalculer(r, sens, compte, tva_services, ma_societe):
+    """Recalcule l'écriture après un changement de sens ou de compte par l'utilisateur."""
+    d = r["donnees"]
+    if sens != r["sens"]:
+        compte_prop, nature, confiance, regle = proposer_compte(d, sens, ma_societe)
+        r.update(sens=sens, justif_sens="Choisi par l'utilisateur", confiance=confiance, regle=regle)
+        if compte == r["compte"]:
+            compte = compte_prop
+    if compte != r["compte"]:
+        r.update(regle="Compte choisi par l'utilisateur", confiance="haute")
+    r["compte"], r["libelle_compte"] = compte, PCG.get(compte, "")
+    r["nature"] = nature_compte(compte)
+    r["ecriture"] = generer_ecriture(d, sens, compte, r["nature"], tva_services)
+    r["controles"] = [c for c in controler(d, r["ecriture"])] + \
+        [c for c in r["controles"] if c[1].startswith("Doublon")]
+    return r
 
 
-def generer_rapport_facture(donnees, controles, ecritures):
-    """Genere un rapport professionnel"""
-    rapport = []
-    rapport.append("# RAPPORT D'ANALYSE DE FACTURE")
-    rapport.append(f"*Date analyse : {datetime.now().strftime('%d/%m/%Y %H:%M')}*")
-    rapport.append("")
-    rapport.append("---")
-    rapport.append("")
-    
-    if donnees:
-        rapport.append("## INFORMATIONS GENERALES")
-        rapport.append("")
-        
-        fournisseur = donnees.get('fournisseur', {})
-        client = donnees.get('client', {})
-        facture = donnees.get('facture', {})
-        montants = donnees.get('montants', {})
-        
-        rapport.append(f"### Fournisseur")
-        rapport.append(f"- **Nom** : {fournisseur.get('nom', 'N/A')}")
-        rapport.append(f"- **SIRET** : {fournisseur.get('siret', 'N/A')}")
-        rapport.append(f"- **TVA Intra** : {fournisseur.get('tva_intra', 'N/A')}")
-        rapport.append(f"- **Adresse** : {fournisseur.get('adresse', 'N/A')}")
-        rapport.append("")
-        
-        rapport.append(f"### Client")
-        rapport.append(f"- **Nom** : {client.get('nom', 'N/A')}")
-        rapport.append(f"- **Adresse** : {client.get('adresse', 'N/A')}")
-        rapport.append("")
-        
-        rapport.append(f"### Facture")
-        rapport.append(f"- **Numero** : {facture.get('numero', 'N/A')}")
-        rapport.append(f"- **Date** : {facture.get('date', 'N/A')}")
-        rapport.append(f"- **Echeance** : {facture.get('echeance', 'N/A')}")
-        rapport.append(f"- **Mode paiement** : {facture.get('mode_paiement', 'N/A')}")
-        rapport.append("")
-        
-        rapport.append(f"### Montants")
-        rapport.append(f"- **Total HT** : {montants.get('total_ht', 0):,.2f} EUR")
-        rapport.append(f"- **TVA ({montants.get('taux_tva', 20)}%)** : {montants.get('total_tva', 0):,.2f} EUR")
-        rapport.append(f"- **Total TTC** : {montants.get('total_ttc', 0):,.2f} EUR")
-        rapport.append("")
-        rapport.append("---")
-        rapport.append("")
-    
-    # Conformite
-    if controles:
-        rapport.append("## CONFORMITE LEGALE")
-        rapport.append("*(Article 242 nonies A du CGI)*")
-        rapport.append("")
-        for ctrl in controles:
-            symbol = '[OK]' if ctrl['statut'] == 'OK' else '[!]' if ctrl['statut'] == 'WARNING' else '[X]'
-            rapport.append(f"- {symbol} {ctrl['mention']}")
-        rapport.append("")
-        rapport.append("---")
-        rapport.append("")
-    
-    # Comptabilisation
-    if ecritures:
-        rapport.append("## COMPTABILISATION SUGGEREE")
-        rapport.append("")
-        rapport.append("| Compte | Libelle | Debit | Credit |")
-        rapport.append("|--------|---------|-------|--------|")
-        for ecr in ecritures:
-            rapport.append(f"| {ecr['compte']} | {ecr['libelle']} | {ecr['debit']:,.2f} | {ecr['credit']:,.2f} |")
-        rapport.append("")
-        rapport.append("---")
-        rapport.append("")
-    
-    rapport.append("*Rapport genere par SMD Global Consulting LLC - Superviseur IA Comptable*")
-    
-    return "\n".join(rapport)
-
+def _rapport(resultats):
+    L = ["# Analyse et comptabilisation de factures",
+         f"*Édité le {datetime.now().strftime('%d/%m/%Y %H:%M')}*", ""]
+    for r in resultats:
+        d = r["donnees"]
+        L.append(f"## {d.get('type', 'pièce').capitalize()} {d.get('numero') or ''} : "
+                 f"{d.get('fournisseur') if r['sens'] == 'achat' else d.get('client')}")
+        L.append(f"- Date : {d['date'].strftime('%d/%m/%Y') if d.get('date') else 'non lue'}")
+        L.append(f"- Sens : {r['sens']} | Compte : {r['compte']} {r['libelle_compte']} ({r['regle']})")
+        if r.get("doublon_de"):
+            L.append(f"- Doublon de {r['doublon_de']} : non comptabilisé")
+        L.append("")
+        L.append("| Compte | Auxiliaire | Libellé | Débit | Crédit |")
+        L.append("|---|---|---|---|---|")
+        for l in r["ecriture"]["lignes"]:
+            L.append(f"| {l['compte']} | {l['aux']} | {l['libelle']} | {nb_fr(l['debit'], 2)} | {nb_fr(l['credit'], 2)} |")
+        L.append("")
+        for st_, m in r["controles"]:
+            if st_ != "OK":
+                L.append(f"- [{st_}] {m}")
+        L.append("")
+    L.append("*Superviseur IA Comptable - SMD Global Consulting LLC*")
+    return "\n".join(L)
 
 
 def page_analyse_facture():
     import streamlit as st
     import pandas as pd
-    from datetime import datetime
-    from utils.page_helpers import (
-        sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
-        banniere_demo, is_demo, appel_mistral_securise,
-        afficher_rapport, afficher_synthese_score,
-    )
-    st.title("🧾 Analyse de Facture")
-    st.markdown("**OCR + IA** : Extraction structurée + Conformité + Comptabilisation")
-    st.caption("✨ Pour Cabinets et Saisie comptable automatisée")
+    from utils.page_helpers import banniere_demo, generer_bouton_word, sauvegarder_si_autorise
 
-    # Initialisation état
-    if 'fact_ocr' not in st.session_state:
-        st.session_state.fact_ocr = None
-    if 'fact_donnees' not in st.session_state:
-        st.session_state.fact_donnees = None
-    if 'fact_controles' not in st.session_state:
-        st.session_state.fact_controles = None
-    if 'fact_ecritures' not in st.session_state:
-        st.session_state.fact_ecritures = None
-    if 'fact_nom_fichier' not in st.session_state:
-        st.session_state.fact_nom_fichier = None
+    st.title("🧾 Analyse et comptabilisation de factures")
+    st.markdown("Détection, contrôle et comptabilisation selon le PCG, **sans API** : "
+                "PDF issus d'un logiciel, fichiers texte et listes CSV.")
+    st.caption("Images et PDF scannés : lecture par OCR Mistral si disponible.")
+    banniere_demo()
 
-    col1, col2 = st.columns([5, 1])
-    with col1:
-        uploaded_file = st.file_uploader(
-            "📎 Déposer une facture (PDF, PNG, JPG)",
-            type=["pdf", "png", "jpg", "jpeg"],
-            key="facture_uploader"
-        )
-    with col2:
-        st.write("")
-        st.write("")
-        if st.button("🔄", help="Réinitialiser"):
-            st.session_state.fact_ocr = None
-            st.session_state.fact_donnees = None
-            st.session_state.fact_controles = None
-            st.session_state.fact_ecritures = None
-            st.session_state.fact_nom_fichier = None
-            st.rerun()
+    with st.expander("⚙️ Paramètres", expanded=False):
+        ma_societe = st.text_input(
+            "Votre société (nom ou SIREN)", value=st.session_state.get("cabinet", "") or "",
+            help="Sert à distinguer vos ventes (vous êtes l'émetteur) de vos achats.")
+        tva_services = st.radio("TVA déductible sur les prestations de services",
+                                list(OPTIONS_TVA), format_func=OPTIONS_TVA.get, key="cf_tva")
+        st.caption("Exigibilité de la TVA sur les services : à l'encaissement (art. 269 du CGI), "
+                   "donc déductible au paiement, sauf option du fournisseur pour les débits.")
 
-    if uploaded_file:
-        # ✅ CORRECTION CACHE : Réinitialiser si nouveau fichier uploadé
-        if st.session_state.get('fact_nom_fichier') != uploaded_file.name:
-            st.session_state.fact_ocr = None
-            st.session_state.fact_donnees = None
-            st.session_state.fact_controles = None
-            st.session_state.fact_ecritures = None
-            st.session_state['fact_nom_fichier'] = uploaded_file.name
+    fichiers = st.file_uploader("📎 Déposer une ou plusieurs factures",
+                                type=["pdf", "txt", "csv", "png", "jpg", "jpeg"],
+                                accept_multiple_files=True, key="cf_upload")
+    if not fichiers:
+        st.info("Déposez vos factures : PDF, fichier texte ou liste CSV "
+                "(colonnes Numéro, Date, Fournisseur, Montant HT, TVA, Montant TTC).")
+        return
 
-        # Étape 1 : OCR
-        if st.session_state.fact_ocr is None:
-            with st.spinner("🔍 Extraction OCR en cours..."):
-                try:
-                    texte, erreur = ocr_image_mistral(uploaded_file)
-                    if erreur:
-                        st.error(erreur)
-                    elif texte:
-                        st.session_state.fact_ocr = texte
-                        # Pas de st.rerun() — Streamlit rerun automatiquement apres spinner
-                    else:
-                        st.error("❌ Impossible d'extraire le texte")
-                except Exception as e:
-                    st.error(f"❌ Erreur OCR : {e}")
+    pieces, infos = [], []
+    for f in fichiers:
+        p, i = lire_document(f.getvalue(), f.name)
+        pieces += p
+        infos += i
+    pieces, i2 = _ocr_images(pieces)
+    for msg in [m for m in infos if "image" not in m] + i2:
+        st.warning(msg)
+    if not pieces:
+        st.error("Aucune facture lisible dans les fichiers déposés.")
+        return
 
-        if st.session_state.fact_ocr:
-            st.success("✅ Texte extrait avec succès !")
+    resultats = analyser(pieces, ma_societe=ma_societe, tva_services=tva_services)
+    resultats = [r for r in resultats if r["donnees"].get("type") or r["donnees"].get("ttc")]
 
-            with st.expander("📄 Texte brut extrait"):
-                st.code(st.session_state.fact_ocr, language="text")
+    choix = st.session_state.setdefault("cf_choix", {})
+    for r in resultats:
+        cle = f"{r['donnees']['source']}|{r['donnees'].get('numero')}"
+        if cle in choix:
+            sens, compte = choix[cle]
+            _recalculer(r, sens, compte, tva_services, ma_societe)
 
-            st.divider()
+    retenus = [r for r in resultats if not r.get("doublon_de")]
+    a_verifier = [r for r in retenus if r["confiance"] == "basse" or r["compte"] == "471000"
+                  or any(s == "KO" and not m.startswith(("SIREN", "N° de TVA")) for s, m in r["controles"])]
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Pièces détectées", len(resultats))
+    c2.metric("À comptabiliser", len(retenus))
+    c3.metric("À vérifier", len(a_verifier))
+    c4.metric("Doublons écartés", len(resultats) - len(retenus))
 
-            # Étape 2 : Analyse IA structurée
-            if st.session_state.fact_donnees is None:
-                if st.button("🤖 Analyser avec IA (extraction structurée)", type="primary", width="stretch"):
-                    with st.spinner("🤖 Analyse structurée en cours..."):
-                        try:
-                            from utils.analyse_facture import extraire_donnees_facture, verifier_conformite_facture, suggerer_comptabilisation
+    st.subheader("Pièces")
+    st.caption("✅ comptabilisée et conforme · 🟠 comptabilisée, mentions obligatoires manquantes · "
+               "⚠️ imputation ou montants à vérifier · ⛔ doublon écarté")
+    for i, r in enumerate(resultats):
+        d = r["donnees"]
+        tiers = d.get("fournisseur") if r["sens"] == "achat" else d.get("client")
+        non_conforme = any(s_ in ("KO", "ALERTE") for s_, _ in r["controles"])
+        icone = "⛔" if r.get("doublon_de") else "⚠️" if r in a_verifier else "🟠" if non_conforme else "✅"
+        titre = (f"{icone} {(d.get('type') or 'pièce').capitalize()} {d.get('numero') or 's/n'} · "
+                 f"{tiers or 'tiers inconnu'} · {eur_fr(d.get('ttc') or 0, 2)} TTC")
+        with st.expander(titre, expanded=(r in a_verifier and not r.get("doublon_de"))):
+            if r.get("doublon_de"):
+                st.error(f"Doublon de {r['doublon_de']} : exclu de l'export.")
+            a, b, c = st.columns(3)
+            a.markdown(f"**Date**  \n{d['date'].strftime('%d/%m/%Y') if d.get('date') else 'non lue'}")
+            b.markdown(f"**HT / TVA / TTC**  \n{eur_fr(d.get('ht') or 0, 2)} / {eur_fr(d.get('tva') or 0, 2)} / "
+                       f"{eur_fr(d.get('ttc') or 0, 2)}")
+            c.markdown(f"**Source**  \n{d['source']}")
+            if d.get("objet"):
+                st.caption(f"Désignation : {d['objet']}")
 
-                            result = extraire_donnees_facture(st.session_state.fact_ocr)
+            cle = f"{d['source']}|{d.get('numero')}"
+            s1, s2 = st.columns([1, 3])
+            sens = s1.selectbox("Sens", ["achat", "vente"], index=["achat", "vente"].index(r["sens"]),
+                                key=f"cf_sens_{i}", help=r["justif_sens"])
+            options = _comptes_possibles(sens)
+            if r["compte"] not in options:
+                options = [r["compte"]] + options
+            compte = s2.selectbox("Compte de charge / produit", options, index=options.index(r["compte"]),
+                                  format_func=lambda c: f"{c} · {PCG.get(c, '')}", key=f"cf_cpt_{i}")
+            if sens != r["sens"]:
+                # Changement de sens : le compte proposé est recalculé, l'ancien choix de compte est oublié
+                choix[cle] = (sens, r["compte"])
+                st.session_state.pop(f"cf_cpt_{i}", None)
+                st.rerun()
+            if compte != r["compte"]:
+                choix[cle] = (sens, compte)
+                st.rerun()
+            st.caption(f"Proposition : {r['regle']} · confiance {r['confiance']}")
 
-                            if result.get('success'):
-                                st.session_state.fact_donnees   = result['data']
-                                st.session_state.fact_controles = verifier_conformite_facture(result['data'])
-                                st.session_state.fact_ecritures = suggerer_comptabilisation(result['data'])
-                                # Pas de st.rerun() — le bloc suivant lit session_state directement
-                            else:
-                                st.error(f"❌ Erreur analyse : {result.get('error')}")
-                                if result.get('raw'):
-                                    with st.expander("Réponse brute"):
-                                        st.code(result['raw'])
-                        except Exception as e:
-                            st.error(f"❌ Erreur : {e}")
-                            import traceback
-                            with st.expander("Détails"):
-                                st.code(traceback.format_exc())
+            lignes = pd.DataFrame([{
+                "Journal": r["ecriture"]["journal"], "Compte": l["compte"],
+                "Intitulé": PCG.get(l["compte"], ""), "Auxiliaire": l["aux"], "Libellé": l["libelle"],
+                "Débit": nb_fr(l["debit"], 2) if l["debit"] else "",
+                "Crédit": nb_fr(l["credit"], 2) if l["credit"] else ""} for l in r["ecriture"]["lignes"]])
+            st.dataframe(lignes, hide_index=True, width="stretch")
 
-            # Affichage des résultats
-            if st.session_state.fact_donnees:
-                donnees = st.session_state.fact_donnees
+            for st_, m in r["controles"]:
+                if st_ == "KO":
+                    st.error(m)
+                elif st_ == "ALERTE":
+                    st.warning(m)
+            oks = [m for s_, m in r["controles"] if s_ == "OK"]
+            if oks:
+                st.caption("Conforme : " + " · ".join(oks))
 
-                st.markdown("## 📋 Données Extraites")
+    st.subheader("Journal à importer")
+    lignes_j = []
+    for r in retenus:
+        d = r["donnees"]
+        for l in r["ecriture"]["lignes"]:
+            lignes_j.append({"Date": d["date"].strftime("%d/%m/%Y") if d.get("date") else "",
+                             "Journal": r["ecriture"]["journal"], "Pièce": d.get("numero") or "",
+                             "Compte": l["compte"], "Auxiliaire": l["aux"], "Libellé": l["libelle"],
+                             "Débit": l["debit"], "Crédit": l["credit"]})
+    if lignes_j:
+        dfj = pd.DataFrame(lignes_j)
+        td, tc = round(dfj["Débit"].sum(), 2), round(dfj["Crédit"].sum(), 2)
+        aff = dfj.copy()
+        aff["Débit"] = aff["Débit"].map(lambda x: nb_fr(x, 2) if x else "")
+        aff["Crédit"] = aff["Crédit"].map(lambda x: nb_fr(x, 2) if x else "")
+        st.dataframe(aff, hide_index=True, width="stretch")
+        (st.success if td == tc else st.error)(
+            f"Total débit {eur_fr(td, 2)} · total crédit {eur_fr(tc, 2)}"
+            + (" · journal équilibré" if td == tc else " · journal déséquilibré"))
+        if any(r["compte"] == "471000" for r in retenus):
+            st.warning("Des pièces sont en compte d'attente 471000 : choisissez leur compte avant import.")
 
-                # Informations générales
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    st.markdown("### 🏢 Fournisseur")
-                    fournisseur = donnees.get('fournisseur', {})
-                    st.write(f"**Nom** : {fournisseur.get('nom', 'N/A')}")
-                    st.write(f"**SIRET** : {fournisseur.get('siret', 'N/A')}")
-                    st.write(f"**TVA Intra** : {fournisseur.get('tva_intra', 'N/A')}")
-                    st.write(f"**Adresse** : {fournisseur.get('adresse', 'N/A')}")
-
-                with col2:
-                    st.markdown("### 👤 Client")
-                    client = donnees.get('client', {})
-                    st.write(f"**Nom** : {client.get('nom', 'N/A')}")
-                    st.write(f"**Adresse** : {client.get('adresse', 'N/A')}")
-
-                st.divider()
-
-                # Facture
-                st.markdown("### 📄 Facture")
-                facture = donnees.get('facture', {})
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("N°", facture.get('numero', 'N/A'))
-                with col2:
-                    st.metric("Date", facture.get('date', 'N/A'))
-                with col3:
-                    st.metric("Échéance", facture.get('echeance', 'N/A'))
-                with col4:
-                    st.metric("Paiement", facture.get('mode_paiement', 'N/A'))
-
-                st.divider()
-
-                # Montants
-                st.markdown("### 💰 Montants")
-                montants = donnees.get('montants', {})
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Total HT", f"{float(montants.get('total_ht', 0)):,.2f} €")
-                with col2:
-                    st.metric(f"TVA ({montants.get('taux_tva', 20)}%)", f"{float(montants.get('total_tva', 0)):,.2f} €")
-                with col3:
-                    st.metric("Total TTC", f"{float(montants.get('total_ttc', 0)):,.2f} €")
-
-                st.divider()
-
-                # Conformité
-                if st.session_state.fact_controles:
-                    st.markdown("### ✅ Conformité Légale")
-                    st.caption("*Article 242 nonies A du CGI*")
-
-                    for ctrl in st.session_state.fact_controles:
-                        if ctrl['statut'] == 'OK':
-                            st.success(f"✅ {ctrl['mention']}")
-                        elif ctrl['statut'] == 'WARNING':
-                            st.warning(f"⚠ {ctrl['mention']}")
-                        else:
-                            st.error(f"❌ {ctrl['mention']}")
-
-                st.divider()
-
-                # Comptabilisation
-                if st.session_state.fact_ecritures:
-                    st.markdown("### 📚 Comptabilisation Suggérée")
-
-                    import pandas as pd
-                    df_ecritures = pd.DataFrame(st.session_state.fact_ecritures)
-                    df_ecritures['debit'] = df_ecritures['debit'].apply(lambda x: f"{x:,.2f} €" if x > 0 else "")
-                    df_ecritures['credit'] = df_ecritures['credit'].apply(lambda x: f"{x:,.2f} €" if x > 0 else "")
-                    df_ecritures.columns = ['Compte', 'Libellé', 'Débit', 'Crédit']
-
-                    st.dataframe(df_ecritures, width="stretch", hide_index=True)
-
-                st.divider()
-
-                # Export
-                from utils.analyse_facture import generer_rapport_facture
-                rapport = generer_rapport_facture(donnees, st.session_state.fact_controles, st.session_state.fact_ecritures)
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("💾 Sauvegarder", width="stretch"):
-                        sauvegarder_si_autorise(type_analyse="Analyse Facture", resultat=rapport)
-                        st.success("✅ Sauvegardé !")
-                with col2:
-                    try:
-                        nom_fact = donnees.get('facture', {}).get('numero', 'inconnu')
-                        generer_bouton_word(f"Facture_{nom_fact}", rapport)
-                    except Exception as e:
-                        st.error(f"Erreur : {e}")
-
-    # -----------------------------------------------------------------------------
-    # 3. AUDIT BALANCE - VERSION UNIVERSELLE
-    # -----------------------------------------------------------------------------
-
+        e1, e2, e3 = st.columns(3)
+        e1.download_button("Télécharger les écritures (format FEC)", export_fec(retenus).encode("utf-8"),
+                           file_name=f"ecritures_factures_{datetime.now():%Y%m%d}.txt", mime="text/plain",
+                           width="stretch")
+        rapport = _rapport(resultats)
+        with e2:
+            generer_bouton_word("Analyse_factures", rapport)
+        if e3.button("Sauvegarder l'analyse", width="stretch"):
+            sauvegarder_si_autorise(type_analyse="Comptabilisation factures", resultat=rapport)

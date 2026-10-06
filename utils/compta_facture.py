@@ -1,0 +1,631 @@
+# -*- coding: utf-8 -*-
+"""
+utils/compta_facture.py - SMD Global Consulting LLC
+Détection, analyse et comptabilisation de factures SANS API payante.
+
+Chaîne : lecture du document -> détection facture / avoir -> extraction par règles
+-> sens (achat / vente) -> compte PCG -> traitement TVA -> écriture équilibrée
+-> contrôles (mentions, cohérence, doublons) -> export au format FEC.
+
+Comptes : nomenclature du PCG (règlement ANC 2014-03), présentés sur 6 chiffres.
+"""
+import io
+import re
+import unicodedata
+from datetime import datetime
+
+# ─── Plan de comptes utilisé (libellés PCG) ──────────────────────────────────
+PCG = {
+    "205000": "Concessions et droits similaires, brevets, licences, logiciels",
+    "215400": "Matériel industriel",
+    "218200": "Matériel de transport",
+    "218300": "Matériel de bureau et matériel informatique",
+    "218400": "Mobilier",
+    "401000": "Fournisseurs",
+    "404000": "Fournisseurs d'immobilisations",
+    "411000": "Clients",
+    "445200": "TVA due intracommunautaire",
+    "445620": "TVA sur immobilisations",
+    "445660": "TVA sur autres biens et services",
+    "445710": "TVA collectée",
+    "445800": "Taxes sur le chiffre d'affaires à régulariser ou en attente",
+    "471000": "Compte d'attente",
+    "601000": "Achats stockés - Matières premières",
+    "604000": "Achats d'études et prestations de services",
+    "606100": "Fournitures non stockables (eau, énergie)",
+    "606300": "Fournitures d'entretien et de petit équipement",
+    "606400": "Fournitures administratives",
+    "607000": "Achats de marchandises",
+    "611000": "Sous-traitance générale",
+    "613200": "Locations immobilières",
+    "613500": "Locations mobilières",
+    "614000": "Charges locatives et de copropriété",
+    "615200": "Entretien et réparations sur biens immobiliers",
+    "615500": "Entretien et réparations sur biens mobiliers",
+    "615600": "Maintenance",
+    "616000": "Primes d'assurances",
+    "618100": "Documentation générale",
+    "618500": "Frais de colloques, séminaires, conférences",
+    "621100": "Personnel intérimaire",
+    "622600": "Honoraires",
+    "622700": "Frais d'actes et de contentieux",
+    "623100": "Annonces et insertions",
+    "623400": "Cadeaux à la clientèle",
+    "623600": "Catalogues et imprimés",
+    "624100": "Transports sur achats",
+    "625100": "Voyages et déplacements",
+    "625600": "Missions",
+    "625700": "Réceptions",
+    "626000": "Frais postaux et de télécommunications",
+    "627000": "Services bancaires et assimilés",
+    "628100": "Concours divers (cotisations...)",
+    "651000": "Redevances pour concessions, brevets, licences, logiciels",
+    "701000": "Ventes de produits finis",
+    "706000": "Prestations de services",
+    "707000": "Ventes de marchandises",
+    "708000": "Produits des activités annexes",
+}
+
+# ─── Règles d'imputation des achats : (mots-clés, compte, nature, confiance) ──
+# nature : "service" (TVA exigible à l'encaissement), "bien", "immo"
+# L'ordre compte : la première règle qui correspond l'emporte.
+REGLES_ACHAT = [
+    (["ordinateur", "pc portable", "laptop", "macbook", "serveur", "imprimante", "ecran", "tablette"], "218300", "immo", "haute"),
+    (["mobilier", "bureau assis", "fauteuil", "armoire", "chaise"], "218400", "immo", "moyenne"),
+    (["vehicule", "voiture", "camionnette", "utilitaire"], "218200", "immo", "moyenne"),
+    (["honoraires", "conseil", "consulting", "expertise comptable", "expert-comptable", "commissaire aux comptes",
+      "avocat", "audit", "notaire"], "622600", "service", "haute"),
+    (["huissier", "frais d'actes", "contentieux", "greffe"], "622700", "service", "haute"),
+    (["telecom", "telephone", "telephonie", "mobile", "forfait", "internet", "fibre", "box", "affranchissement",
+      "timbre", "colissimo", "la poste", "orange", "sfr", "bouygues", "free pro"], "626000", "service", "haute"),
+    (["loyer", "location de bureaux", "location des locaux", "bail commercial"], "613200", "service", "haute"),
+    (["charges locatives", "copropriete"], "614000", "service", "haute"),
+    (["location", "leasing", "loa", "lld"], "613500", "service", "moyenne"),
+    (["electricite", "edf", "engie", "gaz", "eau", "energie", "carburant", "gasoil", "gazole", "essence"], "606100", "bien", "haute"),
+    (["fournitures de bureau", "papeterie", "cartouche", "toner", "ramette", "papier"], "606400", "bien", "haute"),
+    (["petit materiel", "petit equipement", "outillage", "produits d'entretien"], "606300", "bien", "haute"),
+    (["maintenance", "contrat de maintenance", "support technique", "infogerance"], "615600", "service", "haute"),
+    (["reparation", "entretien"], "615500", "service", "moyenne"),
+    (["assurance", "prime d'assurance", "responsabilite civile", "multirisque"], "616000", "service", "haute"),
+    (["licence", "logiciel", "saas", "abonnement logiciel"], "651000", "service", "moyenne"),
+    (["sous-traitance", "sous traitance"], "611000", "service", "haute"),
+    (["interim", "interimaire", "travail temporaire"], "621100", "service", "haute"),
+    (["publicite", "annonce", "insertion", "google ads", "campagne"], "623100", "service", "haute"),
+    (["catalogue", "imprimes", "flyers", "cartes de visite", "impression"], "623600", "service", "moyenne"),
+    (["transport", "livraison", "fret", "transporteur"], "624100", "service", "moyenne"),
+    (["train", "sncf", "billet d'avion", "vol ", "taxi", "vtc", "peage", "parking"], "625100", "service", "haute"),
+    (["hotel", "hebergement"], "625600", "service", "haute"),
+    (["restaurant", "repas", "reception", "traiteur"], "625700", "service", "moyenne"),
+    (["frais bancaires", "commission bancaire", "frais de tenue de compte"], "627000", "service", "haute"),
+    (["cotisation", "adhesion", "abonnement professionnel"], "628100", "service", "moyenne"),
+    (["documentation", "revue", "ouvrage", "livre"], "618100", "bien", "moyenne"),
+    (["seminaire", "colloque", "conference", "salon"], "618500", "service", "moyenne"),
+    (["marchandises", "achat pour revente", "articles"], "607000", "bien", "moyenne"),
+    (["matieres premieres", "matiere premiere"], "601000", "bien", "haute"),
+    (["prestation", "prestations de services", "etude"], "604000", "service", "moyenne"),
+]
+
+REGLES_VENTE = [
+    (["marchandises", "articles", "produits revendus"], "707000", "bien", "moyenne"),
+    (["produits finis", "fabrication"], "701000", "bien", "moyenne"),
+    (["refacturation", "frais refactures", "location", "commission"], "708000", "service", "moyenne"),
+    (["prestation", "conseil", "honoraires", "mission", "formation", "service", "maintenance", "audit",
+      "accompagnement", "developpement"], "706000", "service", "haute"),
+]
+
+# Seuil de la tolérance fiscale pour les biens de faible valeur (charges plutôt qu'immobilisations)
+SEUIL_IMMO_HT = 500.0
+TAUX_TVA = [20.0, 10.0, 5.5, 2.1, 8.5, 13.0, 0.9]  # métropole + DOM / Corse
+
+
+# ─── Utilitaires ─────────────────────────────────────────────────────────────
+
+def _sans_accents(s):
+    s = unicodedata.normalize("NFKD", str(s))
+    return "".join(c for c in s if not unicodedata.combining(c)).lower()
+
+
+def parse_montant(txt):
+    """'2 500,00 €' -> 2500.0 ; '2,500.00' -> 2500.0 ; '18.32' -> 18.32"""
+    if txt is None:
+        return None
+    s = str(txt).replace(" ", " ").replace(" ", " ").replace("€", "").replace("EUR", "").strip()
+    s = re.sub(r"[^\d,.\-]", "", s.replace(" ", ""))
+    if not s or s in "-.,":
+        return None
+    if "," in s and "." in s:
+        if s.rfind(",") > s.rfind("."):          # 2.500,00
+            s = s.replace(".", "").replace(",", ".")
+        else:                                     # 2,500.00
+            s = s.replace(",", "")
+    elif "," in s:
+        ent, _, dec = s.rpartition(",")
+        s = (ent.replace(",", "") + "." + dec) if len(dec) in (1, 2) else s.replace(",", "")
+    try:
+        return round(float(s), 2)
+    except ValueError:
+        return None
+
+
+def parse_date(txt):
+    """'20/04/2026', '20-04-26', '2026-04-20' -> datetime"""
+    if not txt:
+        return None
+    t = str(txt).strip()
+    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d/%m/%y", "%d-%m-%y", "%Y-%m-%d", "%Y%m%d"):
+        try:
+            return datetime.strptime(t, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def code_auxiliaire(nom, prefixe):
+    """'SOPRA STERIA' -> 'FSOPRASTER' (préfixe F fournisseur, C client)"""
+    base = re.sub(r"[^A-Z0-9]", "", _sans_accents(nom).upper())
+    return (prefixe + base)[:10] if base else prefixe + "DIVERS"
+
+
+def siren_valide(siren):
+    """Clé de Luhn du SIREN (9 chiffres)."""
+    d = re.sub(r"\D", "", str(siren))[:9]
+    if len(d) != 9:
+        return False
+    total = 0
+    for i, ch in enumerate(reversed(d)):
+        n = int(ch) * (2 if i % 2 else 1)
+        total += n - 9 if n > 9 else n
+    return total % 10 == 0
+
+
+# ─── Lecture des documents ───────────────────────────────────────────────────
+
+def lire_document(contenu: bytes, nom: str):
+    """
+    Retourne une liste de « pièces » à analyser :
+      {"source": nom, "texte": str}  ou  {"source": nom, "ligne_csv": dict}
+    + liste de messages d'information.
+    """
+    nom_l = nom.lower()
+    infos = []
+    if nom_l.endswith(".pdf"):
+        texte = ""
+        try:
+            import pymupdf
+            with pymupdf.open(stream=contenu, filetype="pdf") as doc:
+                texte = "\n".join(p.get_text() for p in doc)
+        except Exception as e:
+            infos.append(f"{nom} : lecture PDF impossible ({e})")
+        if len(texte.strip()) < 20:
+            infos.append(f"{nom} : PDF scanné (pas de texte). Utilisez l'OCR Mistral ou déposez un PDF généré par un logiciel.")
+            return [], infos
+        return [{"source": nom, "texte": t} for t in _decouper_factures(texte)], infos
+    if nom_l.endswith((".png", ".jpg", ".jpeg")):
+        infos.append(f"{nom} : image, lecture par OCR nécessaire.")
+        return [{"source": nom, "image": contenu}], infos
+
+    texte = None
+    for enc in ("utf-8-sig", "cp1252"):
+        try:
+            texte = contenu.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if texte is None:
+        return [], [f"{nom} : encodage non reconnu"]
+
+    lignes = [l for l in texte.splitlines() if l.strip()]
+    if lignes and _ressemble_csv(lignes):
+        return _lire_csv(texte, nom), infos
+    return [{"source": nom, "texte": t} for t in _decouper_factures(texte)], infos
+
+
+def _ressemble_csv(lignes):
+    entete = _sans_accents(lignes[0])
+    sep = max([";", ",", "\t", "|"], key=lambda s: lignes[0].count(s))
+    return lignes[0].count(sep) >= 2 and any(k in entete for k in ("ht", "ttc", "montant", "tva")) \
+        and len(lignes) >= 2 and lignes[1].count(sep) == lignes[0].count(sep)
+
+
+def _lire_csv(texte, nom):
+    import csv
+    premiere = texte.splitlines()[0]
+    sep = max([";", ",", "\t", "|"], key=lambda s: premiere.count(s))
+    lecteur = csv.DictReader(io.StringIO(texte), delimiter=sep)
+    return [{"source": f"{nom} (ligne {i + 2})", "ligne_csv": {k.strip(): (v or "").strip() for k, v in row.items() if k}}
+            for i, row in enumerate(lecteur)]
+
+
+def _decouper_factures(texte):
+    """Sépare un texte contenant plusieurs factures (« Facture n° … » répété)."""
+    reperes = [m.start() for m in re.finditer(r"(?im)^\s*(facture|avoir|invoice)\s*(n[°o]|num)", texte)]
+    if len(reperes) <= 1:
+        return [texte]
+    reperes.append(len(texte))
+    return [texte[a:b] for a, b in zip(reperes, reperes[1:])]
+
+
+# ─── Extraction ──────────────────────────────────────────────────────────────
+
+_NUM = r"(-?\d[\d   .,]*\d|-?\d)"
+
+
+def _champ(texte, libelles):
+    for lib in libelles:
+        m = re.search(rf"(?im)^\s*{lib}\s*[:\-]\s*(.+?)\s*$", texte)
+        if m:
+            return m.group(1).strip()
+    return ""
+
+
+def _montant_libelle(texte, motif):
+    m = re.search(rf"(?im){motif}[^\n\d\-]{{0,25}}{_NUM}\s*(?:€|eur)?", texte)
+    return parse_montant(m.group(1)) if m else None
+
+
+def _emetteur_entete(t, client=""):
+    """Sans étiquette « Fournisseur : », l'émetteur est la première ligne de l'en-tête
+    qui ressemble à un nom (ni titre, ni date, ni adresse, ni le client)."""
+    cl = _sans_accents(client)
+    for l in [x.strip() for x in t.splitlines() if x.strip()][:8]:
+        ls = _sans_accents(l)
+        if re.search(r"facture|avoir|invoice|date|page|siret|siren|tva|tel|mail|@|www|^\d|\d{5}", ls):
+            continue
+        if cl and (cl in ls or ls in cl):
+            continue
+        if len(re.sub(r"[^a-z]", "", ls)) >= 3:
+            return l[:80]
+    return ""
+
+
+def _lignes_tableau(t):
+    """Libellés des lignes d'articles sous un en-tête « Désignation / Description », jusqu'aux totaux."""
+    lignes = t.splitlines()
+    for i, l in enumerate(lignes):
+        if re.search(r"(?i)d[ée]signation|description|libell[ée]|article", l) and not re.search(r"[:\-]\s*\S", l.split("|")[0][-3:]):
+            libs = []
+            for x in lignes[i + 1:i + 30]:
+                if re.search(r"(?i)\btotal|\bnet [àa] payer|\bh\.?t\.?\s*:", x):
+                    break
+                lib = re.sub(r"[\d\s.,€%x×]+$", "", x).strip(" -|\t")
+                if len(re.sub(r"[^A-Za-zÀ-ÿ]", "", lib)) >= 3:
+                    libs.append(lib)
+            if libs:
+                return " ; ".join(libs)[:200]
+    return ""
+
+
+def extraire_texte(texte, source=""):
+    """Extraction par règles d'une facture au format texte."""
+    t = texte.replace(" ", " ")
+    ts = _sans_accents(t)
+    d = {"source": source, "texte": texte}
+
+    d["type"] = "avoir" if re.search(r"\bavoir\b|note de credit|credit note", ts) else \
+                "facture" if re.search(r"\bfacture\b|\binvoice\b", ts) else None
+
+    m = re.search(r"(?i)(?:facture|avoir|invoice)\s*(?:n[°o]\.?|num[ée]ro|#)\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-/_.]*)", t)
+    d["numero"] = m.group(1).rstrip(".") if m else _champ(t, ["n[°o] de facture", "num[ée]ro"])
+
+    m = re.search(r"(?im)date(?:\s+(?:de\s+)?(?:la\s+)?(?:facture|facturation|[ée]mission))?\s*[:\-]\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{4}-\d{2}-\d{2})", t)
+    if not m:
+        m = re.search(r"(\d{1,2}/\d{1,2}/\d{4})", t)
+    d["date"] = parse_date(m.group(1)) if m else None
+
+    d["fournisseur"] = _champ(t, ["fournisseur", "[ée]metteur", "vendeur", "prestataire", "soci[ée]t[ée] [ée]mettrice"])
+    d["client"] = _champ(t, ["client", "destinataire", "acheteur", "factur[ée] [àa]", "adress[ée] [àa]"])
+    if not d["fournisseur"]:
+        d["fournisseur"] = _emetteur_entete(t, d["client"])
+        d["emetteur_deduit"] = bool(d["fournisseur"])
+    d["objet"] = _champ(t, ["objet", "d[ée]signation", "description", "libell[ée]", "prestation", "nature"]) \
+        or _lignes_tableau(t)
+
+    m = re.search(r"(?i)\bsiren\s*[:\-]?\s*(\d{3}\s?\d{3}\s?\d{3})", t)
+    m2 = re.search(r"(?i)\bsiret\s*[:\-]?\s*(\d{3}\s?\d{3}\s?\d{3}\s?\d{5})", t)
+    d["siren"] = re.sub(r"\D", "", (m2 or m).group(1))[:9] if (m2 or m) else ""
+    m = re.search(r"\b(FR\s?[0-9A-Z]{2}\s?\d{3}\s?\d{3}\s?\d{3}|[A-Z]{2}\s?[0-9A-Z]{8,12})\b", t) \
+        if re.search(r"(?i)tva\s*intra|n[°o]\s*tva|vat", t) else None
+    d["tva_intra"] = re.sub(r"\s", "", m.group(1)) if m else ""
+    d["adresse"] = bool(re.search(r"(?i)\b\d{5}\b\s+[A-Za-zÀ-ÿ]", t))
+
+    d["ht"] = _montant_libelle(t, r"\b(?:total\s+|montant\s+)?h\.?\s?t\.?(?![a-z])")
+    d["ttc"] = _montant_libelle(t, r"\b(?:total\s+|montant\s+)?t\.?t\.?c\.?(?![a-z])") \
+        or _montant_libelle(t, r"net\s+[àa]\s+payer")
+
+    # TVA : une ou plusieurs lignes « TVA 20 % : 500,00 » (hors numéro de TVA intracommunautaire)
+    lignes_tva = []
+    # Les lignes de mention légale (« TVA non applicable, art. 293 B », « autoliquidation »...) ne portent pas de montant
+    mention = re.compile(r"(?i)non applicable|exon|autoliquid|auto-liquid|art(icle)?\.?\s*\d|intra|d'apr[eè]s les d[ée]bits")
+    texte_montants = "\n".join(l for l in t.splitlines() if not mention.search(l))
+    for m in re.finditer(rf"(?im)^.*?\btva\b[^\n\d]*?(\d{{1,2}}(?:[.,]\d{{1,2}})?)\s*%[^\n\d\-]*{_NUM}", texte_montants):
+        lignes_tva.append({"taux": float(m.group(1).replace(",", ".")), "montant": parse_montant(m.group(2))})
+    if not lignes_tva:
+        m = re.search(rf"(?im)^\s*(?:total\s+|montant\s+)?tva\b[^\n\d\-]*{_NUM}", texte_montants)
+        if m:
+            lignes_tva.append({"taux": None, "montant": parse_montant(m.group(1))})
+    d["lignes_tva"] = lignes_tva
+    d["tva"] = round(sum(l["montant"] or 0 for l in lignes_tva), 2) if lignes_tva else None
+
+    d["autoliquidation"] = bool(re.search(r"autoliquidation|auto-liquidation|reverse charge|283-2|283 2", ts))
+    d["franchise"] = bool(re.search(r"293\s?b|tva non applicable", ts))
+    d["option_debits"] = bool(re.search(r"(paiement|acquittement) de la taxe d'apres les debits|option.{0,20}debits", ts))
+    d["exoneration"] = bool(re.search(r"exoneration|exonere|art(icle)?\.?\s*26[12]", ts))
+    if d["franchise"] or d["exoneration"]:
+        d["lignes_tva"], d["tva"] = [], None   # aucune TVA facturée
+    return _completer(d)
+
+
+def extraire_csv(ligne, source=""):
+    """Extraction d'une ligne de liste de factures (CSV)."""
+    cle = {_sans_accents(k): v for k, v in ligne.items()}
+    def get(*noms):
+        for n in noms:
+            for k, v in cle.items():
+                if n in k and v:
+                    return v
+        return ""
+    d = {"source": source, "texte": " ; ".join(f"{k}: {v}" for k, v in ligne.items())}
+    d["type"] = "avoir" if "avoir" in _sans_accents(get("type", "nature")) else "facture"
+    d["numero"] = get("numero", "num", "piece", "facture")
+    d["date"] = parse_date(get("date"))
+    d["fournisseur"] = get("fournisseur", "emetteur", "vendeur", "tiers")
+    d["client"] = get("client", "destinataire")
+    d["objet"] = get("objet", "designation", "libelle", "description", "nature")
+    d["siren"] = re.sub(r"\D", "", get("siren", "siret"))[:9]
+    d["tva_intra"] = get("tva intra", "n tva", "vat")
+    d["adresse"] = bool(get("adresse"))
+    d["ht"] = parse_montant(get("ht"))
+    d["ttc"] = parse_montant(get("ttc"))
+    tva = parse_montant(next((v for k, v in cle.items() if k.startswith("tva") and "intra" not in k and "taux" not in k), ""))
+    taux = parse_montant(get("taux"))
+    d["lignes_tva"] = [{"taux": taux, "montant": tva}] if tva is not None else []
+    d["tva"] = tva
+    d["autoliquidation"] = d["franchise"] = d["option_debits"] = d["exoneration"] = False
+    return _completer(d)
+
+
+def _completer(d):
+    """Complète le montant manquant et déduit le taux de TVA."""
+    ht, tva, ttc = d.get("ht"), d.get("tva"), d.get("ttc")
+    if tva is None and ht is not None and ttc is not None:
+        tva = round(ttc - ht, 2)
+        d["lignes_tva"] = [{"taux": None, "montant": tva}]
+    if ht is None and tva is not None and ttc is not None:
+        ht = round(ttc - tva, 2)
+    if ttc is None and ht is not None and tva is not None:
+        ttc = round(ht + tva, 2)
+    if (d.get("franchise") or d.get("autoliquidation") or d.get("exoneration")) and tva is None and ht is not None:
+        tva = 0.0
+        ttc = ttc if ttc is not None else ht
+    d["ht"], d["tva"], d["ttc"] = ht, tva, ttc
+    for l in d.get("lignes_tva", []):
+        if l["taux"] is None and ht and l["montant"] is not None and len(d["lignes_tva"]) == 1:
+            l["taux"] = 0.0 if l["montant"] == 0 else min(TAUX_TVA, key=lambda r: abs(ht * r / 100 - l["montant"]))
+    return d
+
+
+# ─── Analyse comptable ───────────────────────────────────────────────────────
+
+def determiner_sens(d, ma_societe=""):
+    """'achat' ou 'vente' selon l'émetteur. Retourne (sens, justification)."""
+    soc = _sans_accents(ma_societe).strip()
+    if soc:
+        siren_soc = re.sub(r"\D", "", soc)
+        emet = _sans_accents(d.get("fournisseur", ""))
+        if (siren_soc and len(siren_soc) >= 9 and d.get("siren", "")[:9] == siren_soc[:9]) or (soc and soc in emet):
+            return "vente", "Votre société est l'émettrice"
+        if soc in _sans_accents(d.get("client", "")):
+            return "achat", "Votre société est la destinataire"
+    if d.get("fournisseur"):
+        return "achat", "Document avec un fournisseur identifié"
+    if d.get("client"):
+        return "vente", "Document avec un client identifié"
+    return "achat", "Sens non déterminé : achat par défaut, à vérifier"
+
+
+def _texte_imputation(d, sens, ma_societe=""):
+    """Zones lues pour l'imputation, de la plus fiable à la moins fiable.
+    Les noms du client et de votre société sont retirés (ex. « Consulting » ne doit pas imputer en honoraires)."""
+    exclus = [x for x in (d.get("client"), ma_societe, d.get("fournisseur") if sens == "vente" else "") if x]
+    corps = []
+    for l in str(d.get("texte", ""))[:3000].splitlines():
+        ls = _sans_accents(l)
+        if re.match(r"\s*(client|destinataire|acheteur|factur|adresse|siren|siret|tva intra)", ls):
+            continue
+        if any(_sans_accents(x) in ls for x in exclus):
+            continue
+        corps.append(l)
+    zones = [("désignation", d.get("objet", ""))]
+    if sens == "achat":
+        zones.append(("nom du fournisseur", d.get("fournisseur", "")))
+    zones.append(("corps du document", "\n".join(corps)))
+    return [(nom, _sans_accents(z)) for nom, z in zones if z]
+
+
+def proposer_compte(d, sens, ma_societe=""):
+    """Retourne (compte, nature, confiance, règle)."""
+    regles = REGLES_ACHAT if sens == "achat" else REGLES_VENTE
+    for zone, texte in _texte_imputation(d, sens, ma_societe):
+        for mots, compte, nature, confiance in regles:
+            mot = next((m for m in mots if re.search(rf"\b{re.escape(m.strip())}", texte)), None)
+            if not mot:
+                continue
+            if zone == "corps du document" and confiance == "haute":
+                confiance = "moyenne"
+            if nature == "immo" and (d.get("ht") or 0) < SEUIL_IMMO_HT:
+                return "606300", "bien", "haute", f"« {mot} » ({zone}) < {SEUIL_IMMO_HT:.0f} € HT : petit équipement en charge (tolérance fiscale)"
+            return compte, nature, confiance, f"Mot-clé « {mot} » ({zone})"
+    if sens == "vente":
+        return "706000", "service", "basse", "Aucun mot-clé : prestations de services par défaut"
+    return "471000", "service", "basse", "Nature non identifiée : compte d'attente à affecter"
+
+
+def nature_compte(compte):
+    """Nature déduite du compte choisi : immobilisation, bien ou service (pour la TVA et le tiers)."""
+    c = str(compte)
+    if c.startswith("2"):
+        return "immo"
+    if c.startswith(("601", "602", "603", "606", "607", "701", "707")):
+        return "bien"
+    return "service"
+
+
+def generer_ecriture(d, sens, compte, nature, tva_services="exigibilite", journal_achat="AC", journal_vente="VE"):
+    """
+    Lignes d'écriture équilibrées.
+    tva_services : 'exigibilite' (4458 jusqu'au paiement sauf option débits) ou 'directe' (44566).
+    """
+    ht, tva, ttc = d.get("ht") or 0.0, d.get("tva") or 0.0, d.get("ttc") or 0.0
+    avoir = d.get("type") == "avoir"
+    tiers_nom = d.get("fournisseur") if sens == "achat" else (d.get("client") or "Client")
+    lib = f"{'Avoir' if avoir else 'Fact.'} {d.get('numero') or ''} {tiers_nom or ''}".strip()[:60]
+    L = []
+    def ligne(cpt, aux, deb, cre, libelle=lib):
+        if avoir:
+            deb, cre = cre, deb
+        if round(deb, 2) or round(cre, 2):
+            L.append({"compte": cpt, "aux": aux, "libelle": libelle, "debit": round(deb, 2), "credit": round(cre, 2)})
+
+    if sens == "achat":
+        tiers = "404000" if nature == "immo" else "401000"
+        aux = code_auxiliaire(tiers_nom or "", "F")
+        if d.get("autoliquidation"):
+            tva_auto = round(ht * 0.20, 2)
+            ligne(compte, "", ht, 0)
+            ligne("445660", "", tva_auto, 0, lib + " TVA autoliquidée")
+            ligne("445200", "", 0, tva_auto, lib + " TVA autoliquidée")
+            ligne(tiers, aux, 0, ht)
+        else:
+            if nature == "immo":
+                cpt_tva = "445620"
+            elif nature == "service" and tva_services == "exigibilite" and not d.get("option_debits"):
+                cpt_tva = "445800"
+            else:
+                cpt_tva = "445660"
+            ligne(compte, "", ht, 0)
+            ligne(cpt_tva, "", tva, 0)
+            ligne(tiers, aux, 0, ttc)
+    else:
+        aux = code_auxiliaire(tiers_nom or "", "C")
+        ligne("411000", aux, ttc, 0)
+        ligne(compte, "", 0, ht)
+        ligne("445710", "", 0, tva)
+    return {"journal": journal_achat if sens == "achat" else journal_vente, "lignes": L}
+
+
+def controler(d, ecriture=None):
+    """Contrôles de conformité (art. 242 nonies A annexe II CGI) et de cohérence."""
+    C = []
+    ok = lambda m: C.append(("OK", m))
+    ko = lambda m: C.append(("KO", m))
+    av = lambda m: C.append(("ALERTE", m))
+    (ok if d.get("type") else ko)("Document identifié comme " + (d.get("type") or "inconnu"))
+    (ok if d.get("numero") else ko)("Numéro de facture" + ("" if d.get("numero") else " absent"))
+    (ok if d.get("date") else ko)("Date de facture" + ("" if d.get("date") else " absente ou illisible"))
+    (ok if d.get("fournisseur") or d.get("client") else ko)("Identité du tiers")
+    if d.get("siren"):
+        (ok if siren_valide(d["siren"]) else ko)(f"SIREN {d['siren']} " + ("valide" if siren_valide(d["siren"]) else "invalide (clé de contrôle)"))
+    else:
+        ko("SIREN / SIRET de l'émetteur absent (mention obligatoire)")
+    if not d.get("franchise"):
+        (ok if d.get("tva_intra") else ko)("N° de TVA intracommunautaire" + ("" if d.get("tva_intra") else " absent (mention obligatoire)"))
+    (ok if d.get("adresse") else av)("Adresses" + ("" if d.get("adresse") else " non détectées (mention obligatoire)"))
+    (ok if d.get("client") else av)("Nom du client" + ("" if d.get("client") else " non indiqué (mention obligatoire)"))
+    (ok if d.get("objet") else av)("Désignation" + ("" if d.get("objet") else " absente : imputation impossible à déterminer"))
+    ht, tva, ttc = d.get("ht"), d.get("tva"), d.get("ttc")
+    if None in (ht, tva, ttc):
+        ko("Montants HT / TVA / TTC incomplets")
+    else:
+        ecart = round(ht + tva - ttc, 2)
+        (ok if abs(ecart) <= 0.01 else ko)("HT + TVA = TTC" + ("" if abs(ecart) <= 0.01 else f" : écart de {ecart:.2f} €".replace(".", ",")))
+        for l in d.get("lignes_tva", []):
+            if l.get("taux") and len(d["lignes_tva"]) == 1 and ht:
+                theo = ht * l["taux"] / 100
+                e = abs(theo - (l["montant"] or 0))
+                if e <= 0.011:
+                    ok(f"TVA cohérente avec le taux de {str(l['taux']).replace('.', ',').rstrip('0').rstrip(',')} %"
+                       + (" (arrondi)" if e > 0.005 else ""))
+                else:
+                    ko(f"TVA {l['montant']:.2f} € incohérente avec {l['taux']} % de {ht:.2f} € (attendu {theo:.2f} €)".replace(".", ","))
+                if l["taux"] not in TAUX_TVA:
+                    av(f"Taux de TVA {l['taux']} % inhabituel")
+    if d.get("autoliquidation"):
+        av("Autoliquidation : TVA calculée à 20 % par l'acquéreur, à vérifier selon l'opération")
+    if d.get("franchise"):
+        ok("Franchise en base (art. 293 B du CGI) : pas de TVA")
+    if ecriture:
+        D = round(sum(l["debit"] for l in ecriture["lignes"]), 2)
+        Cr = round(sum(l["credit"] for l in ecriture["lignes"]), 2)
+        (ok if D == Cr else ko)("Écriture équilibrée" + ("" if D == Cr else f" : débit {D} ≠ crédit {Cr}"))
+    return C
+
+
+def cle_doublon(d):
+    """Même tiers + même date + même TTC = doublon probable (le n° peut différer d'un document à l'autre)."""
+    tiers = re.sub(r"[^a-z0-9]", "", _sans_accents(d.get("fournisseur") or d.get("client") or ""))
+    date = d["date"].strftime("%Y%m%d") if d.get("date") else ""
+    return f"{tiers}|{date}|{d.get('ttc')}"
+
+
+def analyser(pieces, ma_societe="", tva_services="exigibilite"):
+    """Analyse complète d'une liste de pièces (sortie de lire_document)."""
+    resultats, vus = [], {}
+    for p in pieces:
+        if "image" in p:
+            continue
+        d = extraire_csv(p["ligne_csv"], p["source"]) if "ligne_csv" in p else extraire_texte(p["texte"], p["source"])
+        sens, why_sens = determiner_sens(d, ma_societe)
+        compte, nature, confiance, regle = proposer_compte(d, sens, ma_societe)
+        ecr = generer_ecriture(d, sens, compte, nature, tva_services)
+        ctrl = controler(d, ecr)
+        r = {"donnees": d, "sens": sens, "justif_sens": why_sens, "compte": compte,
+             "libelle_compte": PCG.get(compte, ""), "nature": nature, "confiance": confiance,
+             "regle": regle, "ecriture": ecr, "controles": ctrl, "doublon_de": None}
+        k = cle_doublon(d)
+        if k in vus:
+            # On conserve la pièce la plus complète (imputation la plus sûre) ; l'autre est marquée doublon
+            garde, ecarte = (r, vus[k]) if _score(r) > _score(vus[k]) else (vus[k], r)
+            vus[k] = garde
+            garde["doublon_de"] = None
+            garde["controles"] = [c for c in garde["controles"] if not c[1].startswith("Doublon")]
+            nom = f"{garde['donnees'].get('numero')} ({garde['donnees']['source']})"
+            ecarte["doublon_de"] = nom
+            ecarte["controles"] = [c for c in ecarte["controles"] if not c[1].startswith("Doublon")] + \
+                [("KO", f"Doublon probable de {nom} (même tiers, même date, même TTC) : exclu de l'export")]
+        else:
+            vus[k] = r
+        resultats.append(r)   # chaque pièce n'est ajoutée qu'une fois, doublon ou non
+    return resultats
+
+
+def _score(r):
+    return {"haute": 3, "moyenne": 2, "basse": 1}[r["confiance"]] + (1 if r["donnees"].get("objet") else 0)
+
+
+# ─── Export ──────────────────────────────────────────────────────────────────
+
+COLONNES_FEC = ["JournalCode", "JournalLib", "EcritureNum", "EcritureDate", "CompteNum", "CompteLib",
+                "CompAuxNum", "CompAuxLib", "PieceRef", "PieceDate", "EcritureLib", "Debit", "Credit",
+                "EcritureLet", "DateLet", "ValidDate", "Montantdevise", "Idevise"]
+JOURNAUX = {"AC": "Achats", "VE": "Ventes"}
+
+
+def export_fec(resultats, inclure_doublons=False):
+    """Écritures au format FEC (séparateur |, montants à virgule)."""
+    out = ["|".join(COLONNES_FEC)]
+    n = 0
+    for r in resultats:
+        if r.get("doublon_de") and not inclure_doublons:
+            continue
+        d, e = r["donnees"], r["ecriture"]
+        n += 1
+        date = d["date"].strftime("%Y%m%d") if d.get("date") else ""
+        tiers = d.get("fournisseur") if r["sens"] == "achat" else d.get("client")
+        for l in e["lignes"]:
+            out.append("|".join([
+                e["journal"], JOURNAUX.get(e["journal"], e["journal"]), f"{e['journal']}{n:05d}", date,
+                l["compte"], PCG.get(l["compte"], ""), l["aux"], (tiers or "") if l["aux"] else "",
+                d.get("numero") or "", date, l["libelle"],
+                f"{l['debit']:.2f}".replace(".", ","), f"{l['credit']:.2f}".replace(".", ","),
+                "", "", "", "", ""]))
+    return "\n".join(out) + "\n"
