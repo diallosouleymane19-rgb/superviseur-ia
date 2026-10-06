@@ -184,6 +184,35 @@ def siren_valide(siren):
 
 # ─── Lecture des documents ───────────────────────────────────────────────────
 
+OCR_MAX_PAGES = 10
+
+
+def tesseract_disponible():
+    """Vrai si le moteur Tesseract (gratuit, local) est installé."""
+    import shutil
+    try:
+        import pytesseract  # noqa: F401
+    except ImportError:
+        return False
+    return shutil.which("tesseract") is not None
+
+
+def ocr_tesseract(image_bytes: bytes) -> str:
+    """OCR gratuit et local d'une image (photo ou page scannée) avec Tesseract, en français."""
+    import pytesseract
+    from PIL import Image, ImageOps
+    img = Image.open(io.BytesIO(image_bytes))
+    img = ImageOps.exif_transpose(img)          # photo de smartphone : orientation EXIF
+    img = ImageOps.grayscale(img)
+    if max(img.size) < 2000:                    # petites photos : agrandir pour l'OCR
+        f = 2000 / max(img.size)
+        img = img.resize((int(img.width * f), int(img.height * f)), Image.LANCZOS)
+    img = ImageOps.autocontrast(img)
+    langues = pytesseract.get_languages(config="")
+    lang = "fra" if "fra" in langues else "eng"
+    return pytesseract.image_to_string(img, lang=lang, config="--psm 6")
+
+
 def lire_document(contenu: bytes, nom: str):
     """
     Retourne une liste de « pièces » à analyser :
@@ -201,12 +230,40 @@ def lire_document(contenu: bytes, nom: str):
         except Exception as e:
             infos.append(f"{nom} : lecture PDF impossible ({e})")
         if len(texte.strip()) < 20:
-            infos.append(f"{nom} : PDF scanné (pas de texte). Utilisez l'OCR Mistral ou déposez un PDF généré par un logiciel.")
-            return [], infos
+            # PDF scanné : rendu des pages en image puis OCR Tesseract (gratuit, local)
+            if not tesseract_disponible():
+                infos.append(f"{nom} : PDF scanné, OCR Tesseract non installé sur ce serveur.")
+                return [], infos
+            try:
+                import pymupdf
+                pages = []
+                with pymupdf.open(stream=contenu, filetype="pdf") as doc:
+                    for page in list(doc)[:OCR_MAX_PAGES]:
+                        pages.append(ocr_tesseract(page.get_pixmap(dpi=300).tobytes("png")))
+                texte = "\n".join(pages)
+            except Exception as e:
+                infos.append(f"{nom} : OCR impossible ({e})")
+                return [], infos
+            if len(texte.strip()) < 20:
+                infos.append(f"{nom} : PDF scanné illisible par l'OCR (qualité insuffisante).")
+                return [], infos
+            infos.append(f"{nom} : PDF scanné lu par OCR Tesseract - vérifiez les montants.")
+            return [{"source": nom, "texte": t, "ocr": True} for t in _decouper_factures(texte)], infos
         return [{"source": nom, "texte": t} for t in _decouper_factures(texte)], infos
     if nom_l.endswith((".png", ".jpg", ".jpeg")):
-        infos.append(f"{nom} : image, lecture par OCR nécessaire.")
-        return [{"source": nom, "image": contenu}], infos
+        if not tesseract_disponible():
+            infos.append(f"{nom} : image, OCR Tesseract non installé sur ce serveur.")
+            return [{"source": nom, "image": contenu}], infos
+        try:
+            texte = ocr_tesseract(contenu)
+        except Exception as e:
+            infos.append(f"{nom} : OCR impossible ({e})")
+            return [], infos
+        if len(texte.strip()) < 20:
+            infos.append(f"{nom} : image illisible par l'OCR (photo floue, trop sombre ou trop petite).")
+            return [], infos
+        infos.append(f"{nom} : image lue par OCR Tesseract - vérifiez les montants.")
+        return [{"source": nom, "texte": t, "ocr": True} for t in _decouper_factures(texte)], infos
 
     texte = None
     for enc in ("utf-8-sig", "cp1252"):
@@ -655,6 +712,9 @@ def analyser(pieces, ma_societe="", tva_services="exigibilite"):
         compte, nature, confiance, regle = proposer_compte(d, sens, ma_societe)
         ecr = generer_ecriture(d, sens, compte, nature, tva_services)
         ctrl = controler(d, ecr)
+        if p.get("ocr"):
+            d["ocr"] = True
+            ctrl.append(("ALERTE", "Pièce lue par OCR (scan ou photo) : vérifiez montants, dates et numéros avec l'original"))
         r = {"donnees": d, "sens": sens, "justif_sens": why_sens, "compte": compte,
              "libelle_compte": PCG.get(compte, ""), "nature": nature, "confiance": confiance,
              "regle": regle, "ecriture": ecr, "controles": ctrl, "doublon_de": None}

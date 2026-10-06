@@ -134,7 +134,7 @@ page = st.sidebar.selectbox(
     [
         "🏠 Accueil",
         "─── Analyse & Audit ───",
-        "🧾 Analyse Facture (OCR)",
+        "🧾 Analyse et comptabilisation de factures",
         "📊 Audit Balance",
         "🛡 Loi de Benford",
         "⚠ Alertes & Anomalies",
@@ -262,7 +262,7 @@ if page == "\U0001f3e0 Accueil":
 # 2. ANALYSE FACTURE (OCR) - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------
 
-elif page == "🧾 Analyse Facture (OCR)":
+elif page == "🧾 Analyse et comptabilisation de factures":
     try:
         from utils.analyse_facture import page_analyse_facture
         page_analyse_facture()

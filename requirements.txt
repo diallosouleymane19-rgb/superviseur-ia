@@ -20,3 +20,4 @@ stripe>=8.0.0
 fastapi>=0.110.0
 uvicorn>=0.27.0
 pymupdf>=1.24.0
+pytesseract>=0.3.10

@@ -12,7 +12,7 @@ _MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
 
 # Boutons d'accès rapide : libellé d'action -> page du menu
 ACCES_RAPIDE = [
-    ("Analyser une facture", "🧾 Analyse Facture (OCR)"),
+    ("Analyser une facture", "🧾 Analyse et comptabilisation de factures"),
     ("Auditer une balance", "📊 Audit Balance"),
     ("Contrôler un FEC", "📂 Traitement FEC"),
     ("Compte de résultat", "📈 Compte de Résultat"),

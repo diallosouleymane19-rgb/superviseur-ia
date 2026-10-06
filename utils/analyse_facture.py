@@ -2,9 +2,8 @@
 """
 Module Analyse et comptabilisation de factures - SMD Global Consulting LLC
 Fonctionne SANS API : lecture locale (PDF texte, TXT, CSV), règles PCG (utils/compta_facture.py).
-L'OCR Mistral n'est utilisé que pour les images et les PDF scannés, s'il est disponible.
+Scans et photos : OCR Tesseract gratuit et local (aucune API, aucun abonnement).
 """
-import io
 from datetime import datetime
 
 from utils.compta_facture import (
@@ -26,23 +25,13 @@ def _comptes_possibles(sens):
 
 
 def _ocr_images(pieces):
-    """Images et PDF scannés : OCR Mistral si une clé est configurée (facultatif)."""
+    """Images restées sans texte (Tesseract absent) : écartées avec un message. Aucun appel API."""
     out, infos = [], []
     for p in pieces:
-        if "image" not in p:
-            out.append(p)
-            continue
-        try:
-            from utils.ocr import ocr_image_mistral
-            f = io.BytesIO(p["image"])
-            f.name = p["source"]
-            texte, err = ocr_image_mistral(f)
-        except Exception as e:
-            texte, err = None, str(e)
-        if texte:
-            out.append({"source": p["source"], "texte": texte})
+        if "image" in p:
+            infos.append(f"{p['source']} : non analysée (OCR indisponible). Déposez le PDF d'origine.")
         else:
-            infos.append(f"{p['source']} : OCR indisponible ({err}). Déposez plutôt le PDF d'origine.")
+            out.append(p)
     return out, infos
 
 
@@ -97,7 +86,7 @@ def page_analyse_facture():
     st.title("🧾 Analyse et comptabilisation de factures")
     st.markdown("Détection, contrôle et comptabilisation selon le PCG, **sans API** : "
                 "PDF issus d'un logiciel, fichiers texte et listes CSV.")
-    st.caption("Images et PDF scannés : lecture par OCR Mistral si disponible.")
+    st.caption("PDF scannés et photos : lecture par OCR Tesseract, gratuit et local (aucune API). Vérifiez toujours les montants lus.")
     banniere_demo()
 
     with st.expander("⚙️ Paramètres", expanded=False):
@@ -113,7 +102,7 @@ def page_analyse_facture():
                                 type=["pdf", "txt", "csv", "png", "jpg", "jpeg"],
                                 accept_multiple_files=True, key="cf_upload")
     if not fichiers:
-        st.info("Déposez vos factures : PDF, fichier texte ou liste CSV "
+        st.info("Déposez vos factures : PDF (y compris scanné), photo JPG/PNG, fichier texte ou liste CSV "
                 "(colonnes Numéro, Date, Fournisseur, Montant HT, TVA, Montant TTC).")
         return
 
@@ -123,8 +112,8 @@ def page_analyse_facture():
         pieces += p
         infos += i
     pieces, i2 = _ocr_images(pieces)
-    for msg in [m for m in infos if "image" not in m] + i2:
-        st.warning(msg)
+    for msg in [m for m in infos if "OCR Tesseract non installé" not in m] + i2:
+        (st.info if "lu par OCR" in msg or "lue par OCR" in msg else st.warning)(msg)
     if not pieces:
         st.error("Aucune facture lisible dans les fichiers déposés.")
         return
@@ -140,7 +129,7 @@ def page_analyse_facture():
             _recalculer(r, sens, compte, tva_services, ma_societe)
 
     retenus = [r for r in resultats if not r.get("doublon_de")]
-    a_verifier = [r for r in retenus if r["confiance"] == "basse" or r["compte"] == "471000"
+    a_verifier = [r for r in retenus if r["confiance"] == "basse" or r["donnees"].get("ocr") or r["compte"] == "471000"
                   or any(s == "KO" and not m.startswith(("SIREN", "N° de TVA")) for s, m in r["controles"])]
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Pièces détectées", len(resultats))
