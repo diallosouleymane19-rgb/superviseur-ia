@@ -113,6 +113,10 @@ REGLES_VENTE = [
       "accompagnement", "developpement"], "706000", "service", "haute"),
 ]
 
+# Nouvelles mentions obligatoires (réforme de la facturation électronique), selon impots.gouv.fr
+DATE_MENTIONS_2026 = datetime(2026, 9, 1)   # SIREN client, catégorie d'opération, option débits
+DATE_MENTIONS_2027 = datetime(2027, 9, 1)   # adresse de livraison si différente
+
 # Seuil de la tolérance fiscale pour les biens de faible valeur (charges plutôt qu'immobilisations)
 SEUIL_IMMO_HT = 500.0
 TAUX_TVA = [20.0, 10.0, 5.5, 2.1, 8.5, 13.0, 0.9]  # métropole + DOM / Corse
@@ -295,6 +299,53 @@ def _lignes_tableau(t):
     return ""
 
 
+_ETIQ_CLIENT = r"^\s*(client|destinataire|acheteur|factur[ée]e?\s+[àa]|adress[ée]e?\s+[àa])\b"
+
+
+def _bloc_client(t):
+    """Sépare le bloc client (étiquette « Client : » + 4 lignes suivantes) du reste du document."""
+    lignes = t.splitlines()
+    dans, reste = [], []
+    i = 0
+    while i < len(lignes):
+        if re.match(_ETIQ_CLIENT, lignes[i], re.I):
+            bloc = lignes[i:i + 5]
+            # le bloc s'arrête à la première ligne vide ou à une autre rubrique
+            for j, l in enumerate(bloc[1:], 1):
+                if not l.strip() or re.match(r"(?i)\s*(objet|d[ée]signation|total|montant|date|facture)", l):
+                    bloc = bloc[:j]
+                    break
+            dans += bloc
+            i += len(bloc)
+        else:
+            reste.append(lignes[i])
+            i += 1
+    return "\n".join(dans), "\n".join(reste)
+
+
+def _siren_dans(txt, libelle_requis=True):
+    """Premier SIREN (ou SIRET tronqué à 9 chiffres) précédé de « SIREN » ou « SIRET »."""
+    m = re.search(r"(?i)\bsire[nt]\b[^\d\n]{0,25}(\d{3}\s?\d{3}\s?\d{3})", txt)
+    if not m and not libelle_requis:
+        m = re.search(r"\b(\d{3}\s?\d{3}\s?\d{3})\b", txt)
+    return re.sub(r"\D", "", m.group(1))[:9] if m else ""
+
+
+def _categorie(ts):
+    """Catégorie d'opération : LB (livraison de biens), PS (prestations de services), LBPS (mixte)."""
+    m = re.search(r"categorie[^\n:]{0,25}:\s*([^\n]+)", ts)
+    zone = m.group(1) if m else ts
+    biens = re.search(r"livraisons? de biens|\blb\b", zone)
+    services = re.search(r"prestations? de services|\bps\b", zone)
+    if re.search(r"\bmixte\b|\blbps\b", zone) or (biens and services):
+        return "LBPS"
+    if biens:
+        return "LB"
+    if services and (m or re.search(r"operation[s]?\s*:?\s*prestations? de services|nature de l.operation", ts)):
+        return "PS"
+    return ""
+
+
 def extraire_texte(texte, source=""):
     """Extraction par règles d'une facture au format texte."""
     t = texte.replace(" ", " ")
@@ -320,9 +371,14 @@ def extraire_texte(texte, source=""):
     d["objet"] = _champ(t, ["objet", "d[ée]signation", "description", "libell[ée]", "prestation", "nature"]) \
         or _lignes_tableau(t)
 
-    m = re.search(r"(?i)\bsiren\s*[:\-]?\s*(\d{3}\s?\d{3}\s?\d{3})", t)
-    m2 = re.search(r"(?i)\bsiret\s*[:\-]?\s*(\d{3}\s?\d{3}\s?\d{3}\s?\d{5})", t)
-    d["siren"] = re.sub(r"\D", "", (m2 or m).group(1))[:9] if (m2 or m) else ""
+    bloc_client, hors_client = _bloc_client(t)
+    d["siren"] = _siren_dans(hors_client)
+    d["siren_client"] = _siren_dans(bloc_client) or _siren_dans(
+        "\n".join(re.findall(r"(?im)^.*siren\s+(?:du\s+)?(?:client|acheteur).*$", t)), libelle_requis=False)
+    if d["siren_client"] and d["siren"] == d["siren_client"]:
+        d["siren"] = ""
+    d["categorie"] = _categorie(ts)
+    d["adresse_livraison"] = bool(re.search(r"adresse de livraison|livre a :|lieu de livraison", ts))
     m = re.search(r"\b(FR\s?[0-9A-Z]{2}\s?\d{3}\s?\d{3}\s?\d{3}|[A-Z]{2}\s?[0-9A-Z]{8,12})\b", t) \
         if re.search(r"(?i)tva\s*intra|n[°o]\s*tva|vat", t) else None
     d["tva_intra"] = re.sub(r"\s", "", m.group(1)) if m else ""
@@ -371,7 +427,10 @@ def extraire_csv(ligne, source=""):
     d["fournisseur"] = get("fournisseur", "emetteur", "vendeur", "tiers")
     d["client"] = get("client", "destinataire")
     d["objet"] = get("objet", "designation", "libelle", "description", "nature")
-    d["siren"] = re.sub(r"\D", "", get("siren", "siret"))[:9]
+    d["siren"] = re.sub(r"\D", "", next((v for k, v in cle.items() if ("siren" in k or "siret" in k) and "client" not in k), ""))[:9]
+    d["siren_client"] = re.sub(r"\D", "", get("siren client", "siret client"))[:9]
+    d["categorie"] = _categorie(_sans_accents(get("categorie")) + " ") if get("categorie") else ""
+    d["adresse_livraison"] = bool(get("adresse de livraison", "livraison"))
     d["tva_intra"] = get("tva intra", "n tva", "vat")
     d["adresse"] = bool(get("adresse"))
     d["ht"] = parse_montant(get("ht"))
@@ -549,6 +608,24 @@ def controler(d, ecriture=None):
                     ko(f"TVA {l['montant']:.2f} € incohérente avec {l['taux']} % de {ht:.2f} € (attendu {theo:.2f} €)".replace(".", ","))
                 if l["taux"] not in TAUX_TVA:
                     av(f"Taux de TVA {l['taux']} % inhabituel")
+    # Nouvelles mentions de la facturation électronique (impots.gouv.fr, « données de facture »)
+    date = d.get("date")
+    if date and date >= DATE_MENTIONS_2026:
+        if d.get("siren_client"):
+            (ok if siren_valide(d["siren_client"]) else ko)(
+                f"SIREN du client {d['siren_client']} " + ("valide" if siren_valide(d["siren_client"]) else "invalide (clé de contrôle)"))
+        else:
+            av("SIREN du client absent (attendu depuis le 01/09/2026 pour les clients professionnels)")
+        libs = {"LB": "livraison de biens", "PS": "prestation de services", "LBPS": "opération mixte"}
+        (ok if d.get("categorie") else av)(
+            f"Catégorie d'opération : {libs[d['categorie']]}" if d.get("categorie")
+            else "Catégorie d'opération absente (biens / services / mixte, attendue depuis le 01/09/2026)")
+        if d.get("option_debits"):
+            ok("Option pour le paiement de la TVA d'après les débits mentionnée")
+        if date >= DATE_MENTIONS_2027 and not d.get("adresse_livraison"):
+            av("Adresse de livraison non indiquée (attendue depuis le 01/09/2027 si elle diffère de l'adresse du client)")
+    elif date:
+        ok(f"Nouvelles mentions de la facturation électronique non exigées (facture du {date.strftime('%d/%m/%Y')}, avant le 01/09/2026)")
     if d.get("autoliquidation"):
         av("Autoliquidation : TVA calculée à 20 % par l'acquéreur, à vérifier selon l'opération")
     if d.get("franchise"):
