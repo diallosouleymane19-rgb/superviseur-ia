@@ -73,11 +73,13 @@ REGLES_ACHAT = [
     (["ordinateur", "pc portable", "laptop", "macbook", "serveur", "imprimante", "ecran", "tablette"], "218300", "immo", "haute"),
     (["mobilier", "bureau assis", "fauteuil", "armoire", "chaise"], "218400", "immo", "moyenne"),
     (["vehicule", "voiture", "camionnette", "utilitaire"], "218200", "immo", "moyenne"),
-    (["honoraires", "conseil", "consulting", "expertise comptable", "expert-comptable", "commissaire aux comptes",
+    (["apostille", "notariz", "notaris", "legalisation", "legalization", "certified document",
+      "certification de documents", "formalites", "formalities", "frais d'actes"], "622700", "service", "haute"),
+    (["honoraires", "conseil", "consulting", "legal fees", "attorney", "lawyer", "accounting fees", "expertise comptable", "expert-comptable", "commissaire aux comptes",
       "avocat", "audit", "notaire"], "622600", "service", "haute"),
     (["huissier", "frais d'actes", "contentieux", "greffe"], "622700", "service", "haute"),
     (["telecom", "telephone", "telephonie", "mobile", "forfait", "internet", "fibre", "box", "affranchissement",
-      "timbre", "colissimo", "la poste", "orange", "sfr", "bouygues", "free pro"], "626000", "service", "haute"),
+      "timbre", "colissimo", "la poste", "postage", "postal", "orange", "sfr", "bouygues", "free pro"], "626000", "service", "haute"),
     (["loyer", "location de bureaux", "location des locaux", "bail commercial"], "613200", "service", "haute"),
     (["charges locatives", "copropriete"], "614000", "service", "haute"),
     (["location", "leasing", "loa", "lld"], "613500", "service", "moyenne"),
@@ -86,15 +88,15 @@ REGLES_ACHAT = [
     (["petit materiel", "petit equipement", "outillage", "produits d'entretien"], "606300", "bien", "haute"),
     (["maintenance", "contrat de maintenance", "support technique", "infogerance"], "615600", "service", "haute"),
     (["reparation", "entretien"], "615500", "service", "moyenne"),
-    (["assurance", "prime d'assurance", "responsabilite civile", "multirisque"], "616000", "service", "haute"),
-    (["licence", "logiciel", "saas", "abonnement logiciel"], "651000", "service", "moyenne"),
+    (["assurance", "insurance", "prime d'assurance", "responsabilite civile", "multirisque"], "616000", "service", "haute"),
+    (["licence", "license", "logiciel", "software", "saas", "abonnement logiciel"], "651000", "service", "moyenne"),
     (["sous-traitance", "sous traitance"], "611000", "service", "haute"),
     (["interim", "interimaire", "travail temporaire"], "621100", "service", "haute"),
     (["publicite", "annonce", "insertion", "google ads", "campagne"], "623100", "service", "haute"),
     (["catalogue", "imprimes", "flyers", "cartes de visite", "impression"], "623600", "service", "moyenne"),
     (["transport", "livraison", "fret", "transporteur"], "624100", "service", "moyenne"),
     (["train", "sncf", "billet d'avion", "vol ", "taxi", "vtc", "peage", "parking"], "625100", "service", "haute"),
-    (["hotel", "hebergement"], "625600", "service", "haute"),
+    (["hotel", "hebergement", "lodging", "accommodation"], "625600", "service", "haute"),
     (["restaurant", "repas", "reception", "traiteur"], "625700", "service", "moyenne"),
     (["frais bancaires", "commission bancaire", "frais de tenue de compte"], "627000", "service", "haute"),
     (["cotisation", "adhesion", "abonnement professionnel"], "628100", "service", "moyenne"),
@@ -162,6 +164,90 @@ def parse_date(txt):
         except ValueError:
             continue
     return None
+
+
+MOIS = {"janvier": 1, "fevrier": 2, "mars": 3, "avril": 4, "mai": 5, "juin": 6, "juillet": 7, "aout": 8,
+        "septembre": 9, "octobre": 10, "novembre": 11, "decembre": 12,
+        "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6, "july": 7, "august": 8,
+        "september": 9, "october": 10, "november": 11, "december": 12,
+        "jan": 1, "feb": 2, "fev": 2, "mar": 3, "apr": 4, "avr": 4, "jun": 6, "jul": 7, "aug": 8,
+        "sept": 9, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
+_MOIS_RE = "|".join(sorted(MOIS, key=len, reverse=True))
+
+
+def date_en_lettres(txt):
+    """'September 9, 2026', 'Sep 9 2026', '9 septembre 2026', '9th September 2026' -> datetime"""
+    ts = _sans_accents(txt)
+    m = re.search(rf"\b({_MOIS_RE})\.?\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(\d{{4}})\b", ts)
+    if m:
+        mois, jour, an = MOIS[m.group(1)], int(m.group(2)), int(m.group(3))
+    else:
+        m = re.search(rf"\b(\d{{1,2}})(?:er|st|nd|rd|th)?\s+({_MOIS_RE})\.?\s+(\d{{4}})\b", ts)
+        if not m:
+            return None
+        jour, mois, an = int(m.group(1)), MOIS[m.group(2)], int(m.group(3))
+    try:
+        return datetime(an, mois, jour)
+    except ValueError:
+        return None
+
+
+# Pays (adresse de l'émetteur) pour les factures de fournisseurs étrangers
+PAYS_UE = ["germany", "allemagne", "deutschland", "spain", "espagne", "espana", "italy", "italie", "italia",
+           "belgium", "belgique", "netherlands", "pays-bas", "ireland", "irlande", "luxembourg", "portugal",
+           "poland", "pologne", "austria", "autriche", "sweden", "suede", "denmark", "danemark", "finland",
+           "finlande", "greece", "grece", "czech", "tcheque", "romania", "roumanie", "hungary", "hongrie"]
+PAYS_HORS_UE = ["united states", "usa", "u.s.a", "etats-unis", "united kingdom", "royaume-uni", "england",
+                "canada", "china", "chine", "hong kong", "switzerland", "suisse", "japan", "japon", "singapore",
+                "singapour", "australia", "australie", "india", "inde", "united arab emirates", "emirats",
+                "turkey", "turquie", "morocco", "maroc", "senegal", "cote d'ivoire", "guinee", "mali",
+                "cameroun", "cameroon", "tunisie", "tunisia", "algerie", "algeria", "norway", "norvege"]
+DEVISES = {"USD": [r"\$", r"\bUSD\b"], "GBP": [r"£", r"\bGBP\b"], "CHF": [r"\bCHF\b"],
+           "CAD": [r"\bCAD\b"], "CNY": [r"\bCNY\b", r"\bRMB\b", r"¥"], "XOF": [r"\bXOF\b", r"\bFCFA\b"],
+           "EUR": [r"€", r"\bEUR\b"]}
+
+
+def _devise(t):
+    """Devise majoritaire du document (nombre d'occurrences des symboles / codes)."""
+    comptes = {dev: sum(len(re.findall(m, t)) for m in motifs) for dev, motifs in DEVISES.items()}
+    dev = max(comptes, key=comptes.get)
+    return dev if comptes[dev] else "EUR"
+
+
+def _convertir_euros(d, t):
+    """Facture en devise : conversion en euros avec le montant réellement débité en euros
+    ou le cours de change indiqué sur la pièce. Sinon, montants laissés en devise (contrôle KO)."""
+    dev = d["devise"]
+    d["montants_devise"] = {k: d.get(k) for k in ("ht", "tva", "ttc")}
+    taux = None
+    m = re.search(rf"(?i)1\s*{dev}\s*=\s*{_NUM}\s*(?:€|EUR)", t)
+    if m:
+        try:
+            taux = float(m.group(1).replace(" ", "").replace(",", "."))
+        except ValueError:
+            taux = None
+    m = re.search(rf"€\s?{_NUM}|{_NUM}\s?€|\bEUR\s+{_NUM}", t)
+    eur = parse_montant(next(g for g in m.groups() if g)) if m else None
+    ttc = d.get("ttc")
+    if eur and ttc:
+        facteur, d["conversion"] = eur / ttc, "montant débité en euros indiqué sur la pièce"
+    elif taux:
+        facteur, d["conversion"] = taux, "cours de change indiqué sur la pièce"
+        eur = round(ttc * taux, 2) if ttc is not None else None
+    else:
+        d["taux_change"] = None
+        return d
+    d["taux_change"] = taux or round(facteur, 6)
+    d["facteur_devise"] = facteur
+    ht = d.get("ht")
+    d["ttc"] = eur
+    d["ht"] = round(ht * facteur, 2) if ht is not None else None
+    if d["ht"] is not None and d["ttc"] is not None:
+        d["tva"] = round(d["ttc"] - d["ht"], 2)
+    for l in d.get("lignes_tva", []):
+        if l.get("montant") is not None:
+            l["montant"] = d["tva"] if len(d["lignes_tva"]) == 1 else round(l["montant"] * facteur, 2)
+    return d
 
 
 def code_auxiliaire(nom, prefixe):
@@ -324,13 +410,23 @@ def _montant_libelle(texte, motif):
     return parse_montant(m.group(1)) if m else None
 
 
+def _montant_ligne(texte, motif):
+    """Montant sur la même ligne que le libellé ou sur la ligne suivante (« Total » puis « $340.00 »)."""
+    m = re.search(rf"(?im)^\s*(?:{motif})\b[^\n\d\-]{{0,20}}\n?[^\n\d\-]{{0,6}}{_NUM}", texte)
+    return parse_montant(m.group(1)) if m else None
+
+
 def _emetteur_entete(t, client=""):
     """Sans étiquette « Fournisseur : », l'émetteur est la première ligne de l'en-tête
     qui ressemble à un nom (ni titre, ni date, ni adresse, ni le client)."""
     cl = _sans_accents(client)
-    for l in [x.strip() for x in t.splitlines() if x.strip()][:8]:
+    for l in [x.strip() for x in t.splitlines() if x.strip()][:12]:
         ls = _sans_accents(l)
-        if re.search(r"facture|avoir|invoice|date|page|siret|siren|tva|tel|mail|@|www|^\d|\d{5}", ls):
+        if re.search(r"facture|avoir|invoice|receipt|recu\b|quittance|date|page|siret|siren|tva|tel|mail|@|www|^\d|\d{5}", ls):
+            continue
+        if re.fullmatch(r"[A-Za-z0-9\-/_.#]+", l) and re.search(r"\d", l):   # référence / code
+            continue
+        if date_en_lettres(l):
             continue
         if cl and (cl in ls or ls in cl):
             continue
@@ -346,8 +442,11 @@ def _lignes_tableau(t):
         if re.search(r"(?i)d[ée]signation|description|libell[ée]|article", l) and not re.search(r"[:\-]\s*\S", l.split("|")[0][-3:]):
             libs = []
             for x in lignes[i + 1:i + 30]:
-                if re.search(r"(?i)\btotal|\bnet [àa] payer|\bh\.?t\.?\s*:", x):
+                if re.search(r"(?i)\btotal|sub-?total|\bnet [àa] payer|\bh\.?t\.?\s*:|\bamount (paid|due)", x):
                     break
+                if re.fullmatch(r"(?i)\s*(qty|quantity|qt[ée]|quantit[ée]|unit price|price|prix( unitaire)?|p\.?u\.?( ht)?|"
+                                r"amount|montant( ht)?|rate|taux|tva|vat|tax|unit[ée]?)\s*", x):
+                    continue
                 lib = re.sub(r"[\d\s.,€%x×]+$", "", x).strip(" -|\t")
                 if len(re.sub(r"[^A-Za-zÀ-ÿ]", "", lib)) >= 3:
                     libs.append(lib)
@@ -356,7 +455,7 @@ def _lignes_tableau(t):
     return ""
 
 
-_ETIQ_CLIENT = r"^\s*(client|destinataire|acheteur|factur[ée]e?\s+[àa]|adress[ée]e?\s+[àa])\b"
+_ETIQ_CLIENT = r"^\s*(client|destinataire|acheteur|factur[ée]e?\s+[àa]|adress[ée]e?\s+[àa]|bill(?:ed)?\s+to|sold\s+to|invoice\s+to|customer)\b"
 
 
 def _bloc_client(t):
@@ -410,18 +509,21 @@ def extraire_texte(texte, source=""):
     d = {"source": source, "texte": texte}
 
     d["type"] = "avoir" if re.search(r"\bavoir\b|note de credit|credit note", ts) else \
-                "facture" if re.search(r"\bfacture\b|\binvoice\b", ts) else None
+                "facture" if re.search(r"\bfacture\b|\binvoice\b|\breceipt\b|\brecu\b", ts) else None
 
-    m = re.search(r"(?i)(?:facture|avoir|invoice)\s*(?:n[°o]\.?|num[ée]ro|#)\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-/_.]*)", t)
+    m = re.search(r"(?i)(?:facture|avoir|invoice)\s*(?:n[°o]\.?|num[ée]ro|number|no\b\.?|#)\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-/_.]*)", t)
     d["numero"] = m.group(1).rstrip(".") if m else _champ(t, ["n[°o] de facture", "num[ée]ro"])
 
     m = re.search(r"(?im)date(?:\s+(?:de\s+)?(?:la\s+)?(?:facture|facturation|[ée]mission))?\s*[:\-]\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{4}-\d{2}-\d{2})", t)
     if not m:
         m = re.search(r"(\d{1,2}/\d{1,2}/\d{4})", t)
-    d["date"] = parse_date(m.group(1)) if m else None
+    d["date"] = parse_date(m.group(1)) if m else date_en_lettres(t)
 
     d["fournisseur"] = _champ(t, ["fournisseur", "[ée]metteur", "vendeur", "prestataire", "soci[ée]t[ée] [ée]mettrice"])
     d["client"] = _champ(t, ["client", "destinataire", "acheteur", "factur[ée] [àa]", "adress[ée] [àa]"])
+    if not d["client"]:   # « Bill to » seul sur sa ligne, nom à la ligne suivante
+        m = re.search(r"(?im)^\s*(?:bill(?:ed)?\s+to|sold\s+to|invoice\s+to|customer)\s*:?\s*\n\s*(\S[^\n]*)", t)
+        d["client"] = m.group(1).strip() if m else ""
     if not d["fournisseur"]:
         d["fournisseur"] = _emetteur_entete(t, d["client"])
         d["emetteur_deduit"] = bool(d["fournisseur"])
@@ -440,10 +542,25 @@ def extraire_texte(texte, source=""):
         if re.search(r"(?i)tva\s*intra|n[°o]\s*tva|vat", t) else None
     d["tva_intra"] = re.sub(r"\s", "", m.group(1)) if m else ""
     d["adresse"] = bool(re.search(r"(?i)\b\d{5}\b\s+[A-Za-zÀ-ÿ]", t))
+    # Fournisseur étranger : pays dans l'en-tête (hors bloc client), sans SIREN ni n° TVA français
+    hc = _sans_accents(hors_client)
+    francais = bool(d["siren"] or d["tva_intra"].startswith("FR") or re.search(r"\b\d{5}\b[ \t]+[a-z]", hc))
+    pays = lambda liste: next((p for p in liste if re.search(rf"(?<![a-z]){re.escape(p)}(?![a-z])", hc)), "")
+    d["pays_hors_ue"], d["pays_ue"] = pays(PAYS_HORS_UE), pays(PAYS_UE)
+    d["devise"] = _devise(t)
+    d["etranger"] = not francais and bool(d["pays_hors_ue"] or d["pays_ue"] or d["devise"] != "EUR")
+    d["hors_ue"] = d["etranger"] and not d["pays_ue"] and (bool(d["pays_hors_ue"]) or d["devise"] != "EUR")
+    if d["etranger"] and (d["pays_hors_ue"] or d["pays_ue"]):
+        d["adresse"] = True
 
     d["ht"] = _montant_libelle(t, r"\b(?:total\s+|montant\s+)?h\.?\s?t\.?(?![a-z])")
     d["ttc"] = _montant_libelle(t, r"\b(?:total\s+|montant\s+)?t\.?t\.?c\.?(?![a-z])") \
         or _montant_libelle(t, r"net\s+[àa]\s+payer")
+    # Factures en anglais : Subtotal / Total / Amount due / Amount paid (montant parfois à la ligne)
+    if d["ht"] is None:
+        d["ht"] = _montant_ligne(t, r"sub-?total")
+    if d["ttc"] is None:
+        d["ttc"] = _montant_ligne(t, r"(?:grand\s+)?total(?:\s+(?:due|amount))?|amount\s+due|amount\s+paid|balance\s+due")
 
     # TVA : une ou plusieurs lignes « TVA 20 % : 500,00 » (hors numéro de TVA intracommunautaire)
     lignes_tva = []
@@ -456,6 +573,10 @@ def extraire_texte(texte, source=""):
         m = re.search(rf"(?im)^\s*(?:total\s+|montant\s+)?tva\b[^\n\d\-]*{_NUM}", texte_montants)
         if m:
             lignes_tva.append({"taux": None, "montant": parse_montant(m.group(1))})
+    if not lignes_tva:
+        tx = _montant_ligne(texte_montants, r"(?:sales\s+)?tax|vat")
+        if tx is not None:
+            lignes_tva.append({"taux": None, "montant": tx})
     d["lignes_tva"] = lignes_tva
     d["tva"] = round(sum(l["montant"] or 0 for l in lignes_tva), 2) if lignes_tva else None
 
@@ -465,7 +586,10 @@ def extraire_texte(texte, source=""):
     d["exoneration"] = bool(re.search(r"exoneration|exonere|art(icle)?\.?\s*26[12]", ts))
     if d["franchise"] or d["exoneration"]:
         d["lignes_tva"], d["tva"] = [], None   # aucune TVA facturée
-    return _completer(d)
+    d = _completer(d)
+    if d["devise"] != "EUR":
+        _convertir_euros(d, t)
+    return d
 
 
 def extraire_csv(ligne, source=""):
@@ -639,11 +763,17 @@ def controler(d, ecriture=None):
     (ok if d.get("numero") else ko)("Numéro de facture" + ("" if d.get("numero") else " absent"))
     (ok if d.get("date") else ko)("Date de facture" + ("" if d.get("date") else " absente ou illisible"))
     (ok if d.get("fournisseur") or d.get("client") else ko)("Identité du tiers")
-    if d.get("siren"):
+    etranger = d.get("etranger")
+    if etranger:
+        pays = (d.get("pays_hors_ue") or d.get("pays_ue") or "pays non identifié").title()
+        ok(f"Fournisseur établi hors de France ({pays}) : SIREN non applicable")
+    elif d.get("siren"):
         (ok if siren_valide(d["siren"]) else ko)(f"SIREN {d['siren']} " + ("valide" if siren_valide(d["siren"]) else "invalide (clé de contrôle)"))
     else:
         ko("SIREN / SIRET de l'émetteur absent (mention obligatoire)")
-    if not d.get("franchise"):
+    if etranger and d.get("hors_ue"):
+        ok("N° de TVA intracommunautaire non applicable (fournisseur hors UE)")
+    elif not d.get("franchise"):
         (ok if d.get("tva_intra") else ko)("N° de TVA intracommunautaire" + ("" if d.get("tva_intra") else " absent (mention obligatoire)"))
     (ok if d.get("adresse") else av)("Adresses" + ("" if d.get("adresse") else " non détectées (mention obligatoire)"))
     (ok if d.get("client") else av)("Nom du client" + ("" if d.get("client") else " non indiqué (mention obligatoire)"))
@@ -667,7 +797,21 @@ def controler(d, ecriture=None):
                     av(f"Taux de TVA {l['taux']} % inhabituel")
     # Nouvelles mentions de la facturation électronique (impots.gouv.fr, « données de facture »)
     date = d.get("date")
-    if date and date >= DATE_MENTIONS_2026:
+    if d.get("devise", "EUR") != "EUR":
+        dev, md = d["devise"], d.get("montants_devise", {})
+        if d.get("taux_change"):
+            ok(f"Facture en {dev} : {nb_dev(md.get('ttc'))} {dev} convertis en {nb_dev(d.get('ttc'))} € "
+               f"({d.get('conversion')}, 1 {dev} = {str(round(d['taux_change'], 4)).replace('.', ',')} €)")
+        else:
+            ko(f"Facture en {dev} sans montant en euros ni cours de change : montants NON convertis, "
+               f"à convertir au cours du jour de l'opération avant import")
+    if etranger and d.get("hors_ue") and not d.get("tva") and not d.get("autoliquidation"):
+        av("Fournisseur hors UE, aucune TVA facturée. Si votre société est assujettie à la TVA en France : "
+           "prestation de services → TVA à autoliquider (art. 283-2 du CGI, 445660 / 445200) ; "
+           "marchandises → TVA à l'importation. Sinon, aucune TVA.")
+    if etranger:
+        ok("Nouvelles mentions de la facturation électronique française non applicables (fournisseur étranger)")
+    elif date and date >= DATE_MENTIONS_2026:
         if d.get("siren_client"):
             (ok if siren_valide(d["siren_client"]) else ko)(
                 f"SIREN du client {d['siren_client']} " + ("valide" if siren_valide(d["siren_client"]) else "invalide (clé de contrôle)"))
@@ -692,6 +836,10 @@ def controler(d, ecriture=None):
         Cr = round(sum(l["credit"] for l in ecriture["lignes"]), 2)
         (ok if D == Cr else ko)("Écriture équilibrée" + ("" if D == Cr else f" : débit {D} ≠ crédit {Cr}"))
     return C
+
+
+def nb_dev(x):
+    return "?" if x is None else f"{x:,.2f}".replace(",", " ").replace(".", ",")
 
 
 def cle_doublon(d):
@@ -747,6 +895,14 @@ COLONNES_FEC = ["JournalCode", "JournalLib", "EcritureNum", "EcritureDate", "Com
 JOURNAUX = {"AC": "Achats", "VE": "Ventes"}
 
 
+def _devise_fec(d, l):
+    """Colonnes Montantdevise / Idevise (vides pour une pièce en euros)."""
+    f = d.get("facteur_devise")
+    if d.get("devise", "EUR") == "EUR" or not f:
+        return ["", ""]
+    return [f"{(l['debit'] or l['credit']) / f:.2f}".replace(".", ","), d["devise"]]
+
+
 def export_fec(resultats, inclure_doublons=False):
     """Écritures au format FEC (séparateur |, montants à virgule)."""
     out = ["|".join(COLONNES_FEC)]
@@ -764,5 +920,5 @@ def export_fec(resultats, inclure_doublons=False):
                 l["compte"], PCG.get(l["compte"], ""), l["aux"], (tiers or "") if l["aux"] else "",
                 d.get("numero") or "", date, l["libelle"],
                 f"{l['debit']:.2f}".replace(".", ","), f"{l['credit']:.2f}".replace(".", ","),
-                "", "", "", "", ""]))
+                "", "", "", *_devise_fec(d, l)]))
     return "\n".join(out) + "\n"

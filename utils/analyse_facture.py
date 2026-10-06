@@ -138,7 +138,7 @@ def page_analyse_facture():
     c4.metric("Doublons écartés", len(resultats) - len(retenus))
 
     st.subheader("Pièces")
-    st.caption("✅ comptabilisée et conforme · 🟠 comptabilisée, mentions obligatoires manquantes · "
+    st.caption("✅ comptabilisée et conforme · 🟠 comptabilisée, point d'attention (mentions ou TVA) · "
                "⚠️ imputation ou montants à vérifier · ⛔ doublon écarté")
     for i, r in enumerate(resultats):
         d = r["donnees"]
@@ -153,7 +153,9 @@ def page_analyse_facture():
             a, b, c = st.columns(3)
             a.markdown(f"**Date**  \n{d['date'].strftime('%d/%m/%Y') if d.get('date') else 'non lue'}")
             b.markdown(f"**HT / TVA / TTC**  \n{eur_fr(d.get('ht') or 0, 2)} / {eur_fr(d.get('tva') or 0, 2)} / "
-                       f"{eur_fr(d.get('ttc') or 0, 2)}")
+                       f"{eur_fr(d.get('ttc') or 0, 2)}"
+                       + (f"  \n*soit {nb_fr((d.get('montants_devise') or {}).get('ttc') or 0, 2)} {d['devise']} TTC*"
+                          if d.get("devise", "EUR") != "EUR" else ""))
             c.markdown(f"**Source**  \n{d['source']}")
             if d.get("objet"):
                 st.caption(f"Désignation : {d['objet']}")
