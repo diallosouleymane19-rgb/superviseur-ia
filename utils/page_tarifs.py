@@ -243,7 +243,7 @@ def page_tarifs(app_name="pcg"):
 
 **Qu'est-ce qu'une analyse ?** Chaque module IA utilise = 1 analyse (audit, Benford, bilan, rapport client...).
 
-**Les donnees sont-elles securisees ?** Oui — fichiers analyses en memoire, jamais stockes. Conformite RGPD.
+**Les donnees sont-elles securisees ?** Les fichiers deposes sont lus en memoire et ne sont pas enregistres. Seules les analyses que vous sauvegardez sont conservees, dans l'UE (Irlande), 30 jours maximum.
 
 **Essai gratuit ?** Plan Gratuit : 10 analyses/mois sans carte bancaire.
 

@@ -209,6 +209,22 @@ def supprimer_analyse(analyse_id) -> bool:
         return False
 
 
+_DERNIERE_PURGE = 0.0
+
+
+def purger_si_necessaire(intervalle_s: int = 3600) -> bool:
+    """Lance la purge RGPD au plus une fois par heure et par serveur (appelée à chaque chargement de page).
+    Retourne True si une purge a été lancée."""
+    global _DERNIERE_PURGE
+    import time
+    from utils.db_supabase import supabase_disponible
+    if time.time() - _DERNIERE_PURGE < intervalle_s or not supabase_disponible():
+        return False
+    _DERNIERE_PURGE = time.time()
+    purger_donnees_expirees()
+    return True
+
+
 def purger_donnees_expirees():
     """Supprime les analyses dont expires_at est depasse (RGPD)."""
     try:

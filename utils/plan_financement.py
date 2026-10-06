@@ -276,6 +276,8 @@ def page_plan_financement():
             with st.spinner("Analyse en cours..."):
                 analyse = _analyser_ia(df_r, df_e, annees, entreprise)
             st.markdown("### Analyse IA")
+            from utils.page_helpers import mention_ia
+            mention_ia()
             st.markdown(analyse)
 
     with col_xl:

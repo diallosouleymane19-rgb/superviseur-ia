@@ -207,7 +207,7 @@ def page_inscription(app_name: str = "pcg") -> None:
             ("⚖", "PCG France & SYSCOHADA",
              "Deux référentiels couverts : France et Zone OHADA (8 pays UEMOA)."),
             ("🛡", "Données sécurisées",
-             "Fichiers analysés en mémoire, jamais stockés. Conformité RGPD."),
+             "Fichiers lus en mémoire, non enregistrés. Analyses sauvegardées à votre demande : 30 jours, dans l'UE."),
             ("📊", "Rapports professionnels",
              "KPIs, alertes colorées, tableaux structurés prêts pour vos clients."),
             ("🔔", "Veille fiscale automatique",

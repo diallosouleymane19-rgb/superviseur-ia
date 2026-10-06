@@ -47,6 +47,10 @@ appliquer_theme()
 # Initialisation de la base de données
 init_db()
 
+# RGPD : suppression automatique des analyses sauvegardées depuis plus de 30 jours (au plus 1 fois / heure)
+from utils.database import purger_si_necessaire
+purger_si_necessaire()
+
 # =============================================================================
 # AUTHENTIFICATION
 # =============================================================================
@@ -67,9 +71,9 @@ if not is_connecte():
                 "<p class='smd-accroche'>Audit et supervision comptable pour les cabinets, "
                 "conformes au PCG et aux exigences de la DGFiP.</p>"
                 "<ul class='smd-engagements'>"
-                "<li>Données anonymisées <span>: SIRET masqués, noms supprimés</span></li>"
-                "<li>Non stockées <span>: aucune conservation après analyse</span></li>"
-                "<li>Non utilisées pour entraîner l'IA <span>: politique Mistral garantie</span></li>"
+                "<li>Fichiers non enregistrés <span>: lus en mémoire le temps de l'analyse</span></li>"
+                "<li>Sauvegardes limitées <span>: à votre demande, dans l'UE, supprimées après 30 jours</span></li>"
+                "<li>IA signalée <span>: tout texte rédigé par l'IA (Mistral AI) est identifié</span></li>"
                 "</ul>",
                 unsafe_allow_html=True,
             )
@@ -407,11 +411,16 @@ elif page == "🔒 Confidentialité & Sécurité":
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.success("### ✅ Anonymisation\n\nVous transmettez uniquement des données anonymisées. NIF masqués, noms supprimés avant tout envoi à l'IA.")
+        st.success("### 📂 Fichiers non enregistrés\n\nLes fichiers que vous déposez sont lus en mémoire pour l'analyse "
+                   "et ne sont pas enregistrés sur nos serveurs.")
     with col2:
-        st.success("### ✅ Non stockées\n\nAucune donnée comptable n'est conservée après votre session.")
+        st.success("### 🗓️ Sauvegardes limitées\n\nSeules les analyses que vous choisissez de sauvegarder sont conservées, "
+                   "dans une base hébergée dans l'UE (Irlande), puis supprimées automatiquement après 30 jours.")
     with col3:
-        st.success("### ✅ IA éthique\n\nVos données ne sont jamais utilisées pour entraîner Mistral AI.")
+        st.info("### 🤖 IA signalée\n\nLes analyses IA sont rédigées par Mistral AI (France) et signalées comme telles. "
+                "Les données utiles à l'analyse (par exemple soldes et libellés de comptes) lui sont transmises "
+                "sans anonymisation : n'y saisissez pas de données personnelles inutiles.")
+    st.caption("La comptabilisation des factures (comptes PCG, TVA, export FEC) est calculée par des règles, sans IA.")
     st.divider()
     st.markdown("### 📋 Politique de Conservation (RGPD)")
     st.info("Les analyses sauvegardées sont automatiquement supprimées après **30 jours**.")

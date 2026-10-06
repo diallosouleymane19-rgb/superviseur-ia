@@ -29,6 +29,24 @@ def banniere_demo():
 
 
 # =============================================================================
+# TRANSPARENCE IA (AI Act, art. 50)
+# =============================================================================
+
+MENTION_IA = ("Contenu généré par intelligence artificielle (Mistral AI). Il peut contenir des erreurs : "
+              "à vérifier par un professionnel avant toute utilisation.")
+
+
+def mention_ia():
+    """Signale à l'utilisateur que le texte qui suit est produit par une IA."""
+    st.caption("🤖 " + MENTION_IA)
+
+
+def avec_mention_ia(texte) -> str:
+    """Ajoute la mention IA à un texte exporté ou sauvegardé."""
+    return f"{texte}\n\n---\n*{MENTION_IA}*"
+
+
+# =============================================================================
 # SAUVEGARDE
 # =============================================================================
 

@@ -321,7 +321,9 @@ def page_veille_fiscale():
     4. Références légales (CGI, BOFiP)"""
                                             result = appel_mistral_securise(prompt, temperature=0.2, label="analyse fiscale")
                                             if result["success"]:
-                                                st.markdown("#### 💡 Analyse Cabinet")
+                                                st.markdown("#### 🤖 Analyse IA")
+                                                from utils.page_helpers import mention_ia
+                                                mention_ia()
                                                 st.markdown(result["content"])
 
                         sauvegarder_si_autorise(type_analyse="Veille Fiscale France", resultat=str(actualites))
@@ -386,7 +388,9 @@ def page_veille_fiscale():
                 result = appel_mistral_securise(prompt, temperature=0.2, label="question fiscale")
 
                 if result["success"]:
-                    st.markdown("### 💡 Réponse Expert")
+                    st.markdown("### 🤖 Réponse IA")
+                    from utils.page_helpers import mention_ia, avec_mention_ia
+                    mention_ia()
                     st.markdown(result["content"])
 
                     col1, col2 = st.columns(2)
@@ -394,12 +398,12 @@ def page_veille_fiscale():
                         if st.button("💾 Sauvegarder", width="stretch"):
                             sauvegarder_si_autorise(
                                 type_analyse="Question Fiscale IA",
-                                resultat=result["content"]
+                                resultat=avec_mention_ia(result["content"])
                             )
                             st.success("✅ Sauvegardé !")
                     with col2:
                         try:
-                            generer_bouton_word("Reponse_Fiscale", result["content"])
+                            generer_bouton_word("Reponse_Fiscale", avec_mention_ia(result["content"]))
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 
