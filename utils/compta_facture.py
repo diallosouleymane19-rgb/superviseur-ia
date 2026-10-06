@@ -305,9 +305,24 @@ def lire_document(contenu: bytes, nom: str):
       {"source": nom, "texte": str}  ou  {"source": nom, "ligne_csv": dict}
     + liste de messages d'information.
     """
+    from utils.facture_electronique import lire_facture_xml, xml_depuis_pdf
     nom_l = nom.lower()
     infos = []
+    if nom_l.endswith(".xml"):
+        d, msg = lire_facture_xml(contenu, nom)
+        if d is None:
+            return [], [msg]
+        infos.append(f"{nom} : facture électronique {d['structure']} lue (données exactes du XML).")
+        return [{"source": nom, "donnees": d}], infos
     if nom_l.endswith(".pdf"):
+        xml = xml_depuis_pdf(contenu)
+        if xml:
+            d, msg = lire_facture_xml(xml, nom)
+            if d is not None:
+                d["structure"] = "Factur-X"
+                infos.append(f"{nom} : PDF Factur-X, données lues dans le XML joint (montants exacts).")
+                return [{"source": nom, "donnees": d}], infos
+            infos.append(f"{nom} : XML joint non exploitable ({msg}), lecture du texte du PDF.")
         texte = ""
         try:
             import pymupdf
@@ -672,6 +687,9 @@ def _texte_imputation(d, sens, ma_societe=""):
         ls = _sans_accents(l)
         if re.match(r"\s*(client|destinataire|acheteur|factur|adresse|siren|siret|tva intra)", ls):
             continue
+        # mentions légales de paiement (pénalités, indemnité forfaitaire, escompte) : sans lien avec la nature
+        if re.search(r"penalit|indemnite forfaitaire|frais de recouvrement|escompte|retard de paiement|reglements? recus", ls):
+            continue
         if any(_sans_accents(x) in ls for x in exclus):
             continue
         corps.append(l)
@@ -685,6 +703,9 @@ def _texte_imputation(d, sens, ma_societe=""):
 def proposer_compte(d, sens, ma_societe=""):
     """Retourne (compte, nature, confiance, règle)."""
     regles = REGLES_ACHAT if sens == "achat" else REGLES_VENTE
+    cpt = d.get("compte_acheteur", "")
+    if sens == "achat" and re.fullmatch(r"[26]\d{5}", cpt or ""):
+        return cpt, nature_compte(cpt), "haute", "Compte indiqué dans la facture électronique (référence comptable de l'acheteur)"
     for zone, texte in _texte_imputation(d, sens, ma_societe):
         for mots, compte, nature, confiance in regles:
             mot = next((m for m in mots if re.search(rf"\b{re.escape(m.strip())}", texte)), None)
@@ -759,13 +780,16 @@ def controler(d, ecriture=None):
     ok = lambda m: C.append(("OK", m))
     ko = lambda m: C.append(("KO", m))
     av = lambda m: C.append(("ALERTE", m))
+    if d.get("structure"):
+        ok(f"Facture électronique {d['structure']} : données lues dans le XML (montants exacts, sans OCR)")
     (ok if d.get("type") else ko)("Document identifié comme " + (d.get("type") or "inconnu"))
     (ok if d.get("numero") else ko)("Numéro de facture" + ("" if d.get("numero") else " absent"))
     (ok if d.get("date") else ko)("Date de facture" + ("" if d.get("date") else " absente ou illisible"))
     (ok if d.get("fournisseur") or d.get("client") else ko)("Identité du tiers")
     etranger = d.get("etranger")
     if etranger:
-        pays = (d.get("pays_hors_ue") or d.get("pays_ue") or "pays non identifié").title()
+        pays = d.get("pays_hors_ue") or d.get("pays_ue") or "pays non identifié"
+        pays = pays.upper() if len(pays) == 2 else pays.title()
         ok(f"Fournisseur établi hors de France ({pays}) : SIREN non applicable")
     elif d.get("siren"):
         (ok if siren_valide(d["siren"]) else ko)(f"SIREN {d['siren']} " + ("valide" if siren_valide(d["siren"]) else "invalide (clé de contrôle)"))
@@ -827,6 +851,17 @@ def controler(d, ecriture=None):
             av("Adresse de livraison non indiquée (attendue depuis le 01/09/2027 si elle diffère de l'adresse du client)")
     elif date:
         ok(f"Nouvelles mentions de la facturation électronique non exigées (facture du {date.strftime('%d/%m/%Y')}, avant le 01/09/2026)")
+    cats = d.get("categories_tva") or []
+    if len(cats) > 1:
+        libs = {"S": "taux normal/réduit", "Z": "taux zéro", "E": "exonéré", "AE": "autoliquidation",
+                "K": "intracommunautaire", "G": "export", "O": "hors champ"}
+        av("Plusieurs régimes de TVA sur la facture (" + ", ".join(f"{c} {libs.get(c, '')}".strip() for c in cats)
+           + ") : vérifier la ventilation de la base HT")
+    nap = d.get("net_a_payer")
+    if nap is not None and d.get("ttc") is not None and abs(nap - d["ttc"]) > 0.01:
+        sym = "€" if d.get("devise", "EUR") == "EUR" else d["devise"]
+        av(f"Net à payer {nb_dev(nap)} {sym} différent du TTC {nb_dev(d['ttc'])} {sym} (acompte ou paiement déjà reçu) : "
+           "lettrer le fournisseur avec l'acompte versé")
     if d.get("autoliquidation"):
         av("Autoliquidation : TVA calculée à 20 % par l'acquéreur, à vérifier selon l'opération")
     if d.get("franchise"):
@@ -855,7 +890,12 @@ def analyser(pieces, ma_societe="", tva_services="exigibilite"):
     for p in pieces:
         if "image" in p:
             continue
-        d = extraire_csv(p["ligne_csv"], p["source"]) if "ligne_csv" in p else extraire_texte(p["texte"], p["source"])
+        if "donnees" in p:
+            d = dict(p["donnees"])
+        elif "ligne_csv" in p:
+            d = extraire_csv(p["ligne_csv"], p["source"])
+        else:
+            d = extraire_texte(p["texte"], p["source"])
         sens, why_sens = determiner_sens(d, ma_societe)
         compte, nature, confiance, regle = proposer_compte(d, sens, ma_societe)
         ecr = generer_ecriture(d, sens, compte, nature, tva_services)

@@ -4,6 +4,7 @@ Module Analyse et comptabilisation de factures - SMD Global Consulting LLC
 Fonctionne SANS API : lecture locale (PDF texte, TXT, CSV), règles PCG (utils/compta_facture.py).
 Scans et photos : OCR Tesseract gratuit et local (aucune API, aucun abonnement).
 """
+import re
 from datetime import datetime
 
 from utils.compta_facture import (
@@ -85,7 +86,7 @@ def page_analyse_facture():
 
     st.title("🧾 Analyse et comptabilisation de factures")
     st.markdown("Détection, contrôle et comptabilisation selon le PCG, **sans API** : "
-                "PDF issus d'un logiciel, fichiers texte et listes CSV.")
+                "factures électroniques (Factur-X, UBL, CII), PDF issus d'un logiciel, fichiers texte et listes CSV.")
     st.caption("PDF scannés et photos : lecture par OCR Tesseract, gratuit et local (aucune API). Vérifiez toujours les montants lus.")
     banniere_demo()
 
@@ -99,10 +100,11 @@ def page_analyse_facture():
                    "donc déductible au paiement, sauf option du fournisseur pour les débits.")
 
     fichiers = st.file_uploader("📎 Déposer une ou plusieurs factures",
-                                type=["pdf", "txt", "csv", "png", "jpg", "jpeg"],
+                                type=["pdf", "xml", "txt", "csv", "png", "jpg", "jpeg"],
                                 accept_multiple_files=True, key="cf_upload")
     if not fichiers:
-        st.info("Déposez vos factures : PDF (y compris scanné), photo JPG/PNG, fichier texte ou liste CSV "
+        st.info("Déposez vos factures : facture électronique (Factur-X, XML UBL ou CII), PDF (y compris scanné), "
+                "photo JPG/PNG, fichier texte ou liste CSV "
                 "(colonnes Numéro, Date, Fournisseur, Montant HT, TVA, Montant TTC).")
         return
 
@@ -113,7 +115,7 @@ def page_analyse_facture():
         infos += i
     pieces, i2 = _ocr_images(pieces)
     for msg in [m for m in infos if "OCR Tesseract non installé" not in m] + i2:
-        (st.info if "lu par OCR" in msg or "lue par OCR" in msg else st.warning)(msg)
+        (st.info if re.search(r"lue? par OCR|données exactes|montants exacts", msg) else st.warning)(msg)
     if not pieces:
         st.error("Aucune facture lisible dans les fichiers déposés.")
         return
