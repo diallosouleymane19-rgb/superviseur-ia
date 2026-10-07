@@ -13,7 +13,9 @@ from utils.db_supabase import get_supabase
 
 logger = logging.getLogger(__name__)
 
-RETENTION_JOURS = 30  # duree conservation RGPD
+RETENTION_JOURS = 30            # analyses sauvegardées (politique de confidentialité, art. 4)
+RETENTION_COMPTE_JOURS = 3 * 365  # compte gratuit inactif : 3 ans après la dernière connexion
+RETENTION_JOURNAL_JOURS = 365     # journal des actions et décompte des quotas : 12 mois
 
 
 # =============================================================================
@@ -222,7 +224,46 @@ def purger_si_necessaire(intervalle_s: int = 3600) -> bool:
         return False
     _DERNIERE_PURGE = time.time()
     purger_donnees_expirees()
+    purger_journaux()
+    purger_comptes_inactifs()
     return True
+
+
+def purger_journaux():
+    """Supprime le journal des actions et le décompte des quotas de plus de 12 mois (RGPD)."""
+    limite = (datetime.utcnow() - timedelta(days=RETENTION_JOURNAL_JOURS)).isoformat()
+    for table in ("audit_logs", "smd_quota_usage"):
+        try:
+            res = get_supabase().table(table).delete().lt("created_at", limite).execute()
+            if res.data:
+                logger.info(f"RGPD : {len(res.data)} ligne(s) supprimée(s) dans {table}")
+        except Exception as e:
+            logger.error(f"purger_journaux {table} : {e}")
+
+
+def purger_comptes_inactifs() -> int:
+    """Supprime les comptes du plan gratuit sans connexion depuis 3 ans (jamais connectés : depuis la création),
+    avec leurs données liées. Les abonnements payants (relation en cours) et les administrateurs ne sont
+    jamais supprimés. Retourne le nombre de comptes supprimés."""
+    limite = (datetime.utcnow() - timedelta(days=RETENTION_COMPTE_JOURS)).isoformat()
+    try:
+        sb = get_supabase()
+        res = (sb.table("users").select("id, email")
+               .eq("plan", "free").neq("role", "admin")
+               .or_(f"last_login.lt.{limite},and(last_login.is.null,created_at.lt.{limite})")
+               .execute())
+        comptes = res.data or []
+        for c in comptes:
+            sb.table("audit_logs").delete().eq("user_id", c["id"]).execute()
+            for table in ("analyses", "clients", "smd_quota_usage"):
+                sb.table(table).delete().eq("user_email", c["email"]).execute()
+            sb.table("users").delete().eq("id", c["id"]).execute()   # chat_sessions : suppression en cascade
+        if comptes:
+            _log_action("PURGE_COMPTES_INACTIFS", "system", f"{len(comptes)} compte(s) gratuit(s) inactif(s) depuis 3 ans")
+        return len(comptes)
+    except Exception as e:
+        logger.error("purger_comptes_inactifs : " + str(e))
+        return 0
 
 
 def purger_donnees_expirees():

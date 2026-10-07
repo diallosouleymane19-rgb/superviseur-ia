@@ -74,7 +74,8 @@ def check_quota(action_type: str = "analyse", details: str = "") -> bool:
         """, unsafe_allow_html=True)
         col1, col2 = st.columns([1, 3])
         with col1:
-            st.link_button("🚀 Mettre à niveau", "https://smd-consulting.com/upgrade")
+            st.button("🚀 Mettre à niveau", key="btn_upgrade_quota",
+                      on_click=lambda: st.session_state.update(nav_page="💳 Tarifs & Abonnement"))
         return False
     return True
 
