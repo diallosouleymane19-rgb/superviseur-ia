@@ -391,6 +391,8 @@ def page_veille_fiscale():
                     st.markdown("### 🤖 Réponse IA")
                     from utils.page_helpers import mention_ia, avec_mention_ia
                     mention_ia()
+                    if result.get("masques"):
+                        st.caption(f"🔒 {result['masques']} identifiant(s) masqué(s) avant l'envoi à Mistral, remis en clair ici.")
                     st.markdown(result["content"])
 
                     col1, col2 = st.columns(2)

@@ -263,7 +263,8 @@ Fournis :
 6. Recommandations concrètes
 
 Sois concis et professionnel."""
-        result = appel_mistral(prompt, temperature=0.3)
+        result = appel_mistral(prompt, temperature=0.3,
+                               noms=[entreprise] if entreprise and entreprise.strip().lower() != "entreprise" else [])
         return extraire_contenu_mistral(result) or "Analyse indisponible."
     except Exception as e:
         return f"Analyse IA indisponible : {e}"

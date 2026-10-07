@@ -142,7 +142,22 @@ def get_api_key():
 # APPEL API MISTRAL - VERSION CORRIGÉE
 # =============================================================================
 
-def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
+def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False, noms=()):
+    """
+    Appel Mistral avec masquage des identifiants (RGPD) : e-mails, IBAN, n° de TVA, SIREN/SIRET,
+    téléphones et noms passés dans `noms` sont remplacés par des repères avant l'envoi,
+    puis remis en clair dans la réponse. Retourne aussi "masques" = nombre d'éléments masqués.
+    """
+    from utils.pseudonymisation import masquer, demasquer
+    prompt_masque, table = masquer(prompt, noms)
+    result = _appel_mistral_brut(prompt_masque, temperature, max_tokens, use_fallback)
+    if result.get("content"):
+        result["content"] = demasquer(result["content"], table)
+    result["masques"] = len(table)
+    return result
+
+
+def _appel_mistral_brut(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
     """
     Appel API Mistral avec gestion robuste des timeouts et retry intelligent.
     
@@ -205,7 +220,7 @@ def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
                 # Limite Mistral sur ce modèle : on tente une fois le modèle plus léger
                 if not use_fallback:
                     logger.info("429 sur le modèle principal, bascule vers le modèle fallback")
-                    return appel_mistral(prompt, temperature, max_tokens, use_fallback=True)
+                    return _appel_mistral_brut(prompt, temperature, max_tokens, use_fallback=True)
                 raison = response.text[:200] if response.text else "aucun détail"
                 return {"success": False, "content": "",
                         "error": ("⏱ Mistral refuse temporairement les appels (HTTP 429, modèle "
@@ -239,7 +254,7 @@ def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
             # PAS de retry sur read timeout → essayer fallback directement
             if not use_fallback:
                 logger.info("🔄 Bascule vers modèle fallback...")
-                return appel_mistral(prompt, temperature, max_tokens, use_fallback=True)
+                return _appel_mistral_brut(prompt, temperature, max_tokens, use_fallback=True)
             return {"success": False, "content": "", "error": f"⏱ {last_error}\n\nL'API est surchargée. Réessayez dans 1-2 minutes."}
             
         except requests.exceptions.ConnectionError as e:
@@ -261,7 +276,7 @@ def appel_mistral(prompt, temperature=0.3, max_tokens=2000, use_fallback=False):
     # Si échec avec modèle principal, essayer fallback
     if not use_fallback:
         logger.info("🔄 Tentative avec modèle fallback après échec...")
-        return appel_mistral(prompt, temperature, max_tokens, use_fallback=True)
+        return _appel_mistral_brut(prompt, temperature, max_tokens, use_fallback=True)
     
     return {
         "success": False,

@@ -427,8 +427,10 @@ elif page == "🔒 Confidentialité & Sécurité":
                    "dans une base hébergée dans l'UE (Irlande), puis supprimées automatiquement après 30 jours.")
     with col3:
         st.info("### 🤖 IA signalée\n\nLes analyses IA sont rédigées par Mistral AI (France) et signalées comme telles. "
-                "Les données utiles à l'analyse (par exemple soldes et libellés de comptes) lui sont transmises "
-                "sans anonymisation : n'y saisissez pas de données personnelles inutiles.")
+                "Avant l'envoi, les identifiants (SIREN, SIRET, n° de TVA, IBAN, e-mails, téléphones, nom de "
+                "l'entreprise saisi) sont remplacés par des repères, puis remis en clair dans la réponse. "
+                "Les montants et le texte libre sont transmis tels quels : n'y saisissez pas de données "
+                "personnelles inutiles.")
     st.caption("La comptabilisation des factures (comptes PCG, TVA, export FEC) est calculée par des règles, sans IA.")
     st.divider()
     st.markdown("[Conditions générales d'utilisation](?doc=cgu) · "

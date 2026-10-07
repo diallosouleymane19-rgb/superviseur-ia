@@ -136,7 +136,7 @@ Les données ne sont ni vendues ni louées. Elles sont accessibles à l'Éditeur
 | --- | --- | --- |
 | Supabase | Base de données (comptes, analyses sauvegardées, journal) | Union européenne (Irlande) |
 | Streamlit Community Cloud (Snowflake Inc.) | Hébergement et exécution de l'application | Non publiée par le prestataire [À VÉRIFIER] |
-| Mistral AI | Rédaction des textes des Fonctions IA ; reçoit les données utiles à l'analyse demandée, sans anonymisation | France [À VÉRIFIER : réutilisation pour l'entraînement selon le plan souscrit] |
+| Mistral AI | Rédaction des textes des Fonctions IA ; reçoit les données utiles à l'analyse demandée, identifiants masqués (article 8) | France [À VÉRIFIER : réutilisation pour l'entraînement selon le plan souscrit] |
 | Stripe | Paiement des abonnements | [À VÉRIFIER selon le contrat Stripe] |
 
 ### Article 6 — Transferts hors de l'Union européenne
@@ -149,7 +149,7 @@ Les mots de passe sont chiffrés (bcrypt) et jamais stockés en clair. Les écha
 
 ### Article 8 — Intelligence artificielle
 
-Les textes rédigés par l'IA (Mistral AI) sont signalés comme tels dans le Service, conformément à l'article 50 du règlement européen sur l'IA. La comptabilisation des factures est calculée par des règles, sans IA. L'Utilisateur est invité à ne pas transmettre de données personnelles inutiles aux Fonctions IA.
+Les textes rédigés par l'IA (Mistral AI) sont signalés comme tels dans le Service, conformément à l'article 50 du règlement européen sur l'IA. Avant tout envoi à Mistral AI, les identifiants détectés (SIREN, SIRET, numéro de TVA, IBAN, adresses e-mail, numéros de téléphone, nom de l'entreprise saisi) sont remplacés par des repères, puis remis en clair dans la réponse sur le serveur de l'application. Il s'agit d'une pseudonymisation partielle : les montants et le texte libre, dont un nom de personne, sont transmis tels quels. La comptabilisation des factures est calculée par des règles, sans IA. L'Utilisateur est invité à ne pas transmettre de données personnelles inutiles aux Fonctions IA.
 
 ### Article 9 — Vos droits
 
