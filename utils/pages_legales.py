@@ -136,7 +136,7 @@ Les données ne sont ni vendues ni louées. Elles sont accessibles à l'Éditeur
 | --- | --- | --- |
 | Supabase | Base de données (comptes, analyses sauvegardées, journal) | Union européenne (Irlande) |
 | Streamlit Community Cloud (Snowflake Inc.) | Hébergement et exécution de l'application | Non publiée par le prestataire [À VÉRIFIER] |
-| Mistral AI | Rédaction des textes des Fonctions IA ; reçoit les données utiles à l'analyse demandée, identifiants masqués (article 8) | France [À VÉRIFIER : réutilisation pour l'entraînement selon le plan souscrit] |
+| Mistral AI | Rédaction des textes des Fonctions IA ; reçoit les données utiles à l'analyse demandée, identifiants masqués (article 8) | France ; utilisation pour l'entraînement des modèles désactivée depuis le 07/10/2026 |
 | Stripe | Paiement des abonnements | [À VÉRIFIER selon le contrat Stripe] |
 
 ### Article 6 — Transferts hors de l'Union européenne

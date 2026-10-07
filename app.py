@@ -82,6 +82,7 @@ if not is_connecte():
                 "<li>Fichiers non enregistrés <span>: lus en mémoire le temps de l'analyse</span></li>"
                 "<li>Sauvegardes limitées <span>: à votre demande, dans l'UE, supprimées après 30 jours</span></li>"
                 "<li>IA signalée <span>: tout texte rédigé par l'IA (Mistral AI) est identifié</span></li>"
+                "<li>Non utilisées pour entraîner l'IA <span>: option désactivée chez Mistral depuis le 07/10/2026</span></li>"
                 "</ul>",
                 unsafe_allow_html=True,
             )
@@ -430,7 +431,8 @@ elif page == "🔒 Confidentialité & Sécurité":
                 "Avant l'envoi, les identifiants (SIREN, SIRET, n° de TVA, IBAN, e-mails, téléphones, nom de "
                 "l'entreprise saisi) sont remplacés par des repères, puis remis en clair dans la réponse. "
                 "Les montants et le texte libre sont transmis tels quels : n'y saisissez pas de données "
-                "personnelles inutiles.")
+                "personnelles inutiles. L'utilisation de ces données pour entraîner les modèles de Mistral "
+                "est désactivée depuis le 07/10/2026.")
     st.caption("La comptabilisation des factures (comptes PCG, TVA, export FEC) est calculée par des règles, sans IA.")
     st.divider()
     st.markdown("[Conditions générales d'utilisation](?doc=cgu) · "
