@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from utils.page_helpers import (
+    bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
     banniere_demo, is_demo, appel_mistral_securise,
     afficher_rapport, afficher_synthese_score,
@@ -364,9 +365,7 @@ def page_coherence():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder", width="stretch"):
-                            sauvegarder_si_autorise(type_analyse="Cohérence", resultat=rapport)
-                            st.success("✅ Sauvegardé !")
+                        bouton_sauvegarde(type_analyse="Cohérence", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
                         try:
                             generer_bouton_word(f"Coherence_{nom_entreprise}", rapport)

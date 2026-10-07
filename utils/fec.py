@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from utils.page_helpers import (
+    bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
     banniere_demo, is_demo, appel_mistral_securise,
     afficher_rapport, afficher_synthese_score,
@@ -436,13 +437,7 @@ def page_fec():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder le rapport", width="stretch"):
-                            sauvegarder_si_autorise(
-                                type_analyse="Audit FEC", 
-                                resultat=f"Score: {score}% - {analyse}"
-                            )
-                            st.success("✅ Rapport sauvegardé !")
-
+                        bouton_sauvegarde(type_analyse="Audit FEC", resultat=f"Score: {score}% - {analyse}", libelle="💾 Sauvegarder le rapport")
                     with col2:
                         rapport_complet = f"""# RAPPORT D'AUDIT FEC
 

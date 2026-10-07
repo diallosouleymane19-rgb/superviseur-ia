@@ -57,11 +57,25 @@ def sauvegarder_si_autorise(type_analyse: str, resultat) -> bool:
         st.info("💡 Sauvegarde désactivée en mode démonstration.")
         return False
     try:
-        sauvegarder_analyse(type_analyse=type_analyse, resultat=resultat)
-        return True
+        if sauvegarder_analyse(type_analyse=type_analyse, resultat=resultat):
+            return True
+        st.warning("⚠ Sauvegarde impossible : base de données indisponible. Réessayez plus tard.")
+        return False
     except Exception as e:
         st.warning(f"⚠ Sauvegarde impossible : {e}")
         return False
+
+
+def bouton_sauvegarde(type_analyse: str, resultat, libelle: str = "💾 Sauvegarder", key: str = None):
+    """Bouton de sauvegarde qui fonctionne même placé sous un autre bouton (« Générer… »).
+    La sauvegarde est faite dans le rappel (on_click), exécuté avant le rechargement de la page :
+    un bouton classique imbriqué ne déclenche jamais son code, car le bouton parent redevient faux."""
+    def _sauver():
+        if is_demo():
+            st.toast("💡 Sauvegarde désactivée en mode démonstration.")
+        elif sauvegarder_si_autorise(type_analyse=type_analyse, resultat=resultat):
+            st.toast(f"✅ {type_analyse} sauvegardé(e) pour 30 jours.")
+    st.button(libelle, width="stretch", key=key or f"save_{type_analyse}", on_click=_sauver)
 
 
 # =============================================================================

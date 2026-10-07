@@ -9,6 +9,7 @@ import numpy as np
 import math
 from datetime import datetime
 from utils.page_helpers import (
+    bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
     banniere_demo, is_demo, appel_mistral_securise,
     afficher_rapport, afficher_synthese_score,
@@ -388,9 +389,7 @@ def page_benford():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder", width="stretch"):
-                            sauvegarder_si_autorise(type_analyse="Loi de Benford", resultat=rapport)
-                            st.success("✅ Sauvegardé !")
+                        bouton_sauvegarde(type_analyse="Loi de Benford", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
                         try:
                             generer_bouton_word("Audit_Benford", rapport)

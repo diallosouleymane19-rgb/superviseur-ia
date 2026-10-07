@@ -4,6 +4,7 @@ from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 from datetime import datetime
 from utils.page_helpers import (
+    bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
     banniere_demo, is_demo, appel_mistral_securise,
     afficher_rapport, afficher_synthese_score,
@@ -365,10 +366,7 @@ def page_rapport_client():
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("💾 Sauvegarder", width="stretch"):
-                        sauvegarder_si_autorise(type_analyse="Rapport Client", resultat=rapport)
-                        st.success("✅ Sauvegardé !")
-
+                    bouton_sauvegarde(type_analyse="Rapport Client", resultat=rapport, libelle="💾 Sauvegarder")
                 with col2:
                     try:
                         nom_fichier = f"Rapport_{nom_client.replace(' ', '_')}_{periode}_{exercice}"

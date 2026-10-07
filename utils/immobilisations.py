@@ -12,6 +12,7 @@ from datetime import datetime
 import pandas as pd
 from datetime import datetime
 from utils.page_helpers import (
+    bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
     banniere_demo, is_demo, appel_mistral_securise,
     afficher_rapport, afficher_synthese_score,
@@ -342,10 +343,8 @@ def page_immobilisations():
                     st.divider()
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder", width="stretch"):
-                            rapport = generer_rapport_immobilisation(nom_bien, tableau, mode)
-                            sauvegarder_si_autorise(type_analyse="Immobilisation", resultat=rapport)
-                            st.success("✅ Sauvegardé !")
+                        rapport = generer_rapport_immobilisation(nom_bien, tableau, mode)
+                        bouton_sauvegarde(type_analyse="Immobilisation", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
                         rapport = generer_rapport_immobilisation(nom_bien, tableau, mode)
                         try:
@@ -399,11 +398,8 @@ def page_immobilisations():
                 st.dataframe(result['ecritures'], width="stretch", hide_index=True)
 
                 st.divider()
-                if st.button("💾 Sauvegarder la cession", width="stretch"):
-                    rapport_c = f"Cession {nom_bien_c} : {result['type_resultat']} {result['resultat_cession']:,.2f} €"
-                    sauvegarder_si_autorise(type_analyse="Cession Immobilisation", resultat=rapport_c)
-                    st.success("✅ Sauvegardé !")
-
+                rapport_c = f"Cession {nom_bien_c} : {result['type_resultat']} {result['resultat_cession']:,.2f} €"
+                bouton_sauvegarde(type_analyse="Cession Immobilisation", resultat=rapport_c, libelle="💾 Sauvegarder la cession")
     # ── ONGLET 3 : PLAN D'INVESTISSEMENT ──
     with onglet3:
         st.markdown("### 📊 Plan d'investissement — Suivi du parc")

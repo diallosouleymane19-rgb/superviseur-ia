@@ -6,6 +6,7 @@ Provisions, Régularisations, Stocks, Check-list clôture
 import pandas as pd
 from datetime import datetime
 from utils.page_helpers import (
+    bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
     banniere_demo, is_demo, appel_mistral_securise,
     afficher_rapport, afficher_synthese_score,
@@ -332,10 +333,7 @@ def page_inventaire():
     - Crédit **491** (Provision créances douteuses) : {total:,.2f} €
                 """)
 
-                if st.button("💾 Sauvegarder", width="stretch", key="save_prov_creances"):
-                    sauvegarder_si_autorise(type_analyse="Provisions créances", resultat=df_resultats.to_string())
-                    st.success("✅ Sauvegardé !")
-
+                bouton_sauvegarde(type_analyse="Provisions créances", resultat=df_resultats.to_string(), libelle="💾 Sauvegarder", key="save_prov_creances")
         with sous_onglet2:
             st.markdown("#### 🛡 Provisions pour risques et charges")
             st.caption("Compte 15x — Risques identifiés fin d'exercice")
@@ -424,10 +422,7 @@ def page_inventaire():
             total_reg = df_reg['Montant régularisé (€)'].sum()
             st.metric("💰 Total à régulariser", f"{total_reg:,.2f} €")
 
-            if st.button("💾 Sauvegarder", width="stretch", key="save_reg"):
-                sauvegarder_si_autorise(type_analyse="Régularisations", resultat=df_reg.to_string())
-                st.success("✅ Sauvegardé !")
-
+            bouton_sauvegarde(type_analyse="Régularisations", resultat=df_reg.to_string(), libelle="💾 Sauvegarder", key="save_reg")
     # ── ONGLET 3 : STOCKS ──
     with onglet3:
         st.markdown("### 📦 Ajustement des stocks")
@@ -467,13 +462,7 @@ def page_inventaire():
             st.markdown("### 📚 Écriture comptable")
             st.dataframe(result['ecriture'], width="stretch", hide_index=True)
 
-            if st.button("💾 Sauvegarder", width="stretch", key="save_stock"):
-                sauvegarder_si_autorise(
-                    type_analyse="Variation stock",
-                    resultat=f"Stock {type_stock} : variation {result['variation']:,.2f} €"
-                )
-                st.success("✅ Sauvegardé !")
-
+            bouton_sauvegarde(type_analyse="Variation stock", resultat=f"Stock {type_stock} : variation {result['variation']:,.2f} €", libelle="💾 Sauvegarder", key="save_stock")
     # ── ONGLET 4 : CHECK-LIST CLÔTURE ──
     with onglet4:
         st.markdown("### ✅ Check-list de clôture d'exercice")
@@ -508,12 +497,7 @@ def page_inventaire():
 
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 Sauvegarder", width="stretch", key="save_checklist"):
-                    sauvegarder_si_autorise(
-                        type_analyse="Check-list clôture",
-                        resultat=df_checklist.to_string()
-                    )
-                    st.success("✅ Sauvegardé !")
+                bouton_sauvegarde(type_analyse="Check-list clôture", resultat=df_checklist.to_string(), libelle="💾 Sauvegarder", key="save_checklist")
             with col2:
                 try:
                     rapport = f"CHECK-LIST CLÔTURE {exercice}\n\n" + df_checklist.to_string()

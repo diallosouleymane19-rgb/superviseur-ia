@@ -10,6 +10,7 @@ from utils.sig_pcg import nb_fr, eur_fr, pct_fr
 import numpy as np
 from datetime import datetime
 from utils.page_helpers import (
+    bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
     banniere_demo, is_demo, appel_mistral_securise,
     afficher_rapport, afficher_synthese_score,
@@ -435,9 +436,7 @@ def page_compte_resultat():
                         rapport = generer_rapport_compte_resultat(resultat, nom_entreprise, exercice)
                         col1, col2 = st.columns(2)
                         with col1:
-                            if st.button("💾 Sauvegarder", width="stretch"):
-                                sauvegarder_si_autorise(type_analyse="Compte de Résultat", resultat=rapport)
-                                st.success("✅ Sauvegardé !")
+                            bouton_sauvegarde(type_analyse="Compte de Résultat", resultat=rapport, libelle="💾 Sauvegarder")
                         with col2:
                             try:
                                 generer_bouton_word(f"Compte_Resultat_{nom_entreprise}", rapport)

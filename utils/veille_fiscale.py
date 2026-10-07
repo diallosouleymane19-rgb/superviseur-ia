@@ -252,6 +252,7 @@ def page_veille_fiscale():
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
+    bouton_sauvegarde,
         sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
@@ -281,35 +282,44 @@ def page_veille_fiscale():
 
         st.divider()
 
+        # La liste et les analyses IA sont gardées en mémoire de session : un clic sur « Analyser avec IA »
+        # recharge la page, et sans cela la liste disparaissait avant que l'analyse ne s'affiche.
         if st.button("🔄 Actualiser la veille France", type="primary", width="stretch"):
             with st.spinner("Récupération des actualités fiscales françaises..."):
                 try:
-                    actualites = obtenir_veille_fiscale()
+                    st.session_state["veille_fr"] = obtenir_veille_fiscale() or []
+                    st.session_state["veille_fr_ia"] = {}
+                except Exception as e:
+                    st.session_state.pop("veille_fr", None)
+                    st.error(f"❌ Erreur de récupération : {str(e)}")
 
-                    if actualites and len(actualites) > 0:
-                        st.success(f"✅ {len(actualites)} actualité(s) récupérée(s)")
+        actualites = st.session_state.get("veille_fr")
+        if actualites is not None:
+            analyses_ia = st.session_state.setdefault("veille_fr_ia", {})
+            if len(actualites) > 0:
+                st.success(f"✅ {len(actualites)} actualité(s) récupérée(s)")
+                for idx, article in enumerate(actualites):
+                    if not isinstance(article, dict):
+                        continue
+                    titre = article.get('titre', 'Sans titre')
+                    date = article.get('date', 'Date inconnue')
+                    resume = article.get('resume', '')
+                    lien = article.get('lien', '')
+                    source = article.get('source', 'Source officielle')
 
-                        for idx, article in enumerate(actualites):
-                            if isinstance(article, dict):
-                                titre = article.get('titre', 'Sans titre')
-                                date = article.get('date', 'Date inconnue')
-                                resume = article.get('resume', '')
-                                lien = article.get('lien', '')
-                                source = article.get('source', 'Source officielle')
+                    with st.expander(f"📄 {titre}", expanded=idx in analyses_ia):
+                        col1, col2 = st.columns([2, 1])
+                        with col1:
+                            st.caption(f"🗓 {date} | 📡 {source}")
+                        with col2:
+                            if lien:
+                                st.markdown(f"[🔗 Article complet]({lien})")
+                        if resume:
+                            st.markdown(resume)
 
-                                with st.expander(f"📄 {titre}"):
-                                    col1, col2 = st.columns([2, 1])
-                                    with col1:
-                                        st.caption(f"🗓 {date} | 📡 {source}")
-                                    with col2:
-                                        if lien:
-                                            st.markdown(f"[🔗 Article complet]({lien})")
-                                    if resume:
-                                        st.markdown(resume)
-
-                                    if st.button(f"🤖 Analyser avec IA", key=f"ia_{idx}"):
-                                        with st.spinner("Analyse IA..."):
-                                            prompt = f"""En tant qu'expert fiscal français, analyse cette actualité :
+                        if st.button("🤖 Analyser avec IA", key=f"ia_{idx}"):
+                            with st.spinner("Analyse IA..."):
+                                prompt = f"""En tant qu'expert fiscal français, analyse cette actualité :
 
     Titre : {titre}
     Résumé : {resume}
@@ -319,48 +329,22 @@ def page_veille_fiscale():
     2. Actions à entreprendre
     3. Délais à respecter
     4. Références légales (CGI, BOFiP)"""
-                                            result = appel_mistral_securise(prompt, temperature=0.2, label="analyse fiscale")
-                                            if result["success"]:
-                                                st.markdown("#### 🤖 Analyse IA")
-                                                from utils.page_helpers import mention_ia
-                                                mention_ia()
-                                                st.markdown(result["content"])
+                                analyses_ia[idx] = appel_mistral_securise(prompt, temperature=0.2, label="analyse fiscale")
+                        result = analyses_ia.get(idx)
+                        if result and result.get("success"):
+                            st.markdown("#### 🤖 Analyse IA")
+                            from utils.page_helpers import mention_ia
+                            mention_ia()
+                            if result.get("masques"):
+                                st.caption(f"🔒 {result['masques']} identifiant(s) masqué(s) avant l'envoi à Mistral.")
+                            st.markdown(result["content"])
+                        elif result:
+                            st.error(f"❌ {result.get('error') or 'Analyse IA indisponible.'}")
 
-                        sauvegarder_si_autorise(type_analyse="Veille Fiscale France", resultat=str(actualites))
-
-                    else:
-                        st.info("ℹ Aucune actualité récente. Consultez directement les sources officielles.")
-
-                except Exception as e:
-                    st.error(f"❌ Erreur de récupération : {str(e)}")
-
-        st.divider()
-
-        annee = datetime.now().year
-        st.markdown(f"### 📅 Calendrier Fiscal France {annee}")
-
-        aujourd_hui = datetime.now()
-        echeances_enrichies = []
-        for e in calendrier_fiscal(annee):
-            jours_restants = (e["date"] - aujourd_hui).days
-            if 0 <= jours_restants <= 30:
-                statut = f"⚠ Dans {jours_restants} jours"
-            elif jours_restants < 0:
-                statut = "✅ Passée"
+                bouton_sauvegarde(type_analyse="Veille Fiscale France", resultat=str(actualites),
+                                  libelle="💾 Sauvegarder la veille")
             else:
-                statut = f"📅 Dans {jours_restants} jours"
-            echeances_enrichies.append({
-                "Échéance": e["date"].strftime("%d/%m/%Y"),
-                "Obligation": e["obligation"],
-                "Concerne": e["concerne"],
-                "Statut": statut,
-            })
-
-        df_echeances = pd.DataFrame(echeances_enrichies)
-        st.dataframe(df_echeances, width="stretch", hide_index=True)
-        st.caption("Dates décalées au jour ouvré suivant (week-ends et fériés fixes). "
-                   "Exercice non clos au 31/12 : liasse dans les 3 mois de la clôture. "
-                   f"Données vérifiées : {DATE_MAJ_DONNEES}.")
+                st.info("ℹ Aucune actualité récente. Consultez directement les sources officielles.")
 
     with onglet2:
         st.markdown("### 🤖 Posez votre question fiscale à l'IA")
@@ -397,12 +381,7 @@ def page_veille_fiscale():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("💾 Sauvegarder", width="stretch"):
-                            sauvegarder_si_autorise(
-                                type_analyse="Question Fiscale IA",
-                                resultat=avec_mention_ia(result["content"])
-                            )
-                            st.success("✅ Sauvegardé !")
+                        bouton_sauvegarde(type_analyse="Question Fiscale IA", resultat=avec_mention_ia(result["content"]), libelle="💾 Sauvegarder")
                     with col2:
                         try:
                             generer_bouton_word("Reponse_Fiscale", avec_mention_ia(result["content"]))
