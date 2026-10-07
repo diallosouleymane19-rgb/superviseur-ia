@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import utils.bilan as B
 import io
 from datetime import datetime
 
@@ -29,19 +30,19 @@ def _ecart(val_n: float, val_n1: float):
 def _fmt(v: float) -> str:
     if v is None:
         return "—"
-    return f"{v:,.0f} €"
+    return f"{v:,.0f} €".replace(",", " ")
 
 
 def _fmt_pct(v: float) -> str:
     if v is None:
         return "—"
     sign = "+" if v >= 0 else ""
-    return f"{sign}{v:.1f}%"
+    return f"{sign}{v:.1f} %".replace(".", ",")
 
 
 def _fmt_ecart(v: float) -> str:
     sign = "+" if v >= 0 else ""
-    return f"{sign}{v:,.0f} €"
+    return f"{sign}{v:,.0f} €".replace(",", " ")
 
 
 # ─────────────────────────────────────────────
@@ -130,12 +131,12 @@ def _chart_cdr_comparatif(sig_n: dict, sig_n1: dict, label_n: str, label_n1: str
 def _chart_bilan_comparatif(bilan_n: dict, bilan_n1: dict, label_n: str, label_n1: str):
     """Bar chart structure bilan N vs N-1."""
     postes = [
-        ('actif', 'TOTAL IMMOBILISATIONS'),
-        ('actif', 'TOTAL ACTIF CIRCULANT'),
-        ('actif', 'TOTAL TRESORERIE'),
-        ('passif', 'Capitaux propres'),
-        ('passif', 'Dettes financieres (16)'),
-        ('passif', 'TOTAL DETTES'),
+        ('actif', B.TOTAL_AI),
+        ('actif', B.TOTAL_AC),
+        ('actif', B.TOTAL_TRESO),
+        ('passif', B.TOTAL_CP),
+        ('passif', B.EMPRUNTS),
+        ('passif', B.TOTAL_DETTES),
     ]
     labels, vals_n1, vals_n = [], [], []
     for section, cle in postes:
@@ -375,10 +376,10 @@ def page_comparatif():
 
     # Métriques bilan
     bilan_cles = [
-        ("🏗 Total Actif", 'actif', 'TOTAL ACTIF'),
-        ("💼 Capitaux Propres", 'passif', 'Capitaux propres'),
-        ("🏦 FDR", 'ratios', 'Fonds de roulement net global (FRNG)'),
-        ("⚡ BFR", 'ratios', 'Besoin en fonds de roulement (BFR)'),
+        ("🏗 Total Actif", 'actif', B.TOTAL_ACTIF),
+        ("💼 Capitaux Propres", 'passif', B.TOTAL_CP),
+        ("🏦 FRNG", 'ratios', B.R_FRNG),
+        ("⚡ BFR", 'ratios', B.R_BFR),
     ]
     cols2 = st.columns(4)
     for i, (label_m, section, cle) in enumerate(bilan_cles):
@@ -455,13 +456,13 @@ def page_comparatif():
             alertes.append(('warning', f"⚠ Résultat net : variation significative de {ea_rn:+,.0f} €"))
 
     # BFR
-    bfr_n = (bilan_n.get('ratios') or {}).get('Besoin en fonds de roulement (BFR)', 0) or 0
-    bfr_n1 = (bilan_n1.get('ratios') or {}).get('Besoin en fonds de roulement (BFR)', 0) or 0
+    bfr_n = (bilan_n.get('ratios') or {}).get(B.R_BFR, 0) or 0
+    bfr_n1 = (bilan_n1.get('ratios') or {}).get(B.R_BFR, 0) or 0
     if bfr_n > bfr_n1 * 1.20 and bfr_n1 > 0:
         alertes.append(('warning', f"⚠ BFR en hausse de {((bfr_n/bfr_n1)-1)*100:.1f}% — surveiller le cycle d'exploitation"))
 
     # FDR
-    fdr_n = (bilan_n.get('ratios') or {}).get('Fonds de roulement net global (FRNG)', 0) or 0
+    fdr_n = (bilan_n.get('ratios') or {}).get(B.R_FRNG, 0) or 0
     if fdr_n < 0:
         alertes.append(('error', "🔴 Fonds de Roulement négatif — risque de déséquilibre financier"))
 
