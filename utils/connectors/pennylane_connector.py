@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 utils/connectors/pennylane_connector.py - SMD Global Consulting LLC
-Connecteur Pennylane via API REST (cle API).
+Connecteur Pennylane via API REST (clé API).
 Doc : https://pennylane.readme.io/reference
 """
 
@@ -40,7 +40,7 @@ class PennylaneConnector(BaseConnector):
                 self.credentials["company_id"] = companies[0].get("id", "")
             nom = companies[0].get("name", "inconnu") if companies else "inconnu"
             self._connected = True
-            return {"ok": True, "info": "Pennylane — " + str(len(companies)) + " societe(s) — " + nom}
+            return {"ok": True, "info": "Pennylane — " + str(len(companies)) + " société(s) — " + nom}
         except Exception as e:
             return {"error": str(e)}
 
@@ -89,7 +89,7 @@ class PennylaneConnector(BaseConnector):
                         acc = line.get("ledger_account", {})
                         rows.append({
                             "JournalCode":  str(e.get("source_type", "OD"))[:6],
-                            "JournalLib":   str(e.get("source_type", "Operations diverses")),
+                            "JournalLib":   str(e.get("source_type", "Opérations diverses")),
                             "EcritureNum":  str(e.get("id", "")),
                             "EcritureDate": self._normaliser_date(e.get("date", "")),
                             "CompteNum":    str(acc.get("number", acc.get("code", ""))),

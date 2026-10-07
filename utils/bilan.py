@@ -243,7 +243,7 @@ def generer_rapport_bilan(bilan, nom_entreprise="Entreprise", exercice=""):
 
 
 def generer_bilan(df, date_cloture):
-    """Wrapper pour compatibilite"""
+    """Wrapper pour compatibilité"""
     return calculer_bilan(df, date_cloture)
 
 

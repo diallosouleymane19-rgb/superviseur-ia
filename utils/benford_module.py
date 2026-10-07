@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Module Loi de Benford Professionnel - SMD Global Consulting LLC
-Detection de fraude statistique pour Cabinets d'Audit
+Détection de fraude statistique pour Cabinets d'Audit
 """
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
@@ -30,12 +30,12 @@ except ImportError:
 
 
 def loi_benford_theorique(digit):
-    """Distribution theorique de Benford pour le 1er chiffre (1-9)"""
+    """Distribution théorique de Benford pour le 1er chiffre (1-9)"""
     return math.log10(1 + 1/digit)
 
 
 def loi_benford_2eme_chiffre(digit):
-    """Distribution theorique pour le 2eme chiffre (0-9)"""
+    """Distribution théorique pour le 2ème chiffre (0-9)"""
     if digit == 0:
         return sum(math.log10(1 + 1/(10*k + 0)) for k in range(1, 10))
     return sum(math.log10(1 + 1/(10*k + digit)) for k in range(1, 10))
@@ -73,12 +73,12 @@ def extraire_deux_premiers_chiffres(valeur):
 
 def analyse_benford_complete(df, col_montant):
     """
-    Analyse Benford professionnelle complete
+    Analyse Benford professionnelle complète
     
     Returns:
         fig: Figure Plotly
         rapport: Rapport markdown
-        score_risque: 'Faible', 'Modere', 'Eleve'
+        score_risque: 'Faible', 'Modéré', 'Élevé'
     """
     # Extraction des valeurs
     valeurs = pd.to_numeric(
@@ -88,7 +88,7 @@ def analyse_benford_complete(df, col_montant):
     valeurs = valeurs[valeurs != 0]
     
     if len(valeurs) < 30:
-        return None, "Echantillon trop faible (minimum 30 valeurs requises)", "Indeterminee"
+        return None, "Échantillon trop faible (minimum 30 valeurs requises)", "Indeterminee"
     
     # ===== 1. ANALYSE DU PREMIER CHIFFRE =====
     premiers_chiffres = valeurs.apply(extraire_premier_chiffre).dropna().astype(int)
@@ -125,17 +125,17 @@ def analyse_benford_complete(df, col_montant):
     
     # Interpretation MAD (selon Mark Nigrini)
     if mad < 0.0006 * 100:
-        interpretation_mad = "Conformite parfaite"
+        interpretation_mad = "Conformité parfaite"
         risque_mad = "Faible"
     elif mad < 0.0012 * 100:
-        interpretation_mad = "Conformite acceptable"
+        interpretation_mad = "Conformité acceptable"
         risque_mad = "Faible"
     elif mad < 0.0015 * 100:
-        interpretation_mad = "Conformite marginale"
-        risque_mad = "Modere"
+        interpretation_mad = "Conformité marginale"
+        risque_mad = "Modéré"
     else:
-        interpretation_mad = "Non conformite"
-        risque_mad = "Eleve"
+        interpretation_mad = "Non conformité"
+        risque_mad = "Élevé"
     
     # Z-scores par chiffre
     z_scores = {}
@@ -150,9 +150,9 @@ def analyse_benford_complete(df, col_montant):
     # ===== 3. SCORE DE RISQUE GLOBAL =====
     # Combinaison MAD + chi2 + chiffres anormaux
     if mad > 0.0015 * 100 and len(chiffres_anormaux) > 2:
-        score_risque = "Eleve"
+        score_risque = "Élevé"
     elif mad > 0.0012 * 100 or len(chiffres_anormaux) > 1:
-        score_risque = "Modere"
+        score_risque = "Modéré"
     else:
         score_risque = "Faible"
     
@@ -162,7 +162,7 @@ def analyse_benford_complete(df, col_montant):
         fig = make_subplots(
             rows=1, cols=2,
             subplot_titles=(
-                "Distribution observee vs theorique",
+                "Distribution observée vs théorique",
                 "Z-scores par chiffre"
             )
         )
@@ -182,7 +182,7 @@ def analyse_benford_complete(df, col_montant):
             go.Scatter(
                 x=list(range(1, 10)),
                 y=freq_theorique.values,
-                name='Benford theorique',
+                name='Benford théorique',
                 mode='lines+markers',
                 marker_color='red',
                 line=dict(width=3)
@@ -209,12 +209,12 @@ def analyse_benford_complete(df, col_montant):
                       annotation_text="Seuil 99%", row=1, col=2)
         
         fig.update_xaxes(title_text="Premier chiffre", row=1, col=1)
-        fig.update_yaxes(title_text="Frequence (%)", row=1, col=1)
+        fig.update_yaxes(title_text="Fréquence (%)", row=1, col=1)
         fig.update_xaxes(title_text="Chiffre", row=1, col=2)
         fig.update_yaxes(title_text="Z-score", row=1, col=2)
         
         fig.update_layout(
-            title_text=f"Analyse Benford - {n:,} valeurs analysees",
+            title_text=f"Analyse Benford - {n:,} valeurs analysées",
             height=500,
             showlegend=True
         )
@@ -223,13 +223,13 @@ def analyse_benford_complete(df, col_montant):
     rapport = []
     rapport.append("## 📊 ANALYSE LOI DE BENFORD\n")
     rapport.append(f"**Date d'analyse** : {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    rapport.append(f"**Echantillon** : {n:,} valeurs analysees")
+    rapport.append(f"**Échantillon** : {n:,} valeurs analysées")
     rapport.append(f"**Colonne** : {col_montant}\n")
     
     # Indicateurs cles
-    rapport.append("### 🎯 INDICATEURS CLES\n")
-    rapport.append(f"- **MAD (Mean Absolute Deviation)** : {mad:.4f}%")
-    rapport.append(f"- **Interpretation MAD** : {interpretation_mad}")
+    rapport.append("### 🎯 INDICATEURS CLÉS\n")
+    rapport.append(f"- **MAD (Mean Absolute Déviation)** : {mad:.4f}%")
+    rapport.append(f"- **Interprétation MAD** : {interpretation_mad}")
     rapport.append(f"- **Chi-carre** : {chi2:.4f}")
     if p_value is not None:
         rapport.append(f"- **P-value** : {p_value:.4f}")
@@ -238,7 +238,7 @@ def analyse_benford_complete(df, col_montant):
     
     # Tableau des distributions
     rapport.append("### 📈 DISTRIBUTION DES CHIFFRES\n")
-    rapport.append("| Chiffre | Theorique (%) | Observe (%) | Ecart | Z-score |")
+    rapport.append("| Chiffre | Théorique (%) | Observé (%) | Écart | Z-score |")
     rapport.append("|---------|---------------|-------------|-------|---------|")
     for d in range(1, 10):
         ecart = freq_observee[d] - freq_theorique[d]
@@ -257,35 +257,35 @@ def analyse_benford_complete(df, col_montant):
     rapport.append(f"### 🚨 SCORE DE RISQUE : **{score_risque.upper()}**\n")
     
     if score_risque == "Faible":
-        rapport.append("✅ **Conformite a la loi de Benford** : les donnees ne presentent pas de signe statistique de manipulation.")
+        rapport.append("✅ **Conformité à la loi de Benford** : les données ne présentent pas de signe statistique de manipulation.")
         rapport.append("")
         rapport.append("**Recommandations cabinet :**")
-        rapport.append("- Verification routine - pas d'investigation approfondie necessaire")
+        rapport.append("- Vérification routine - pas d'investigation approfondie nécessaire")
         rapport.append("- Conserver l'analyse pour la documentation d'audit")
     
-    elif score_risque == "Modere":
-        rapport.append("⚠ **Ecarts statistiques detectes** : certains chiffres s'ecartent de la distribution theorique.")
+    elif score_risque == "Modéré":
+        rapport.append("⚠ **Écarts statistiques détectés** : certains chiffres s'écartent de la distribution théorique.")
         rapport.append("")
         rapport.append("**Recommandations cabinet :**")
-        rapport.append("- Examiner les transactions associees aux chiffres anormaux")
-        rapport.append("- Verifier les seuils d'autorisation (souvent a l'origine d'ecarts)")
+        rapport.append("- Examiner les transactions associées aux chiffres anormaux")
+        rapport.append("- Vérifier les seuils d'autorisation (souvent à l'origine d'écarts)")
         rapport.append("- Croiser avec une analyse des cycles d'autorisation")
     
     else:  # Eleve
-        rapport.append("🚨 **ANOMALIES SIGNIFICATIVES** : la distribution s'ecarte fortement de Benford.")
+        rapport.append("🚨 **ANOMALIES SIGNIFICATIVES** : la distribution s'écarte fortement de Benford.")
         rapport.append("")
         rapport.append("**Recommandations cabinet :**")
-        rapport.append("- **Audit approfondi recommande**")
+        rapport.append("- **Audit approfondi recommandé**")
         rapport.append("- Examiner les transactions saisies manuellement")
-        rapport.append("- Verifier les seuils d'arrondi et de validation")
+        rapport.append("- Vérifier les seuils d'arrondi et de validation")
         rapport.append("- Analyser les cycles de paiement et autorisations")
         rapport.append("- Croiser avec d'autres tests d'audit (Z-score, percentiles)")
-        rapport.append("- Considerer une enquete sur la fraude potentielle")
+        rapport.append("- Considérer une enquête sur la fraude potentielle")
     
     rapport.append("")
     rapport.append("---")
-    rapport.append("*Analyse generee par SMD Global Consulting LLC - Superviseur IA Comptable*")
-    rapport.append("*Methode : Loi de Benford - 1er chiffre significatif*")
+    rapport.append("*Analyse générée par SMD Global Consulting LLC - Superviseur IA Comptable*")
+    rapport.append("*Méthode : Loi de Benford - 1er chiffre significatif*")
     
     rapport_str = "\n".join(rapport)
     
@@ -373,7 +373,7 @@ def page_benford():
                         if score_risque == "Faible":
                             st.success(f"### ✅ Risque {score_risque}")
                             st.info("**Conformité Benford** - Pas d'anomalie statistique majeure")
-                        elif score_risque == "Modere":
+                        elif score_risque == "Modéré":
                             st.warning(f"### ⚠ Risque {score_risque}")
                             st.warning("**Écarts détectés** - Investigation recommandée")
                         else:

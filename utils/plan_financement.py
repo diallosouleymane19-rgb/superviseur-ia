@@ -18,10 +18,10 @@ except ImportError:
 # --- Categories PCG France ---
 
 RESSOURCES = [
-    "Capacite d'autofinancement (CAF)",
-    "Cessions d'elements d'actif",
+    "Capacité d'autofinancement (CAF)",
+    "Cessions d'éléments d'actif",
     "Augmentation de capital",
-    "Subventions d'investissement recues",
+    "Subventions d'investissement reçues",
     "Nouveaux emprunts LT/MT",
     "Autres ressources durables",
 ]
@@ -29,7 +29,7 @@ RESSOURCES = [
 EMPLOIS = [
     "Acquisitions d'immobilisations incorporelles",
     "Acquisitions d'immobilisations corporelles",
-    "Acquisitions d'immobilisations financieres",
+    "Acquisitions d'immobilisations financières",
     "Remboursements d'emprunts",
     "Distribution de dividendes",
     "Variation du besoin en fonds de roulement (BFR)",
@@ -73,8 +73,8 @@ def _extraire_caf_bfr_pcg(fichier_bytes: bytes, nom_fichier: str) -> dict:
         bfr = stocks + creances - dettes_ct
 
         return {
-            "CAF estimee": max(caf, 0),
-            "Variation BFR estimee": abs(bfr),
+            "CAF estimée": max(caf, 0),
+            "Variation BFR estimée": abs(bfr),
         }
     except Exception:
         return {}
@@ -142,8 +142,8 @@ def _export_excel(df_r: pd.DataFrame, df_e: pd.DataFrame, annees: list, entrepri
             "Total Emplois (EUR)": [df_e[a].sum() for a in annees],
             "Solde (EUR)": [df_r[a].sum() - df_e[a].sum() for a in annees],
         })
-        synth.to_excel(writer, sheet_name="Synthese", index=False)
-        _style(writer.sheets["Synthese"], "2C3E50")
+        synth.to_excel(writer, sheet_name="Synthèse", index=False)
+        _style(writer.sheets["Synthèse"], "2C3E50")
 
     return buf.getvalue()
 
@@ -163,11 +163,11 @@ def _analyser_ia(df_r: pd.DataFrame, df_e: pd.DataFrame, annees: list, entrepris
 {resume}
 
 Fournis :
-1. Diagnostic de l'equilibre financier (ressources/emplois)
+1. Diagnostic de l'équilibre financier (ressources/emplois)
 2. Risques identifies (sous-financement, endettement, BFR)
 3. Points forts du plan
-4. Recommandations concretes (refinancement, optimisation BFR, fonds propres)
-5. Conformite avec les bonnes pratiques PCG
+4. Recommandations concrètes (refinancement, optimisation BFR, fonds propres)
+5. Conformité avec les bonnes pratiques PCG
 
 Sois concis et professionnel."""
 
@@ -182,20 +182,20 @@ Sois concis et professionnel."""
 
 def page_plan_financement():
     st.title("Plan de Financement")
-    st.markdown("*PCG France - Equilibre ressources / emplois sur 1 a 5 ans*")
+    st.markdown("*PCG France - Équilibre ressources / emplois sur 1 à 5 ans*")
     st.divider()
 
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         entreprise = st.text_input("Entreprise", value="Mon Entreprise")
     with col2:
-        annee_debut = st.number_input("Annee de depart", value=datetime.now().year,
+        annee_debut = st.number_input("Année de départ", value=datetime.now().year,
                                        min_value=2000, max_value=2050, step=1)
     with col3:
-        nb_annees = st.slider("Nombre d'annees", 1, 5, 3)
+        nb_annees = st.slider("Nombre d'années", 1, 5, 3)
 
     annees = [str(annee_debut + i) for i in range(nb_annees)]
-    st.caption(f"Periode : **{annees[0]}** -> **{annees[-1]}**")
+    st.caption(f"Période : **{annees[0]}** -> **{annees[-1]}**")
     st.divider()
 
     prefill_r: dict = {}
@@ -208,11 +208,11 @@ def page_plan_financement():
             with st.spinner("Extraction en cours..."):
                 vals = _extraire_caf_bfr_pcg(fichier.read(), fichier.name)
             if vals:
-                prefill_r["Capacite d'autofinancement (CAF)"] = vals.get("CAF estimee", 0)
-                prefill_e["Variation du besoin en fonds de roulement (BFR)"] = vals.get("Variation BFR estimee", 0)
-                caf_v = prefill_r["Capacite d'autofinancement (CAF)"]
+                prefill_r["Capacité d'autofinancement (CAF)"] = vals.get("CAF estimée", 0)
+                prefill_e["Variation du besoin en fonds de roulement (BFR)"] = vals.get("Variation BFR estimée", 0)
+                caf_v = prefill_r["Capacité d'autofinancement (CAF)"]
                 bfr_v = prefill_e["Variation du besoin en fonds de roulement (BFR)"]
-                st.success(f"CAF estimee : {caf_v:,.0f} EUR | BFR estime : {bfr_v:,.0f} EUR")
+                st.success(f"CAF estimée : {caf_v:,.0f} EUR | BFR estimé : {bfr_v:,.0f} EUR")
             else:
                 st.warning("Extraction impossible - saisissez les valeurs manuellement.")
 
@@ -248,7 +248,7 @@ def page_plan_financement():
 
     st.divider()
 
-    st.subheader("Synthese")
+    st.subheader("Synthèse")
     cols = st.columns(len(annees))
     for i, a in enumerate(annees):
         total_r = df_r[a].sum()

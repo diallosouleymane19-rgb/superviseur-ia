@@ -387,11 +387,11 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
     elements.append(Spacer(1, 0.1*cm))
     if res["a_payer"] > 0:
         res_color, res_bg, res_num = rouge, colors.HexColor('#FFF0F0'), "25"
-        res_lib = "TVA A DECAISSER — Compte 44551"
+        res_lib = "TVA A DÉCAISSER — Compte 44551"
         res_val = f"{res['a_payer']:,.2f} €"
     else:
         res_color, res_bg, res_num = vert, colors.HexColor('#F0FFF0'), "26"
-        res_lib = "CREDIT DE TVA — Compte 44567"
+        res_lib = "CRÉDIT DE TVA — Compte 44567"
         res_val = f"{res['credit_genere']:,.2f} €"
     res_t = Table([[
         _p(f"<b>{res_num}</b>", 8, color=colors.grey, align=TA_CENTER),
@@ -409,21 +409,21 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
     if res.get("credit_genere", 0) >= 760:
         elements.append(Spacer(1, 0.2*cm))
         elements.append(_p(
-            "Info : Credit superieur a 760 EUR — Remboursement possible sur demande (CA3 reel normal)",
+            "Info : Crédit supérieur à 760 EUR — Remboursement possible sur demande (CA3 réel normal)",
             7.5, color=vert))
     elements.append(Spacer(1, 0.3*cm))
 
     # ── V. ÉCRITURE COMPTABLE ──
-    elements.append(section_header("V. ECRITURE COMPTABLE A PASSER"))
+    elements.append(section_header("V. ÉCRITURE COMPTABLE À PASSER"))
     elements.append(Spacer(1, 0.1*cm))
     if res["a_payer"] > 0:
-        ecr = (f"Debit  44551 TVA a decaisser     {res['a_payer']:>12,.2f} EUR\n"
-               f"  Credit  512  Banque             {res['a_payer']:>12,.2f} EUR\n"
-               f"  Libelle : Reglement TVA {periode}")
+        ecr = (f"Débit  44551 TVA à décaisser     {res['a_payer']:>12,.2f} EUR\n"
+               f"  Crédit  512  Banque             {res['a_payer']:>12,.2f} EUR\n"
+               f"  Libellé : Règlement TVA {periode}")
     else:
-        ecr = (f"Debit  44567 Credit de TVA        {res['credit_genere']:>12,.2f} EUR\n"
-               f"  Credit 44551 TVA a decaisser    {res['credit_genere']:>12,.2f} EUR\n"
-               f"  Libelle : Report credit TVA {periode}")
+        ecr = (f"Débit  44567 Crédit de TVA        {res['credit_genere']:>12,.2f} EUR\n"
+               f"  Crédit 44551 TVA à décaisser    {res['credit_genere']:>12,.2f} EUR\n"
+               f"  Libellé : Report crédit TVA {periode}")
     ecr_t = Table([[_p(f"<font name='Courier' size='8'>{ecr}</font>", 8)]],
                   colWidths=[18*cm])
     ecr_t.setStyle(TableStyle([
@@ -438,8 +438,8 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
 
     # ── PIED DE PAGE ──
     footer = Table([[
-        _p("Genere par <b>SMD Global Consulting LLC</b> — Superviseur IA Comptable", 7, color=colors.grey),
-        _p("ATTENTION : Document d aide. La declaration officielle doit etre deposee sur impots.gouv.fr",
+        _p("Généré par <b>SMD Global Consulting LLC</b> — Superviseur IA Comptable", 7, color=colors.grey),
+        _p("ATTENTION : Document d aide. La déclaration officielle doit être déposée sur impots.gouv.fr",
            7, color=colors.grey, align=TA_RIGHT),
     ]], colWidths=[9*cm, 9*cm])
     footer.setStyle(TableStyle([

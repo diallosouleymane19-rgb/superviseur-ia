@@ -16,7 +16,7 @@ from utils.page_helpers import (
 
 
 def detecter_colonnes(df):
-    """Detecte automatiquement les colonnes Debit/Credit/Compte"""
+    """Détecte automatiquement les colonnes Debit/Credit/Compte"""
     colonnes = {}
     
     # Detection Compte
@@ -62,7 +62,7 @@ def auditer_balance(df):
     Audit complet de la balance comptable
     
     Returns:
-        dict: Resultats d'audit avec score et recommandations
+        dict: Résultats d'audit avec score et recommandations
     """
     cols = detecter_colonnes(df)
     
@@ -97,24 +97,24 @@ def auditer_balance(df):
         
         # Controle equilibre
         if ecart < 0.01:
-            audit['controles']['Equilibre Debit/Credit'] = {
+            audit['controles']['Équilibre Débit/Crédit'] = {
                 'statut': 'OK',
-                'message': f'Balance equilibree (ecart = {ecart:.2f} EUR)',
+                'message': f'Balance équilibrée (écart = {ecart:.2f} EUR)',
                 'gravite': None
             }
             points += 30
         else:
-            audit['controles']['Equilibre Debit/Credit'] = {
+            audit['controles']['Équilibre Débit/Crédit'] = {
                 'statut': 'KO',
-                'message': f'Desequilibre detecte : {ecart:,.2f} EUR',
+                'message': f'Déséquilibre détecté : {ecart:,.2f} EUR',
                 'gravite': 'CRITIQUE'
             }
             audit['anomalies'].append({
-                'type': 'Desequilibre',
+                'type': 'Déséquilibre',
                 'gravite': 'CRITIQUE',
-                'description': f'Ecart de {ecart:,.2f} EUR entre Debit et Credit'
+                'description': f'Écart de {ecart:,.2f} EUR entre Débit et Crédit'
             })
-            audit['recommandations'].append('Verifier l\'integrite des ecritures comptables')
+            audit['recommandations'].append('Vérifier l\'intégrité des écritures comptables')
     
     # 2. NOMBRE DE COMPTES
     if 'compte' in cols:
@@ -163,18 +163,18 @@ def auditer_balance(df):
                 charges_creditrices = df[(df['_classe'] == '6') & (df['_solde'] < 0)]
                 if len(charges_creditrices) > 0:
                     audit['anomalies'].append({
-                        'type': 'Charges creditrices',
+                        'type': 'Charges créditrices',
                         'gravite': 'MOYENNE',
-                        'description': f'{len(charges_creditrices)} comptes de charges (classe 6) avec solde crediteur'
+                        'description': f'{len(charges_creditrices)} comptes de charges (classe 6) avec solde créditeur'
                     })
                 
                 # Comptes 7 (produits) avec solde debiteur = anormal
                 produits_debiteurs = df[(df['_classe'] == '7') & (df['_solde'] > 0)]
                 if len(produits_debiteurs) > 0:
                     audit['anomalies'].append({
-                        'type': 'Produits debiteurs',
+                        'type': 'Produits débiteurs',
                         'gravite': 'MOYENNE',
-                        'description': f'{len(produits_debiteurs)} comptes de produits (classe 7) avec solde debiteur'
+                        'description': f'{len(produits_debiteurs)} comptes de produits (classe 7) avec solde débiteur'
                     })
             
             points += 20
@@ -200,13 +200,13 @@ def auditer_balance(df):
                 if marge > 0:
                     audit['controles']['Resultat'] = {
                         'statut': 'OK',
-                        'message': f'Resultat positif : {resultat:,.2f} EUR (marge {marge:.1f}%)',
+                        'message': f'Résultat positif : {resultat:,.2f} EUR (marge {marge:.1f}%)',
                         'gravite': None
                     }
                 else:
                     audit['controles']['Resultat'] = {
                         'statut': 'WARNING',
-                        'message': f'Resultat negatif : {resultat:,.2f} EUR',
+                        'message': f'Résultat négatif : {resultat:,.2f} EUR',
                         'gravite': 'MOYENNE'
                     }
                 points += 20
@@ -229,16 +229,16 @@ def auditer_balance(df):
     # RECOMMANDATIONS GENERALES
     if not audit['recommandations']:
         if audit['score_qualite'] >= 90:
-            audit['recommandations'].append('Balance de qualite excellente - poursuivre les bonnes pratiques')
+            audit['recommandations'].append('Balance de qualité excellente - poursuivre les bonnes pratiques')
         else:
-            audit['recommandations'].append('Lancer un audit detaille module Loi de Benford')
-            audit['recommandations'].append('Verifier la coherence des ecritures via le module FEC')
+            audit['recommandations'].append('Lancer un audit détaillé module Loi de Benford')
+            audit['recommandations'].append('Vérifier la cohérence des écritures via le module FEC')
     
     return audit
 
 
 def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
-    """Genere un rapport d'audit professionnel"""
+    """Génère un rapport d'audit professionnel"""
     
     rapport = []
     rapport.append(f"# RAPPORT D'AUDIT - BALANCE COMPTABLE")
@@ -247,28 +247,28 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
     rapport.append(f"---\n")
     
     # SYNTHESE EXECUTIVE
-    rapport.append(f"## 📊 SYNTHESE EXECUTIVE\n")
-    rapport.append(f"- **Score qualite** : {audit['score_qualite']}% ({audit['niveau']})")
-    rapport.append(f"- **Anomalies detectees** : {len(audit['anomalies'])}")
+    rapport.append(f"## 📊 SYNTHÈSE EXÉCUTIVE\n")
+    rapport.append(f"- **Score qualité** : {audit['score_qualite']}% ({audit['niveau']})")
+    rapport.append(f"- **Anomalies détectées** : {len(audit['anomalies'])}")
     rapport.append(f"- **Date d'audit** : {datetime.now().strftime('%d/%m/%Y')}\n")
     
     # KPIs
     if audit['kpis']:
-        rapport.append("## 💰 INDICATEURS CLES")
+        rapport.append("## 💰 INDICATEURS CLÉS")
         kpis = audit['kpis']
         if 'total_debit' in kpis:
-            rapport.append(f"- **Total Debit** : {kpis['total_debit']:,.2f} EUR")
-            rapport.append(f"- **Total Credit** : {kpis['total_credit']:,.2f} EUR")
+            rapport.append(f"- **Total Débit** : {kpis['total_debit']:,.2f} EUR")
+            rapport.append(f"- **Total Crédit** : {kpis['total_credit']:,.2f} EUR")
             rapport.append(f"- **Volume total** : {kpis['volume_total']:,.2f} EUR")
         if 'nb_comptes' in kpis:
             rapport.append(f"- **Nombre de comptes** : {kpis['nb_comptes']}")
         if 'resultat_estime' in kpis:
-            rapport.append(f"- **Resultat estime** : {kpis['resultat_estime']:,.2f} EUR")
+            rapport.append(f"- **Résultat estimé** : {kpis['resultat_estime']:,.2f} EUR")
             rapport.append(f"- **Marge** : {kpis.get('marge_pct', 0):.1f}%")
         rapport.append("")
     
     # CONTROLES
-    rapport.append("## 🔍 CONTROLES EFFECTUES")
+    rapport.append("## 🔍 CONTRÔLES EFFECTUÉS")
     for nom, ctrl in audit['controles'].items():
         symbol = '✅' if ctrl['statut'] == 'OK' else '⚠' if ctrl['statut'] == 'WARNING' else '❌'
         rapport.append(f"- {symbol} **{nom}** : {ctrl['message']}")
@@ -276,7 +276,7 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
     
     # ANOMALIES
     if audit['anomalies']:
-        rapport.append("## ⚠ ANOMALIES DETECTEES")
+        rapport.append("## ⚠ ANOMALIES DÉTECTÉES")
         for anomalie in audit['anomalies']:
             rapport.append(f"- **[{anomalie['gravite']}]** {anomalie['type']} : {anomalie['description']}")
         rapport.append("")
@@ -288,7 +288,7 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
     rapport.append("")
     
     rapport.append("---")
-    rapport.append("*Rapport genere par SMD Global Consulting LLC - Superviseur IA Comptable*")
+    rapport.append("*Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
 

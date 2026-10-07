@@ -186,7 +186,7 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
 
 
 def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
-    """Genere un rapport professionnel"""
+    """Génère un rapport professionnel"""
     rapport = []
     rapport.append(f"# RAPPORT DE RAPPROCHEMENT BANCAIRE")
     rapport.append(f"## {nom_compte}")
@@ -194,13 +194,13 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
     rapport.append("")
     rapport.append("---")
     rapport.append("")
-    rapport.append("## SYNTHESE")
+    rapport.append("## SYNTHÈSE")
     rapport.append("")
-    rapport.append(f"- Operations releve : {resultats['nb_total_releve']:,}")
-    rapport.append(f"- Ecritures comptables : {resultats['nb_total_ecritures']:,}")
-    rapport.append(f"- Rapprochees : {resultats['nb_rapproches']:,}")
-    rapport.append(f"- Non rapprochees (releve) : {resultats['nb_non_rapproches_releve']:,}")
-    rapport.append(f"- Non rapprochees (ecritures) : {resultats['nb_non_rapproches_ecritures']:,}")
+    rapport.append(f"- Opérations relevé : {resultats['nb_total_releve']:,}")
+    rapport.append(f"- Écritures comptables : {resultats['nb_total_ecritures']:,}")
+    rapport.append(f"- Rapprochées : {resultats['nb_rapproches']:,}")
+    rapport.append(f"- Non rapprochées (releve) : {resultats['nb_non_rapproches_releve']:,}")
+    rapport.append(f"- Non rapprochées (écritures) : {resultats['nb_non_rapproches_ecritures']:,}")
     rapport.append(f"- Taux de rapprochement : {resultats['taux_rapprochement']:.1f}%")
     rapport.append("")
     
@@ -209,7 +209,7 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
     elif resultats['taux_rapprochement'] >= 70:
         rapport.append("**Bon** : Rapprochement satisfaisant")
     else:
-        rapport.append("**A verifier** : Investigations necessaires")
+        rapport.append("**A vérifier** : Investigations nécessaires")
     
     rapport.append("")
     rapport.append("---")

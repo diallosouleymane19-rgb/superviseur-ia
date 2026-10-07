@@ -113,7 +113,7 @@ if not is_connecte():
             st.caption("Demander un accès : contact@smdconsulting.pro")
 
         st.caption("SMD Global Consulting LLC © 2026 · [CGU](?doc=cgu) · "
-                   "[Politique de confidentialité](?doc=confidentialite)")
+                   "[Politique de confidentialité](?doc=confidentialité)")
 
     with tab_signup:
         from utils.page_inscription import page_inscription
@@ -139,7 +139,7 @@ if st.session_state.get("role") == "demo":
 st.sidebar.divider()
 
 def _aller_a(nom_page):
-    """Callback des boutons d'acces rapide : change la page du menu."""
+    """Callback des boutons d'accès rapide : change la page du menu."""
     st.session_state["nav_page"] = nom_page
 
 
@@ -391,7 +391,7 @@ elif page == "✅ Cohérence des Données":
         from utils.coherence import page_coherence
         page_coherence()
     except ImportError as e:
-        st.error(f"Module coherence indisponible : {e}")
+        st.error(f"Module cohérence indisponible : {e}")
 elif page == "📰 Veille Fiscale":
     try:
         from utils.veille_fiscale import page_veille_fiscale
@@ -436,7 +436,7 @@ elif page == "🔒 Confidentialité & Sécurité":
     st.caption("La comptabilisation des factures (comptes PCG, TVA, export FEC) est calculée par des règles, sans IA.")
     st.divider()
     st.markdown("[Conditions générales d'utilisation](?doc=cgu) · "
-                "[Politique de confidentialité complète](?doc=confidentialite)")
+                "[Politique de confidentialité complète](?doc=confidentialité)")
     st.markdown("### 📋 Politique de Conservation (RGPD)")
     st.info("Les analyses sauvegardées sont automatiquement supprimées après **30 jours**.")
     st.caption("**SMD Global Consulting LLC** — Superviseur IA Comptable © 2026")

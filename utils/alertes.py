@@ -13,7 +13,7 @@ from utils.page_helpers import (
 
 
 def detecter_alertes(df):
-    """Detecte automatiquement les anomalies"""
+    """Détecte automatiquement les anomalies"""
     alertes = []
     
     df = df.copy()
@@ -35,8 +35,8 @@ def detecter_alertes(df):
     if ecart > 0.01:
         alertes.append({
             'niveau': 'CRITIQUE',
-            'titre': 'Desequilibre Debit/Credit',
-            'message': f"Ecart de {ecart:,.2f} EUR",
+            'titre': 'Déséquilibre Débit/Crédit',
+            'message': f"Écart de {ecart:,.2f} EUR",
             'count': 1
         })
     
@@ -45,8 +45,8 @@ def detecter_alertes(df):
     if nulles > 0:
         alertes.append({
             'niveau': 'INFO',
-            'titre': 'Ecritures montant nul',
-            'message': f"{nulles} ecritures avec Debit=0 et Credit=0",
+            'titre': 'Écritures montant nul',
+            'message': f"{nulles} écritures avec Débit=0 et Crédit=0",
             'count': int(nulles)
         })
     
@@ -80,8 +80,8 @@ def detecter_alertes(df):
         if sans_libelle > 0:
             alertes.append({
                 'niveau': 'WARNING',
-                'titre': 'Ecritures sans libelle',
-                'message': f"{sans_libelle} ecritures sans libelle",
+                'titre': 'Écritures sans libellé',
+                'message': f"{sans_libelle} écritures sans libellé",
                 'count': int(sans_libelle)
             })
     
@@ -94,8 +94,8 @@ def detecter_alertes(df):
             if nb_weekend > 0:
                 alertes.append({
                     'niveau': 'INFO',
-                    'titre': 'Ecritures week-end',
-                    'message': f"{nb_weekend} ecritures samedi/dimanche",
+                    'titre': 'Écritures week-end',
+                    'message': f"{nb_weekend} écritures samedi/dimanche",
                     'count': int(nb_weekend)
                 })
         except:
@@ -107,8 +107,8 @@ def detecter_alertes(df):
     if debits_negatifs > 0 or credits_negatifs > 0:
         alertes.append({
             'niveau': 'WARNING',
-            'titre': 'Montants negatifs',
-            'message': f"{debits_negatifs + credits_negatifs} ecritures avec montants negatifs",
+            'titre': 'Montants négatifs',
+            'message': f"{debits_negatifs + credits_negatifs} écritures avec montants négatifs",
             'count': int(debits_negatifs + credits_negatifs)
         })
     
@@ -117,8 +117,8 @@ def detecter_alertes(df):
     if debit_credit > 0:
         alertes.append({
             'niveau': 'WARNING',
-            'titre': 'Debit ET Credit simultanes',
-            'message': f"{debit_credit} ecritures avec Debit ET Credit non nuls",
+            'titre': 'Débit ET Crédit simultanés',
+            'message': f"{debit_credit} écritures avec Débit ET Crédit non nuls",
             'count': int(debit_credit)
         })
     
@@ -129,8 +129,8 @@ def detecter_alertes(df):
         if tres_eleves > 0:
             alertes.append({
                 'niveau': 'INFO',
-                'titre': 'Montants tres eleves',
-                'message': f"{tres_eleves} ecritures > 10x le P95",
+                'titre': 'Montants très élevés',
+                'message': f"{tres_eleves} écritures > 10x le P95",
                 'count': int(tres_eleves)
             })
     
@@ -142,7 +142,7 @@ def detecter_alertes(df):
             alertes.append({
                 'niveau': 'WARNING',
                 'titre': 'Comptes invalides',
-                'message': f"{comptes_courts} ecritures avec compte < 3 caracteres",
+                'message': f"{comptes_courts} écritures avec compte < 3 caractères",
                 'count': int(comptes_courts)
             })
     
@@ -150,7 +150,7 @@ def detecter_alertes(df):
 
 
 def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
-    """Genere un rapport des alertes"""
+    """Génère un rapport des alertes"""
     rapport = []
     rapport.append(f"# RAPPORT D'ALERTES ET ANOMALIES")
     rapport.append(f"## {nom_entreprise}")
@@ -163,7 +163,7 @@ def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
     nb_warning = len([a for a in alertes if a['niveau'] == 'WARNING'])
     nb_info = len([a for a in alertes if a['niveau'] == 'INFO'])
     
-    rapport.append("## SYNTHESE")
+    rapport.append("## SYNTHÈSE")
     rapport.append("")
     rapport.append(f"- Alertes critiques : {nb_critique}")
     rapport.append(f"- Alertes warnings : {nb_warning}")
@@ -174,18 +174,18 @@ def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
     if nb_critique > 0:
         rapport.append("**ATTENTION** : Anomalies critiques - Investigation urgente")
     elif nb_warning > 0:
-        rapport.append("**Vigilance** : Alertes a investiguer")
+        rapport.append("**Vigilance** : Alertes à investiguer")
     elif len(alertes) == 0:
         rapport.append("**OK** : Aucune anomalie majeure")
     else:
-        rapport.append("**Information** : Points a surveiller")
+        rapport.append("**Information** : Points à surveiller")
     
     rapport.append("")
     rapport.append("---")
     rapport.append("")
     
     if alertes:
-        rapport.append("## DETAIL DES ALERTES")
+        rapport.append("## DÉTAIL DES ALERTES")
         rapport.append("")
         
         for niveau in ['CRITIQUE', 'WARNING', 'INFO']:
@@ -201,8 +201,8 @@ def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
     rapport.append("")
     rapport.append("## RECOMMANDATIONS")
     rapport.append("")
-    rapport.append("- Investiguer chaque alerte critique en priorite")
-    rapport.append("- Documenter les anomalies dans le dossier de revision")
+    rapport.append("- Investiguer chaque alerte critique en priorité")
+    rapport.append("- Documenter les anomalies dans le dossier de révision")
     rapport.append("- Croiser avec module Loi de Benford pour fraude")
     rapport.append("")
     rapport.append("---")

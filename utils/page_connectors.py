@@ -12,7 +12,7 @@ from datetime import datetime
 CONNECTEURS = {
     "sage": {
         "nom": "Sage Business Cloud", "icone": "🟩", "couleur": "#00b050",
-        "description": "Sage 50cloud, Sage 100, Sage Business Cloud Comptabilite",
+        "description": "Sage 50cloud, Sage 100, Sage Business Cloud Comptabilité",
         "auth_type": "oauth_token",
         "champs": [
             {"key": "access_token", "label": "Access Token OAuth2", "type": "password"},
@@ -37,11 +37,11 @@ CONNECTEURS = {
     },
     "odoo": {
         "nom": "Odoo", "icone": "🟣", "couleur": "#714b67",
-        "description": "Odoo 14 a 17, On-premise & Cloud",
+        "description": "Odoo 14 à 17, On-premise & Cloud",
         "auth_type": "credentials",
         "champs": [
             {"key": "url",      "label": "URL Odoo (ex: https://mon-erp.odoo.com)", "type": "text"},
-            {"key": "db",       "label": "Nom de la base de donnees",               "type": "text"},
+            {"key": "db",       "label": "Nom de la base de données",               "type": "text"},
             {"key": "username", "label": "Email / Login",                           "type": "text"},
             {"key": "password", "label": "Mot de passe",                            "type": "password"},
         ],
@@ -64,10 +64,10 @@ CONNECTEURS = {
     },
     "pennylane": {
         "nom": "Pennylane", "icone": "🟡", "couleur": "#f5a623",
-        "description": "Pennylane — logiciel comptable francais",
+        "description": "Pennylane — logiciel comptable français",
         "auth_type": "api_key",
         "champs": [
-            {"key": "api_key", "label": "Cle API Pennylane", "type": "password"},
+            {"key": "api_key", "label": "Clé API Pennylane", "type": "password"},
         ],
         "docs": "https://pennylane.readme.io/reference",
         "classe": "PennylaneConnector",
@@ -97,7 +97,7 @@ def page_connectors(app_name="pcg"):
     st.title("Connecteurs ERP")
     st.markdown(
         "Connectez votre logiciel comptable pour importer automatiquement "
-        "la balance, les ecritures (FEC), le grand livre et les factures."
+        "la balance, les écritures (FEC), le grand livre et les factures."
     )
 
     # --- Statut des connexions actives ---
@@ -133,7 +133,7 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
         st.markdown(
             "<div style='background:#f0fdf4;border-left:4px solid #16a34a;"
             "padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:12px'>"
-            "<b style='color:#16a34a'>Connecte</b> — " + str(info) + "</div>",
+            "<b style='color:#16a34a'>Connecté</b> — " + str(info) + "</div>",
             unsafe_allow_html=True
         )
     else:
@@ -146,7 +146,7 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
         )
 
     # Formulaire de connexion
-    with st.expander("Parametres de connexion", expanded=not est_conn):
+    with st.expander("Paramètres de connexion", expanded=not est_conn):
         creds = {}
         for champ in cfg["champs"]:
             if champ["type"] == "password":
@@ -182,29 +182,29 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
                             st.session_state[_session_key(erp_key)]          = True
                             st.session_state[_session_key(erp_key) + "_info"] = result.get("info", "")
                             st.session_state[_creds_key(erp_key)]             = creds
-                            st.success("Connexion reussie — " + result.get("info", ""))
+                            st.success("Connexion réussie — " + result.get("info", ""))
                             st.rerun()
                         else:
-                            st.error("Echec : " + result.get("error", "Erreur inconnue"))
+                            st.error("Échec : " + result.get("error", "Erreur inconnue"))
                     except Exception as e:
                         st.error("Erreur : " + str(e))
         with col2:
-            if est_conn and st.button("Deconnecter", key="disc_" + erp_key,
+            if est_conn and st.button("Déconnecter", key="disc_" + erp_key,
                                       width="stretch"):
                 st.session_state[_session_key(erp_key)] = False
                 st.rerun()
 
     # Zone d'import (si connecte)
     if est_conn:
-        st.markdown("#### Importer des donnees")
+        st.markdown("#### Importer des données")
         exercice = st.number_input(
             "Exercice", min_value=2018, max_value=datetime.now().year,
             value=datetime.now().year - 1,
             key="ex_" + erp_key
         )
         type_import = st.selectbox(
-            "Type de donnees",
-            ["Balance generale", "Ecritures (FEC)", "Grand livre", "Factures fournisseurs", "Factures clients"],
+            "Type de données",
+            ["Balance générale", "Écritures (FEC)", "Grand livre", "Factures fournisseurs", "Factures clients"],
             key="type_" + erp_key
         )
 
@@ -226,16 +226,16 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
                             data = data.head(5000)
                             st.warning(
                                 "Fichier volumineux (" + str(round(size_mb, 1)) + " MB) — "
-                                "affichage limite aux 5 000 premieres lignes."
+                                "affichage limité aux 5 000 premières lignes."
                             )
                         st.session_state[key]           = data
                         st.session_state["erp_source"]  = source
 
                     df = pd.DataFrame()
-                    if type_import == "Balance generale":
+                    if type_import == "Balance générale":
                         df = conn.get_balance(int(exercice))
                         _store_df("erp_balance", df, cfg["nom"])
-                    elif type_import == "Ecritures (FEC)":
+                    elif type_import == "Écritures (FEC)":
                         df = conn.get_ecritures(int(exercice))
                         _store_df("erp_fec", df, cfg["nom"])
                     elif type_import == "Grand livre":
@@ -250,13 +250,13 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
 
                     if df is not None and not df.empty:
                         st.success(
-                            str(len(df)) + " lignes importees depuis "
+                            str(len(df)) + " lignes importées depuis "
                             + cfg["nom"] + " — exercice " + str(exercice)
                         )
                         st.dataframe(df.head(20), width="stretch")
-                        st.caption("Apercu 20 premieres lignes. Donnees disponibles dans tous les modules d'analyse.")
+                        st.caption("Aperçu 20 premières lignes. Données disponibles dans tous les modules d'analyse.")
                     else:
-                        st.warning("Aucune donnee retournee. Verifiez les credentials et l'exercice.")
+                        st.warning("Aucune donnée retournée. Vérifiez les credentials et l'exercice.")
 
                 except Exception as e:
                     st.error("Erreur import : " + str(e))
@@ -266,7 +266,7 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
 
 
 def _afficher_donnees_importees(erp_key, cfg):
-    """Affiche un recap des donnees deja importees en session."""
+    """Affiche un récapitulatif des données déjà importées en session."""
     disponibles = []
     if st.session_state.get("erp_balance") is not None:
         df = st.session_state["erp_balance"]
@@ -275,7 +275,7 @@ def _afficher_donnees_importees(erp_key, cfg):
     if st.session_state.get("erp_fec") is not None:
         df = st.session_state["erp_fec"]
         if not df.empty:
-            disponibles.append("FEC (" + str(len(df)) + " ecritures)")
+            disponibles.append("FEC (" + str(len(df)) + " écritures)")
     if st.session_state.get("erp_grand_livre") is not None:
         df = st.session_state["erp_grand_livre"]
         if not df.empty:
@@ -294,13 +294,13 @@ def _afficher_donnees_importees(erp_key, cfg):
 
     source = st.session_state.get("erp_source", "ERP")
     st.success(
-        "Donnees importees depuis **" + source + "** : "
+        "Données importées depuis **" + source + "** : "
         + ", ".join(disponibles)
         + ". Disponibles dans tous les modules d'analyse."
     )
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Effacer les donnees importees", key="clear_erp_" + erp_key):
+        if st.button("Effacer les données importées", key="clear_erp_" + erp_key):
             for k in ["erp_balance", "erp_fec", "erp_grand_livre",
                       "erp_factures_fournisseur", "erp_factures_client", "erp_source"]:
                 st.session_state.pop(k, None)

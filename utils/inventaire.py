@@ -88,7 +88,7 @@ def calculer_provision_risque(libelle, montant, probabilite, compte="15"):
 def calculer_regularisations(charges_produits):
     """
     Calcule les régularisations de fin d'exercice
-    charges_produits : liste de dicts avec type, libelle, montant_total, 
+    charges_produits : liste de dicts avec type, libellé, montant_total, 
                        date_debut, date_fin, date_cloture
     """
     resultats = []

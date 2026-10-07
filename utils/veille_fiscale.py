@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 
 def obtenir_veille_fiscale():
     """
-    Recupere les actualites fiscales depuis multiples sources
-    et fournit un contenu detaille pour les comptables
+    Récupère les actualités fiscales depuis multiples sources
+    et fournit un contenu détaillé pour les comptables
     """
     actualites = []
     
@@ -52,7 +52,7 @@ _FERIES_FIXES = {(1, 1), (5, 1), (5, 8), (7, 14), (8, 15), (11, 1), (11, 11), (1
 
 
 def _jour_ouvre(d):
-    """Decale une date au prochain jour ouvre (week-end et feries fixes)."""
+    """Décale une date au prochain jour ouvre (week-end et fériés fixes)."""
     from datetime import timedelta
     while d.weekday() >= 5 or (d.month, d.day) in _FERIES_FIXES:
         d += timedelta(days=1)
@@ -60,7 +60,7 @@ def _jour_ouvre(d):
 
 
 def _deuxieme_jour_ouvre_apres_1er_mai(annee):
-    """Date legale de depot de la liasse IS (exercice clos le 31/12)."""
+    """Date légale de dépôt de la liasse IS (exercice clos le 31/12)."""
     from datetime import timedelta
     d = datetime(annee, 5, 1)
     compte = 0
@@ -73,25 +73,25 @@ def _deuxieme_jour_ouvre_apres_1er_mai(annee):
 
 def calendrier_fiscal(annee):
     """
-    Principales echeances fiscales des societes a l'IS pour l'annee donnee.
+    Principales échéances fiscales des sociétés à l'IS pour l'année donnée.
     Retourne une liste de dicts : date (datetime), obligation, concerne.
     """
     from datetime import timedelta
     liasse = _deuxieme_jour_ouvre_apres_1er_mai(annee)
     j = lambda m, d: _jour_ouvre(datetime(annee, m, d))
     return [
-        {"date": j(3, 15), "obligation": "Acompte IS n°1", "concerne": "Societes IS"},
-        {"date": liasse, "obligation": f"Liasse fiscale IS, CA12, CVAE (1330) - exercice clos 31/12/{annee-1}", "concerne": "Societes IS"},
-        {"date": j(5, 15), "obligation": f"Solde IS - exercice clos 31/12/{annee-1}", "concerne": "Societes IS"},
-        {"date": liasse + timedelta(days=15), "obligation": "Liasse fiscale teledeclaree (delai supplementaire 15 jours)", "concerne": "Societes IS"},
-        {"date": j(6, 15), "obligation": "Acompte IS n°2 + acompte CFE (si CFE N-1 >= 3 000 EUR)", "concerne": "Societes IS"},
-        {"date": j(9, 15), "obligation": "Acompte IS n°3", "concerne": "Societes IS"},
-        {"date": j(12, 15), "obligation": "Acompte IS n°4 + solde CFE", "concerne": "Societes IS"},
+        {"date": j(3, 15), "obligation": "Acompte IS n°1", "concerne": "Sociétés IS"},
+        {"date": liasse, "obligation": f"Liasse fiscale IS, CA12, CVAE (1330) - exercice clos 31/12/{annee-1}", "concerne": "Sociétés IS"},
+        {"date": j(5, 15), "obligation": f"Solde IS - exercice clos 31/12/{annee-1}", "concerne": "Sociétés IS"},
+        {"date": liasse + timedelta(days=15), "obligation": "Liasse fiscale teledeclaree (délai supplémentaire 15 jours)", "concerne": "Sociétés IS"},
+        {"date": j(6, 15), "obligation": "Acompte IS n°2 + acompte CFE (si CFE N-1 >= 3 000 EUR)", "concerne": "Sociétés IS"},
+        {"date": j(9, 15), "obligation": "Acompte IS n°3", "concerne": "Sociétés IS"},
+        {"date": j(12, 15), "obligation": "Acompte IS n°4 + solde CFE", "concerne": "Sociétés IS"},
     ]
 
 
 def obtenir_contenu_enrichi():
-    """Contenu fiscal detaille et toujours disponible (verifie : voir DATE_MAJ_DONNEES)"""
+    """Contenu fiscal détaillé et toujours disponible (vérifié : voir DATE_MAJ_DONNEES)"""
 
     aujourd_hui = datetime.now()
     date_str = aujourd_hui.strftime('%Y-%m-%d')
@@ -100,110 +100,110 @@ def obtenir_contenu_enrichi():
     a_venir = [e for e in calendrier_fiscal(aujourd_hui.year) + calendrier_fiscal(aujourd_hui.year + 1)
                if 0 <= (e["date"] - aujourd_hui).days <= 90]
     lignes = "\n".join(f"- **{e['date'].strftime('%d/%m/%Y')}** : {e['obligation']}" for e in a_venir) \
-        or "- Aucune echeance IS/CFE dans les 90 prochains jours."
+        or "- Aucune échéance IS/CFE dans les 90 prochains jours."
 
     actualites = [
         {
-            'titre': '[ECHEANCES] Prochaines echeances (90 jours)',
+            'titre': '[ÉCHÉANCES] Prochaines échéances (90 jours)',
             'date': date_str,
             'source': 'SMD Global Consulting LLC',
             'resume': f"""
-**Echeances a venir :**
+**Échéances à venir :**
 
 {lignes}
 
-**Echeances mensuelles :**
-- TVA CA3 (reel normal) : entre le 15 et le 24 de chaque mois selon l'entreprise
-- DSN : le 5 du mois suivant (50 salaries et plus, paie dans le mois), le 15 pour les autres
+**Échéances mensuelles :**
+- TVA CA3 (réel normal) : entre le 15 et le 24 de chaque mois selon l'entreprise
+- DSN : le 5 du mois suivant (50 salariés et plus, paie dans le mois), le 15 pour les autres
 
-**Penalites en cas de retard :**
-- Interet de retard : 0,20 % par mois
-- Majoration de 10 % pour depot tardif (sauf regularisation)
-- Majoration de 40 % en cas de manquement delibere
+**Pénalités en cas de retard :**
+- Intérêt de retard : 0,20 % par mois
+- Majoration de 10 % pour dépôt tardif (sauf régularisation)
+- Majoration de 40 % en cas de manquement délibéré
 
-**Conseil SMD :** Anticipez les declarations et provisionnez les echeances pour eviter les penalites.
+**Conseil SMD :** Anticipez les déclarations et provisionnez les échéances pour éviter les pénalités.
             """,
             'lien': 'https://www.impots.gouv.fr'
         },
         {
-            'titre': '[TVA] Facturation electronique - en vigueur depuis le 1er septembre 2026',
+            'titre': '[TVA] Facturation électronique - en vigueur depuis le 1er septembre 2026',
             'date': date_str,
             'source': 'DGFiP',
             'resume': """
-**Calendrier de la reforme :**
+**Calendrier de la réforme :**
 
-- **1er septembre 2026** : reception obligatoire pour TOUTES les entreprises assujetties a la TVA
-- **1er septembre 2026** : emission et e-reporting obligatoires pour les grandes entreprises et ETI
-- **1er septembre 2027** : emission et e-reporting obligatoires pour les PME, TPE et micro-entreprises
+- **1er septembre 2026** : réception obligatoire pour TOUTES les entreprises assujetties à la TVA
+- **1er septembre 2026** : émission et e-reporting obligatoires pour les grandes entreprises et ETI
+- **1er septembre 2027** : émission et e-reporting obligatoires pour les PME, TPE et micro-entreprises
 
 **Plateformes :**
-- Les factures circulent uniquement via des **Plateformes Agreees (PA)**, privees, immatriculees par l'administration (ex-PDP)
-- Le **Portail Public de Facturation (PPF)** ne transmet plus de factures : il gere l'annuaire national et concentre les donnees pour l'administration
-- La plateforme publique gratuite initialement prevue a ete abandonnee
+- Les factures circulent uniquement via des **Plateformes Agréées (PA)**, privées, immatriculées par l'administration (ex-PDP)
+- Le **Portail Public de Facturation (PPF)** ne transmet plus de factures : il gère l'annuaire national et concentre les données pour l'administration
+- La plateforme publique gratuite initialement prévue a été abandonnée
 
-**Donnees a transmettre (e-reporting) :**
-- Operations B2B internationales
-- Operations B2C
+**Données à transmettre (e-reporting) :**
+- Opérations B2B internationales
+- Opérations B2C
 - Statuts de paiement
 
-**Conseil SMD :** Verifiez que vos clients ont choisi une PA pour la reception ; preparez les PME a l'emission de 2027.
+**Conseil SMD :** Vérifiez que vos clients ont choisi une PA pour la réception ; préparez les PME à l'émission de 2027.
             """,
             'lien': 'https://www.impots.gouv.fr/professionnel/je-passe-la-facturation-electronique'
         },
         {
-            'titre': '[IS] Taux Reduit IS 15% - Conditions 2026',
+            'titre': '[IS] Taux Réduit IS 15% - Conditions 2026',
             'date': date_str,
             'source': 'CGI Article 219',
             'resume': """
-**Taux reduit a 15 % sur les premiers 42 500 EUR de benefices** (non modifie par la loi de finances 2026) :
+**Taux réduit à 15 % sur les premiers 42 500 EUR de bénéfices** (non modifié par la loi de finances 2026) :
 
-**Conditions a remplir :**
+**Conditions à remplir :**
 1. Chiffre d'affaires HT < 10 millions EUR
-2. Capital entierement libere
-3. Capital detenu pour 75 % au moins par des personnes physiques (ou societes remplissant les memes conditions)
+2. Capital entièrement libéré
+3. Capital détenu pour 75 % au moins par des personnes physiques (ou sociétés remplissant les mêmes conditions)
 
 **Application :**
-- Tranche de benefice 0 - 42 500 EUR : taux 15 %
-- Au-dela de 42 500 EUR : taux normal 25 %
+- Tranche de bénéfice 0 - 42 500 EUR : taux 15 %
+- Au-delà de 42 500 EUR : taux normal 25 %
 
 **Exemple concret :**
-- Benefice de 60 000 EUR
+- Bénéfice de 60 000 EUR
 - IS = (42 500 x 15 %) + (17 500 x 25 %) = 6 375 + 4 375 = 10 750 EUR
-- Economie vs taux plein : 4 250 EUR
+- Économie vs taux plein : 4 250 EUR
 
-**Conseil SMD :** Optimisez la structure capitalistique pour beneficier du taux reduit.
+**Conseil SMD :** Optimisez la structure capitalistique pour bénéficier du taux réduit.
             """,
             'lien': 'https://bofip.impots.gouv.fr'
         },
         {
-            'titre': '[CONTROLE FISCAL] Points de vigilance (avis SMD)',
+            'titre': '[CONTRÔLE FISCAL] Points de vigilance (avis SMD)',
             'date': date_str,
             'source': 'SMD Global Consulting LLC',
             'resume': """
 **Points de vigilance recommandes :**
 
-1. **TVA et facturation electronique**
-   - Conformite des flux via Plateforme Agreee
-   - Coherence factures emises / declarations CA3
+1. **TVA et facturation électronique**
+   - Conformité des flux via Plateforme Agréée
+   - Cohérence factures émises / déclarations CA3
    - Auto-liquidation TVA
 
 2. **Prix de transfert (groupes internationaux)**
    - Documentation des transactions intra-groupe
 
-3. **Charges deductibles**
-   - Frais de representation et reception
-   - Vehicules de fonction
-   - Remunerations dirigeants
+3. **Charges déductibles**
+   - Frais de représentation et réception
+   - Véhicules de fonction
+   - Rémunérations dirigeants
 
-4. **CIR / CII (Credit Impot Recherche / Innovation)**
+4. **CIR / CII (Crédit Impôt Recherche / Innovation)**
    - Justification scientifique des projets
-   - Eligibilite des depenses
+   - Éligibilité des dépenses
 
-5. **Cryptomonnaies et actifs numeriques**
-   - Declaration des comptes detenus a l'etranger
+5. **Cryptomonnaies et actifs numériques**
+   - Déclaration des comptes détenus à l'étranger
    - Plus-values de cessions
 
-**Conseil SMD :** Constituer un dossier de defense fiscale pour chaque exercice (justificatifs, methodes, calculs).
+**Conseil SMD :** Constituer un dossier de défense fiscale pour chaque exercice (justificatifs, méthodes, calculs).
             """,
             'lien': 'https://www.impots.gouv.fr'
         },
@@ -224,20 +224,20 @@ def obtenir_contenu_enrichi():
 | Cotisation | Salarial | Patronal |
 |-----------|----------|----------|
 | Maladie | 0 % | 13 % (ou 7 %) |
-| Vieillesse plafonnee | 6,90 % | 8,55 % |
-| Vieillesse deplafonnee | 0,40 % | 2,11 % |
+| Vieillesse plafonnée | 6,90 % | 8,55 % |
+| Vieillesse déplafonnée | 0,40 % | 2,11 % |
 | Famille | 0 % | 5,25 % (ou 3,45 %) |
 | AT/MP | 0 % | Variable |
-| Chomage | 0 % | 4,00 % |
+| Chômage | 0 % | 4,00 % |
 | AGS | 0 % | 0,25 % |
-| Retraite complementaire | Variable | Variable |
+| Retraite complémentaire | Variable | Variable |
 | CSG / CRDS | 9,20 % + 0,50 % (sur 98,25 % du brut) | 0 % |
 
-**Reductions :**
-- Reduction generale degressive unique (RGDU) depuis le 1er janvier 2026 : jusqu'a 3 SMIC (remplace la reduction Fillon)
-- Aides a l'embauche : selon dispositifs
+**Réductions :**
+- Réduction générale dégressive unique (RGDU) depuis le 1er janvier 2026 : jusqu'à 3 SMIC (remplace la réduction Fillon)
+- Aides à l'embauche : selon dispositifs
 
-**Conseil SMD :** Audit annuel des charges sociales pour optimiser les exonerations applicables.
+**Conseil SMD :** Audit annuel des charges sociales pour optimiser les exonérations applicables.
             """,
             'lien': 'https://www.urssaf.fr'
         }

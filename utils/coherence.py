@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Module Coherence des Donnees - SMD Global Consulting LLC"""
+"""Module Cohérence des Données - SMD Global Consulting LLC"""
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
@@ -24,7 +24,7 @@ def verifier_coherence(df):
     if df is None or len(df) == 0:
         resultat['verifications']['Donnees'] = {
             'status': 'KO',
-            'message': 'Aucune donnee a analyser'
+            'message': 'Aucune donnée à analyser'
         }
         return resultat
     
@@ -37,43 +37,43 @@ def verifier_coherence(df):
     completude = (nb_cellules_remplies / nb_cellules_total * 100) if nb_cellules_total > 0 else 0
     
     if completude >= 95:
-        resultat['verifications']['Completude des donnees'] = {
+        resultat['verifications']['Complétude des données'] = {
             'status': 'OK',
             'message': f'{completude:.1f}% des cellules sont remplies'
         }
         points_obtenus += 20
     elif completude >= 80:
-        resultat['verifications']['Completude des donnees'] = {
+        resultat['verifications']['Complétude des données'] = {
             'status': 'WARNING',
-            'message': f'{completude:.1f}% remplies - quelques donnees manquantes'
+            'message': f'{completude:.1f}% remplies - quelques données manquantes'
         }
         points_obtenus += 12
     else:
-        resultat['verifications']['Completude des donnees'] = {
+        resultat['verifications']['Complétude des données'] = {
             'status': 'KO',
-            'message': f'{completude:.1f}% seulement - beaucoup de donnees manquantes'
+            'message': f'{completude:.1f}% seulement - beaucoup de données manquantes'
         }
         points_obtenus += 5
-        resultat['recommandations'].append("Completer les donnees manquantes")
+        resultat['recommandations'].append("Compléter les données manquantes")
     
     # 2. UNICITE / DOUBLONS (15 points)
     nb_doublons = df.duplicated().sum()
     if nb_doublons == 0:
-        resultat['verifications']['Unicite des lignes'] = {
+        resultat['verifications']['Unicité des lignes'] = {
             'status': 'OK',
-            'message': 'Aucun doublon detecte'
+            'message': 'Aucun doublon détecté'
         }
         points_obtenus += 15
     elif nb_doublons < len(df) * 0.01:
-        resultat['verifications']['Unicite des lignes'] = {
+        resultat['verifications']['Unicité des lignes'] = {
             'status': 'WARNING',
-            'message': f'{nb_doublons} doublons detectes (< 1%)'
+            'message': f'{nb_doublons} doublons détectés (< 1%)'
         }
         points_obtenus += 10
     else:
-        resultat['verifications']['Unicite des lignes'] = {
+        resultat['verifications']['Unicité des lignes'] = {
             'status': 'KO',
-            'message': f'{nb_doublons} doublons detectes'
+            'message': f'{nb_doublons} doublons détectés'
         }
         points_obtenus += 3
         resultat['recommandations'].append("Supprimer les doublons identiques")
@@ -92,24 +92,24 @@ def verifier_coherence(df):
         ecart = abs(total_debit - total_credit)
         
         if ecart < 0.01:
-            resultat['verifications']['Equilibre Debit/Credit'] = {
+            resultat['verifications']['Équilibre Débit/Crédit'] = {
                 'status': 'OK',
-                'message': f'Balance equilibree ({total_debit:,.2f} EUR)'
+                'message': f'Balance équilibrée ({total_debit:,.2f} EUR)'
             }
             points_obtenus += 25
         elif ecart < total_debit * 0.001:
-            resultat['verifications']['Equilibre Debit/Credit'] = {
+            resultat['verifications']['Équilibre Débit/Crédit'] = {
                 'status': 'WARNING',
-                'message': f'Leger ecart de {ecart:.2f} EUR'
+                'message': f'Léger écart de {ecart:.2f} EUR'
             }
             points_obtenus += 15
         else:
-            resultat['verifications']['Equilibre Debit/Credit'] = {
+            resultat['verifications']['Équilibre Débit/Crédit'] = {
                 'status': 'KO',
-                'message': f'Desequilibre de {ecart:,.2f} EUR'
+                'message': f'Déséquilibre de {ecart:,.2f} EUR'
             }
             points_obtenus += 5
-            resultat['recommandations'].append("Verifier l'integrite des ecritures")
+            resultat['recommandations'].append("Vérifier l'intégrité des écritures")
     
     # 5. COHERENCE DES COMPTES (15 points)
     if 'CompteNum' in df.columns:
@@ -135,7 +135,7 @@ def verifier_coherence(df):
                 'message': f'{taux_valide:.1f}% seulement au format valide'
             }
             points_obtenus += 3
-            resultat['recommandations'].append("Verifier le format des numeros de compte")
+            resultat['recommandations'].append("Vérifier le format des numéros de compte")
     
     # 6. COHERENCE DATES (15 points)
     if 'EcritureDate' in df.columns:
@@ -156,7 +156,7 @@ def verifier_coherence(df):
                     'message': f'{taux_dates:.1f}% des dates valides'
                 }
                 points_obtenus += 8
-                resultat['recommandations'].append("Verifier le format des dates (AAAAMMJJ)")
+                resultat['recommandations'].append("Vérifier le format des dates (AAAAMMJJ)")
         except:
             pass
     
@@ -166,18 +166,18 @@ def verifier_coherence(df):
         taux_libelles = (libelles_remplis / len(df) * 100) if len(df) > 0 else 0
         
         if taux_libelles >= 95:
-            resultat['verifications']['Libelles renseignes'] = {
+            resultat['verifications']['Libellés renseignés'] = {
                 'status': 'OK',
-                'message': f'{taux_libelles:.1f}% des ecritures ont un libelle'
+                'message': f'{taux_libelles:.1f}% des écritures ont un libellé'
             }
             points_obtenus += 10
         else:
-            resultat['verifications']['Libelles renseignes'] = {
+            resultat['verifications']['Libellés renseignés'] = {
                 'status': 'WARNING',
-                'message': f'{taux_libelles:.1f}% renseignes'
+                'message': f'{taux_libelles:.1f}% renseignés'
             }
             points_obtenus += 5
-            resultat['recommandations'].append("Renseigner les libelles manquants (obligatoire PCG)")
+            resultat['recommandations'].append("Renseigner les libellés manquants (obligatoire PCG)")
     
     # ===== KPIs =====
     resultat['score_qualite'] = round((points_obtenus / points_total) * 100, 1)
@@ -197,13 +197,13 @@ def verifier_coherence(df):
     elif resultat['score_qualite'] >= 75:
         resultat['niveau'] = 'Bon'
     elif resultat['score_qualite'] >= 50:
-        resultat['niveau'] = 'A ameliorer'
+        resultat['niveau'] = 'A améliorer'
     else:
         resultat['niveau'] = 'Critique'
     
     if not resultat['recommandations']:
         if resultat['score_qualite'] >= 90:
-            resultat['recommandations'].append("Donnees de qualite excellente - poursuivre les bonnes pratiques")
+            resultat['recommandations'].append("Données de qualité excellente - poursuivre les bonnes pratiques")
         else:
             resultat['recommandations'].append("Maintenir la rigueur sur la saisie comptable")
     
@@ -211,26 +211,26 @@ def verifier_coherence(df):
 
 
 def generer_rapport_coherence(resultat, nom_entreprise="Entreprise"):
-    """Genere un rapport professionnel de coherence des donnees."""
+    """Génère un rapport professionnel de cohérence des données."""
     rapport = []
-    rapport.append("# RAPPORT DE COHERENCE DES DONNEES")
+    rapport.append("# RAPPORT DE COHÉRENCE DES DONNÉES")
     rapport.append(f"## {nom_entreprise}")
     rapport.append(f"*Date : {datetime.now().strftime('%d/%m/%Y')}*")
     rapport.append("")
     rapport.append("---")
     rapport.append("")
-    rapport.append("## SCORE DE QUALITE")
+    rapport.append("## SCORE DE QUALITÉ")
     rapport.append("")
     rapport.append(f"**{resultat.get('niveau', 'N/A')} : {resultat['score_qualite']}%**")
     rapport.append("")
     rapport.append(f"- Lignes : {resultat['kpis'].get('nb_lignes', 0):,}")
     rapport.append(f"- Colonnes : {resultat['kpis'].get('nb_colonnes', 0)}")
-    rapport.append(f"- Completude : {resultat['kpis'].get('completude', 0):.1f}%")
+    rapport.append(f"- Complétude : {resultat['kpis'].get('completude', 0):.1f}%")
     rapport.append(f"- Doublons : {resultat['kpis'].get('doublons', 0)}")
     rapport.append("")
     rapport.append("---")
     rapport.append("")
-    rapport.append("## VERIFICATIONS EFFECTUEES")
+    rapport.append("## VÉRIFICATIONS EFFECTUÉES")
     rapport.append("")
     
     for nom, ctrl in resultat['verifications'].items():

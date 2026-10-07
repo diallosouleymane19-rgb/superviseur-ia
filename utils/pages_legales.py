@@ -2,7 +2,7 @@
 """
 Pages légales - SMD Global Consulting LLC
 CGU et politique de confidentialité, accessibles sans connexion :
-    ?doc=cgu   et   ?doc=confidentialite
+    ?doc=cgu   et   ?doc=confidentialité
 Texte = projet du 07/10/2026 (document « CGU et politique de confidentialité »),
 en attente de relecture juridique : les mentions entre crochets restent à valider.
 """

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 utils/auth_rbac.py - SMD Global Consulting LLC
-Module RBAC : roles, plans, quotas, audit logs.
+Module RBAC : rôles, plans, quotas, audit logs.
 Backend : Supabase PostgreSQL (remplace SQLite /tmp/smd_users.db).
-API identique a l'ancienne version — drop-in replacement.
+API identique à l'ancienne version — drop-in replacement.
 """
 
 import bcrypt
@@ -17,7 +17,7 @@ ROLES = {
     "cabinet":       {"label": "Cabinet Comptable",   "level": 3, "color": "#2563eb"},
     "collaborateur": {"label": "Collaborateur",       "level": 2, "color": "#7c3aed"},
     "client":        {"label": "Client Final",        "level": 1, "color": "#059669"},
-    "demo":          {"label": "Demonstration",       "level": 0, "color": "#d97706"},
+    "demo":          {"label": "Démonstration",       "level": 0, "color": "#d97706"},
 }
 
 # --- Plans ---
@@ -83,10 +83,10 @@ def get_user(email: str):
 def creer_user_rbac(email: str, password: str, nom: str = "",
                     cabinet: str = "", pays: str = "FR",
                     role: str = "client", plan: str = "free") -> dict:
-    """Cree un utilisateur. Retourne {'ok': True} ou {'error': '...'}."""
+    """Crée un utilisateur. Retourne {'ok': True} ou {'error': '...'}."""
     email = email.lower().strip()
     if get_user(email):
-        return {"error": "Cet email est deja enregistre."}
+        return {"error": "Cet email est déjà enregistre."}
 
     pw_hash = bcrypt.hashpw(
         password.encode("utf-8"), bcrypt.gensalt()
@@ -113,13 +113,13 @@ def creer_user_rbac(email: str, password: str, nom: str = "",
     except Exception as e:
         msg = str(e)
         if "unique" in msg.lower() or "duplicate" in msg.lower():
-            return {"error": "Cet email est deja enregistre."}
+            return {"error": "Cet email est déjà enregistre."}
         _log_error("creer_user_rbac", msg)
-        return {"error": "Erreur creation compte : " + msg[:80]}
+        return {"error": "Erreur création compte : " + msg[:80]}
 
 
 def verifier_login(email: str, password: str):
-    """Verifie email + mot de passe. Retourne user dict ou None."""
+    """Vérifie email + mot de passe. Retourne user dict ou None."""
     user = get_user(email)
     if not user:
         return None
@@ -220,7 +220,7 @@ def get_quota_used(user_email: str) -> int:
 
 def incrementer_quota(user_email: str, action_type: str = "analyse",
                       details: str = "") -> bool:
-    """Incremente le compteur. Retourne False si quota depasse."""
+    """Incrémente le compteur. Retourne False si quota dépassé."""
     email = user_email.lower().strip()
     user = get_user(email)
     if not user:

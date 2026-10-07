@@ -18,7 +18,7 @@ PLANS_DISPLAY = {
             "10 analyses / mois",
             "Analyse de factures",
             "Audit balance basique",
-            "Compte de resultat",
+            "Compte de résultat",
         ],
         "locked": [
             "Loi de Benford",
@@ -58,12 +58,12 @@ PLANS_DISPLAY = {
         "label": "Entreprise", "price_m": 199, "price_a": 1909,
         "quota": -1, "color": "#d97706", "badge": "Cabinets",
         "features": [
-            "Analyses illimitees",
+            "Analyses illimitées",
             "Tous les modules",
             "Multi-agents PCG + SYSCOHADA",
             "Gestion cabinet & clients",
             "Audit logs complets",
-            "Support dedie & onboarding",
+            "Support dédié & onboarding",
         ],
         "locked": [],
     },
@@ -71,7 +71,7 @@ PLANS_DISPLAY = {
 
 
 def _card_html(plan_key, plan, price, period, is_current):
-    """Genere le HTML complet d'une carte plan."""
+    """Génère le HTML complet d'une carte plan."""
     color = plan["color"]
     border = "2px solid " + color if is_current else "1px solid " + color + "40"
     bg = color + "15" if is_current else "#fafafa"
@@ -136,7 +136,7 @@ def page_tarifs(app_name="pcg"):
     plan_actuel = st.session_state.get("plan", "free")
 
     st.title("Tarifs & Abonnement")
-    st.markdown("Choisissez le plan adapte a votre activite. Sans engagement, resiliable a tout moment.")
+    st.markdown("Choisissez le plan adapté à votre activité. Sans engagement, résiliable à tout moment.")
 
     # --- Abonnement actuel ---
     if plan_actuel != "free":
@@ -146,9 +146,9 @@ def page_tarifs(app_name="pcg"):
         limit_str = "illimite" if limit == -1 else str(limit)
         st.success(
             "Plan actuel : **" + info.get("label", "") + "**  —  "
-            + str(used) + " / " + limit_str + " analyses utilisees ce mois"
+            + str(used) + " / " + limit_str + " analyses utilisées ce mois"
         )
-        if st.button("Gerer mon abonnement Stripe"):
+        if st.button("Gérer mon abonnement Stripe"):
             try:
                 from utils.stripe_billing import creer_portal_session
                 url = creer_portal_session(user_email, app_name)
@@ -169,7 +169,7 @@ def page_tarifs(app_name="pcg"):
     )
     billing_key = "annual" if "Annuelle" in billing_choice else "monthly"
     if billing_key == "annual":
-        st.caption("Economisez 2 mois avec la facturation annuelle.")
+        st.caption("Économisez 2 mois avec la facturation annuelle.")
 
     st.markdown("---")
 
@@ -189,9 +189,9 @@ def page_tarifs(app_name="pcg"):
                 st.button("Plan actuel", key="cur_" + plan_key,
                           disabled=True, width="stretch")
             elif plan_key == "free":
-                st.button("Retrograder", key="down_" + plan_key,
+                st.button("Rétrograder", key="down_" + plan_key,
                           disabled=True, width="stretch",
-                          help="Resiliez via le portail Stripe.")
+                          help="Résiliez via le portail Stripe.")
             else:
                 label = "Commencer" if plan_actuel == "free" else "Upgrader"
                 if st.button(label, key="pay_" + plan_key,
@@ -219,12 +219,12 @@ def page_tarifs(app_name="pcg"):
     st.divider()
     st.subheader("Pack Multi-Agents — PCG France + SYSCOHADA")
     st.markdown(
-        "Acces aux **deux plateformes** avec un seul abonnement.\n\n"
+        "Accès aux **deux plateformes** avec un seul abonnement.\n\n"
         "| Pack | Quota | Mensuel | Annuel |\n"
         "|------|-------|---------|--------|\n"
         "| Multi Starter | 100 analyses/mois | EUR 49 | EUR 469 |\n"
         "| Multi Pro | 400 analyses/mois | EUR 129 | EUR 1 239 |\n"
-        "| Multi Entreprise | Illimite | EUR 299 | EUR 2 869 |\n"
+        "| Multi Entreprise | Illimité | EUR 299 | EUR 2 869 |\n"
     )
 
     col1, col2, _ = st.columns([1, 1, 2])
@@ -237,13 +237,13 @@ def page_tarifs(app_name="pcg"):
 
     # --- FAQ ---
     st.divider()
-    with st.expander("Questions frequentes"):
+    with st.expander("Questions fréquentes"):
         st.markdown("""
-**Puis-je changer de plan ?** Oui, a tout moment depuis le portail Stripe.
+**Puis-je changer de plan ?** Oui, à tout moment depuis le portail Stripe.
 
 **Qu'est-ce qu'une analyse ?** Chaque module IA utilise = 1 analyse (audit, Benford, bilan, rapport client...).
 
-**Les donnees sont-elles securisees ?** Les fichiers deposes sont lus en memoire et ne sont pas enregistres. Seules les analyses que vous sauvegardez sont conservees, dans l'UE (Irlande), 30 jours maximum.
+**Les données sont-elles sécurisées ?** Les fichiers déposés sont lus en mémoire et ne sont pas enregistrés. Seules les analyses que vous sauvegardez sont conservées, dans l'UE (Irlande), 30 jours maximum.
 
 **Essai gratuit ?** Plan Gratuit : 10 analyses/mois sans carte bancaire.
 

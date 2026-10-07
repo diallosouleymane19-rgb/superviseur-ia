@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Module Compte de Resultat Professionnel - SMD Global Consulting LLC
-Calcul des SIG (Soldes Intermediaires de Gestion) selon PCG francais
+Module Compte de Résultat Professionnel - SMD Global Consulting LLC
+Calcul des SIG (Soldes Intermédiaires de Gestion) selon PCG français
 Pour Cabinets, DAF et Dirigeants
 """
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
@@ -24,9 +24,9 @@ RUBRIQUES_PCG = {
     '701': 'Ventes de produits finis',
     '706': 'Prestations de services',
     '707': 'Ventes de marchandises',
-    '708': 'Produits des activites annexes',
-    '71': 'Production stockee',
-    '72': 'Production immobilisee',
+    '708': 'Produits des activités annexes',
+    '71': 'Production stockée',
+    '72': 'Production immobilisée',
     '74': 'Subventions d\'exploitation',
     '75': 'Autres produits de gestion courante',
     '76': 'Produits financiers',
@@ -36,33 +36,33 @@ RUBRIQUES_PCG = {
     
     # CHARGES
     '60': 'Achats',
-    '601': 'Achats stockes - Matieres premieres',
+    '601': 'Achats stockés - Matières premières',
     '607': 'Achats de marchandises',
     '603': 'Variation des stocks',
-    '61': 'Services exterieurs',
-    '62': 'Autres services exterieurs',
-    '63': 'Impots et taxes',
+    '61': 'Services extérieurs',
+    '62': 'Autres services extérieurs',
+    '63': 'Impôts et taxes',
     '64': 'Charges de personnel',
     '641': 'Salaires bruts',
     '645': 'Charges sociales',
     '65': 'Autres charges de gestion courante',
-    '66': 'Charges financieres',
+    '66': 'Charges financières',
     '67': 'Charges exceptionnelles',
     '68': 'Dotations aux amortissements et provisions',
-    '69': 'Impots sur les benefices'
+    '69': 'Impôts sur les bénéfices'
 }
 
 
 def calculer_compte_resultat(df, type_entreprise='Mixte'):
     """
-    Calcule le compte de resultat detaille a partir d'une balance
+    Calcule le compte de résultat détaillé à partir d'une balance
     
     Args:
         df: DataFrame avec colonnes CompteNum, Debit, Credit
         type_entreprise: 'Commerciale', 'Industrielle', 'Services', 'Mixte'
     
     Returns:
-        dict: Compte de resultat structure avec SIG et ratios
+        dict: Compte de résultat structuré avec SIG et ratios
     """
     # Normaliser les colonnes
     if 'CompteNum' not in df.columns:
@@ -123,8 +123,8 @@ def calculer_compte_resultat(df, type_entreprise='Mixte'):
         'Ventes produits finis (701)': ventes_produits,
         'Prestations services (706)': prestations,
         'Autres ventes (70)': produits_70 - ventes_marchandises - ventes_produits - prestations,
-        'Production stockee (71)': produits_71,
-        'Production immobilisee (72)': produits_72,
+        'Production stockée (71)': produits_71,
+        'Production immobilisée (72)': produits_72,
         'Subventions (74)': produits_74,
         'Autres produits gestion (75)': produits_75,
         'Produits financiers (76)': produits_76,
@@ -158,20 +158,20 @@ def calculer_compte_resultat(df, type_entreprise='Mixte'):
     
     resultat['charges'] = {
         'Achats marchandises (607)': achats_marchandises,
-        'Achats matieres premieres (601)': achats_mp,
+        'Achats matières premières (601)': achats_mp,
         'Variation stocks (603)': var_stocks,
         'Autres achats (60)': charges_60 - achats_marchandises - achats_mp - var_stocks,
-        'Services exterieurs (61)': charges_61,
-        'Autres services exterieurs (62)': charges_62,
-        'Impots et taxes (63)': charges_63,
+        'Services extérieurs (61)': charges_61,
+        'Autres services extérieurs (62)': charges_62,
+        'Impôts et taxes (63)': charges_63,
         'Salaires bruts (641)': salaires,
         'Charges sociales (645)': charges_sociales,
         'Autres charges personnel (64)': charges_64 - salaires - charges_sociales,
         'Autres charges gestion (65)': charges_65,
-        'Charges financieres (66)': charges_66,
+        'Charges financières (66)': charges_66,
         'Charges exceptionnelles (67)': charges_67,
         'Dotations amortissements (68)': charges_68,
-        'Impots sur benefices (69)': charges_69,
+        'Impôts sur bénéfices (69)': charges_69,
     }
     
     # ===== CALCUL DES SIG (PCG, module commun utils/sig_pcg.py) =====
@@ -264,17 +264,17 @@ def calculer_compte_resultat(df, type_entreprise='Mixte'):
 
 
 def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exercice=""):
-    """Genere un rapport professionnel du compte de resultat"""
+    """Génère un rapport professionnel du compte de résultat"""
     
     rapport = []
-    rapport.append(f"# COMPTE DE RESULTAT - ANALYSE PROFESSIONNELLE")
+    rapport.append(f"# COMPTE DE RÉSULTAT - ANALYSE PROFESSIONNELLE")
     rapport.append(f"## {nom_entreprise} - Exercice {exercice}")
     rapport.append(f"*Date d'analyse : {resultat['date_calcul']}*")
     rapport.append(f"*Type d'entreprise : {resultat['type_entreprise']}*\n")
     rapport.append("---\n")
     
     # SOLDES INTERMEDIAIRES DE GESTION
-    rapport.append("## 📊 SOLDES INTERMEDIAIRES DE GESTION (SIG)\n")
+    rapport.append("## 📊 SOLDES INTERMÉDIAIRES DE GESTION (SIG)\n")
     rapport.append("| Indicateur | Montant |")
     rapport.append("|------------|---------|")
     for nom, valeur in resultat['sig'].items():
@@ -302,7 +302,7 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
         rapport.append("")
     
     rapport.append("---")
-    rapport.append("*Rapport genere par SMD Global Consulting LLC - Superviseur IA Comptable*")
+    rapport.append("*Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*")
     
     return "\n".join(rapport)
 

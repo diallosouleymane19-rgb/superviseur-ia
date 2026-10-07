@@ -45,7 +45,7 @@ RATE_LIMITS = {
 
 
 def _get_rate_key() -> str:
-    """Cle de rate limiting pour la session courante (email + jour)."""
+    """Clé de rate limiting pour la session courante (email + jour)."""
     from datetime import date
     email = st.session_state.get("user_email", "anonymous")
     return f"_rl_{email}_{date.today().isoformat()}"
@@ -53,7 +53,7 @@ def _get_rate_key() -> str:
 
 def check_rate_limit() -> tuple:
     """
-    Verifie si l'utilisateur a atteint sa limite d'appels Mistral/jour.
+    Vérifie si l'utilisateur a atteint sa limite d'appels Mistral/jour.
     Retourne (autorise: bool, message: str, calls_today: int, limit: int)
     """
     plan  = st.session_state.get("plan", "free")
@@ -68,14 +68,14 @@ def check_rate_limit() -> tuple:
         msg = (
             f"Limite d'analyses atteinte ({calls}/{limit} aujourd'hui). "
             f"Votre plan **{plan.capitalize()}** est limite a {limit} appels/jour. "
-            "Passez au plan superieur pour continuer."
+            "Passez au plan supérieur pour continuer."
         )
         return False, msg, calls, limit
     return True, "", calls, limit
 
 
 def increment_rate_counter():
-    """Incremente le compteur d'appels Mistral pour la session."""
+    """Incrémente le compteur d'appels Mistral pour la session."""
     key = _get_rate_key()
     st.session_state[key] = st.session_state.get(key, 0) + 1
 
@@ -124,7 +124,7 @@ def test_dns_resolution():
         socket.getaddrinfo("api.mistral.ai", None, socket.AF_INET, socket.SOCK_STREAM)
         return True
     except Exception as e:
-        logger.warning(f"DNS resolution failed: {e}")
+        logger.warning(f"DNS résolution failed: {e}")
         return False
 
 def get_api_key():

@@ -36,7 +36,7 @@ def analyser_donnees_client(df):
 
 
 def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observations="", objectifs=""):
-    """Genere un rapport client professionnel"""
+    """Génère un rapport client professionnel"""
     
     # Analyse
     if not donnees.empty and 'CompteNum' in donnees.columns:
@@ -46,17 +46,17 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     
     rapport = []
     
-    rapport.append(f"# RAPPORT D'ACTIVITE COMPTABLE")
+    rapport.append(f"# RAPPORT D'ACTIVITÉ COMPTABLE")
     rapport.append(f"## {nom_client}")
-    rapport.append(f"### Periode : {periode} {exercice}")
+    rapport.append(f"### Période : {periode} {exercice}")
     rapport.append(f"")
-    rapport.append(f"**Date d'edition** : {datetime.now().strftime('%d/%m/%Y')}")
-    rapport.append(f"**SIRET** : {siret if siret else 'Non renseigne'}")
+    rapport.append(f"**Date d'édition** : {datetime.now().strftime('%d/%m/%Y')}")
+    rapport.append(f"**SIRET** : {siret if siret else 'Non renseigné'}")
     rapport.append("")
     rapport.append("---")
     rapport.append("")
     
-    rapport.append("## SYNTHESE EXECUTIVE")
+    rapport.append("## SYNTHÈSE EXÉCUTIVE")
     rapport.append("")
     
     if kpis and kpis.get('chiffre_affaires', 0) > 0:
@@ -64,7 +64,7 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
         rn = kpis['resultat_net']
         ebe = kpis['ebe']
         
-        rapport.append(f"L'analyse de la periode {periode} {exercice} pour **{nom_client}** revele :")
+        rapport.append(f"L'analyse de la période {periode} {exercice} pour **{nom_client}** révèle :")
         rapport.append("")
         rapport.append(f"- **Chiffre d'affaires** : {_eur(ca)}")
         rapport.append(f"- **Résultat net** : {_eur(rn)} ({_pct(kpis['taux_rentabilite'])} du CA)")
@@ -73,22 +73,22 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
         rapport.append("")
         
         if rn > 0 and ebe > 0:
-            rapport.append("**Situation saine** : Resultats positifs sur l'exercice")
+            rapport.append("**Situation saine** : Résultats positifs sur l'exercice")
         elif rn > 0 and ebe < 0:
-            rapport.append("**Situation fragile** : Resultat positif mais EBE negatif")
+            rapport.append("**Situation fragile** : Résultat positif mais EBE négatif")
         elif rn < 0 and ebe > 0:
-            rapport.append("**Vigilance** : Resultat net negatif malgre EBE positif")
+            rapport.append("**Vigilance** : Résultat net négatif malgré EBE positif")
         else:
-            rapport.append("**Situation preoccupante** : Audit approfondi recommande")
+            rapport.append("**Situation préoccupante** : Audit approfondi recommandé")
     else:
-        rapport.append("*Donnees insuffisantes pour synthese detaillee*")
+        rapport.append("*Données insuffisantes pour synthèse détaillée*")
     
     rapport.append("")
     rapport.append("---")
     rapport.append("")
     
     if kpis and kpis.get('chiffre_affaires', 0) > 0:
-        rapport.append("## INDICATEURS CLES")
+        rapport.append("## INDICATEURS CLÉS")
         rapport.append("")
         rapport.append("### Soldes intermédiaires de gestion")
         rapport.append("")
@@ -132,31 +132,31 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     
     if kpis and kpis.get('chiffre_affaires', 0) > 0:
         if kpis['taux_rentabilite'] > 10:
-            rapport.append("- **Rentabilite excellente** : marge nette > 10 %")
+            rapport.append("- **Rentabilité excellente** : marge nette > 10 %")
         elif kpis['taux_rentabilite'] > 5:
-            rapport.append("- **Bonne rentabilite** : marge nette satisfaisante")
+            rapport.append("- **Bonne rentabilité** : marge nette satisfaisante")
         elif kpis['taux_rentabilite'] > 0:
-            rapport.append("- **Rentabilite faible** : marges a renforcer")
+            rapport.append("- **Rentabilité faible** : marges à renforcer")
         else:
-            rapport.append("- **Activite deficitaire** : actions correctives urgentes")
+            rapport.append("- **Activité déficitaire** : actions correctives urgentes")
         
         if kpis['taux_va'] > 30:
-            rapport.append("- **Forte valeur ajoutee** : modele economique robuste")
+            rapport.append("- **Forte valeur ajoutée** : modèle économique robuste")
         elif kpis['taux_va'] < 15:
-            rapport.append("- **Faible valeur ajoutee** : revoir la chaine de valeur")
+            rapport.append("- **Faible valeur ajoutée** : revoir la chaîne de valeur")
         
         if kpis['poids_charges_personnel'] > 50:
-            rapport.append("- **Charges personnel elevees** (>50 % CA) : optimiser productivite")
+            rapport.append("- **Charges personnel élevées** (>50 % CA) : optimiser productivité")
         
         if kpis['tresorerie'] < 0:
-            rapport.append("- **Tresorerie negative** : risque d'illiquidite")
+            rapport.append("- **Trésorerie négative** : risque d'illiquidite")
     
     rapport.append("")
     rapport.append("---")
     rapport.append("")
     
     if observations:
-        rapport.append("## OBSERVATIONS PARTICULIERES")
+        rapport.append("## OBSERVATIONS PARTICULIÈRES")
         rapport.append("")
         rapport.append(observations)
         rapport.append("")
@@ -165,24 +165,24 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     
     rapport.append("## RECOMMANDATIONS DU CABINET")
     rapport.append("")
-    rapport.append("- **Suivi mensuel** : Tableau de bord mensuel des KPIs cles")
-    rapport.append("- **Optimisation fiscale** : Verifier eligibilite CIR, CII, JEI")
-    rapport.append("- **Tresorerie** : Plan previsionnel a 3 mois")
+    rapport.append("- **Suivi mensuel** : Tableau de bord mensuel des KPIs clés")
+    rapport.append("- **Optimisation fiscale** : Vérifier éligibilité CIR, CII, JEI")
+    rapport.append("- **Trésorerie** : Plan prévisionnel à 3 mois")
     rapport.append("- **Audit interne** : Audit annuel des processus comptables")
     rapport.append("")
     
     if objectifs:
         rapport.append("---")
         rapport.append("")
-        rapport.append("## OBJECTIFS PROCHAINE PERIODE")
+        rapport.append("## OBJECTIFS PROCHAINE PÉRIODE")
         rapport.append("")
         rapport.append(objectifs)
         rapport.append("")
     
     rapport.append("---")
     rapport.append("")
-    rapport.append("*Rapport genere par SMD Global Consulting LLC - Superviseur IA Comptable*")
-    rapport.append(f"*(c) {datetime.now().year} - Tous droits reserves*")
+    rapport.append("*Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*")
+    rapport.append(f"*(c) {datetime.now().year} - Tous droits réservés*")
     
     return "\n".join(rapport)
 

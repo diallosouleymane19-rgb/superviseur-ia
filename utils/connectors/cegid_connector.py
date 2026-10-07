@@ -116,7 +116,7 @@ class CegidConnector(BaseConnector):
                 for e in items:
                     rows.append({
                         "JournalCode":  str(e.get("journalCode", "OD"))[:6],
-                        "JournalLib":   str(e.get("journalLabel", "Operations diverses")),
+                        "JournalLib":   str(e.get("journalLabel", "Opérations diverses")),
                         "EcritureNum":  str(e.get("entryNumber", e.get("id", ""))),
                         "EcritureDate": self._normaliser_date(e.get("entryDate", e.get("date", ""))),
                         "CompteNum":    str(e.get("accountNumber", e.get("account", ""))),

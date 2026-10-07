@@ -2,7 +2,7 @@
 """
 utils/connectors/base.py - SMD Global Consulting LLC
 Classe de base abstraite pour tous les connecteurs ERP.
-Chaque connecteur retourne des DataFrames normalises.
+Chaque connecteur retourne des DataFrames normalisés.
 """
 
 from abc import ABC, abstractmethod
@@ -11,9 +11,9 @@ from datetime import datetime
 
 
 class BaseConnector(ABC):
-    """Connecteur ERP abstrait. Tous les connecteurs heritent de cette classe."""
+    """Connecteur ERP abstrait. Tous les connecteurs héritent de cette classe."""
 
-    NOM       = "ERP Generique"
+    NOM       = "ERP Générique"
     ICONE     = "🔌"
     DOCS_URL  = ""
 
@@ -34,13 +34,13 @@ class BaseConnector(ABC):
     @abstractmethod
     def get_balance(self, exercice: int, mois: int = None) -> pd.DataFrame:
         """
-        Balance generale : colonnes [compte, libelle, debit, credit, solde].
+        Balance générale : colonnes [compte, libellé, debit, credit, solde].
         """
 
     @abstractmethod
     def get_ecritures(self, exercice: int) -> pd.DataFrame:
         """
-        Ecritures comptables (format FEC) :
+        Écritures comptables (format FEC) :
         colonnes [JournalCode, JournalLib, EcritureNum, EcritureDate,
                   CompteNum, CompteLib, PieceRef, PieceDate,
                   EcritureLib, Debit, Credit, EcritureLet].
@@ -48,8 +48,8 @@ class BaseConnector(ABC):
 
     def get_grand_livre(self, exercice: int, compte_prefix: str = None) -> pd.DataFrame:
         """
-        Grand livre. Par defaut : filtre les ecritures par prefixe de compte.
-        Les connecteurs peuvent surcharger cette methode pour appels API dedies.
+        Grand livre. Par défaut : filtre les écritures par préfixe de compte.
+        Les connecteurs peuvent surcharger cette méthode pour appels API dédiés.
         """
         df = self.get_ecritures(exercice)
         if df.empty:
@@ -62,7 +62,7 @@ class BaseConnector(ABC):
                      exercice: int = None, limit: int = 500) -> pd.DataFrame:
         """
         Factures fournisseurs ou clients.
-        Retourne DataFrame avec colonnes [numero, date, fournisseur_client,
+        Retourne DataFrame avec colonnes [numéro, date, fournisseur_client,
                                           montant_ht, tva, montant_ttc, statut].
         Surcharger dans chaque connecteur.
         """
