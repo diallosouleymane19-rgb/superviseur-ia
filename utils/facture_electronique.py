@@ -189,6 +189,14 @@ def lire_cii(racine, source):
         cpt = _txt(li, "SpecifiedLineTradeSettlement", "ReceivableSpecifiedTradeAccountingAccount", "ID")
         if re.fullmatch(r"[1-7]\d{5}", cpt) and not d.get("compte_acheteur"):
             d["compte_acheteur"] = cpt
+        # Montant HT de la ligne (BT-131), quantité, prix unitaire net et taux : servent à la ventilation
+        d.setdefault("articles", []).append({
+            "libelle": nom or desc, "ht": _num(li, "SpecifiedLineTradeSettlement",
+                                                "SpecifiedTradeSettlementLineMonetarySummation", "LineTotalAmount"),
+            "qte": _num(li, "SpecifiedLineTradeDelivery", "BilledQuantity"),
+            "pu": _num(li, "SpecifiedLineTradeAgreement", "NetPriceProductTradePrice", "ChargeAmount"),
+            "taux": _num(li, "SpecifiedLineTradeSettlement", "ApplicableTradeTax", "RateApplicablePercent"),
+            "compte_acheteur": cpt if re.fullmatch(r"[1-7]\d{5}", cpt) else ""})
     d["objet"] = " ; ".join(x for x in lignes if x)[:200]
 
     d["devise"] = _txt(regl, "InvoiceCurrencyCode") or "EUR"
@@ -248,6 +256,12 @@ def lire_ubl(racine, source):
         cpt = _txt(li, "AccountingCost")
         if re.fullmatch(r"[1-7]\d{5}", cpt) and not d.get("compte_acheteur"):
             d["compte_acheteur"] = cpt
+        d.setdefault("articles", []).append({
+            "libelle": lignes[-1], "ht": _num(li, "LineExtensionAmount"),
+            "qte": _num(li, "CreditedQuantity" if avoir else "InvoicedQuantity"),
+            "pu": _num(li, "Price", "PriceAmount"),
+            "taux": _num(li, "Item", "ClassifiedTaxCategory", "Percent"),
+            "compte_acheteur": cpt if re.fullmatch(r"[1-7]\d{5}", cpt) else ""})
     d["objet"] = " ; ".join(x for x in lignes if x)[:200]
 
     d["devise"] = _txt(racine, "DocumentCurrencyCode") or "EUR"

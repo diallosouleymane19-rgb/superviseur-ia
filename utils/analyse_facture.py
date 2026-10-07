@@ -8,8 +8,7 @@ import re
 from datetime import datetime
 
 from utils.compta_facture import (
-    PCG, lire_document, analyser, proposer_compte,
-    generer_ecriture, controler, nature_compte, export_fec,
+    PCG, lire_document, analyser, imputer, export_fec,
 )
 from utils.sig_pcg import eur_fr, nb_fr
 
@@ -36,22 +35,18 @@ def _ocr_images(pieces):
     return out, infos
 
 
-def _recalculer(r, sens, compte, tva_services, ma_societe):
-    """Recalcule l'écriture après un changement de sens ou de compte par l'utilisateur."""
-    d = r["donnees"]
-    if sens != r["sens"]:
-        compte_prop, nature, confiance, regle = proposer_compte(d, sens, ma_societe)
-        r.update(sens=sens, justif_sens="Choisi par l'utilisateur", confiance=confiance, regle=regle)
-        if compte == r["compte"]:
-            compte = compte_prop
-    if compte != r["compte"]:
-        r.update(regle="Compte choisi par l'utilisateur", confiance="haute")
-    r["compte"], r["libelle_compte"] = compte, PCG.get(compte, "")
-    r["nature"] = nature_compte(compte)
-    r["ecriture"] = generer_ecriture(d, sens, compte, r["nature"], tva_services)
-    r["controles"] = [c for c in controler(d, r["ecriture"])] + \
-        [c for c in r["controles"] if c[1].startswith("Doublon")]
-    return r
+def _recalculer(r, choix, tva_services, ma_societe):
+    """Recalcule l'écriture selon les choix de l'utilisateur :
+    choix = {"sens", "mode" ("lignes" ou "unique"), "compte" (mode unique), "lignes" (un compte par ligne)}."""
+    if choix["sens"] != r["sens"]:
+        r.update(sens=choix["sens"], justif_sens="Choisi par l'utilisateur")
+    if choix.get("mode") == "unique":
+        return imputer(r, ma_societe, tva_services, compte=choix.get("compte"), ventiler_lignes=False)
+    return imputer(r, ma_societe, tva_services, comptes_lignes=choix.get("lignes"))
+
+
+def _en_attente(r):
+    return any(l["compte"] == "471000" for l in r["ecriture"]["lignes"])
 
 
 def _rapport(resultats):
@@ -63,6 +58,8 @@ def _rapport(resultats):
                  f"{d.get('fournisseur') if r['sens'] == 'achat' else d.get('client')}")
         L.append(f"- Date : {d['date'].strftime('%d/%m/%Y') if d.get('date') else 'non lue'}")
         L.append(f"- Sens : {r['sens']} | Compte : {r['compte']} {r['libelle_compte']} ({r['regle']})")
+        for g in r.get("ventilation") or []:
+            L.append(f"  - {g['compte']} {PCG.get(g['compte'], '')} : {nb_fr(g['ht'], 2)} € HT ({g['libelles']})")
         if r.get("doublon_de"):
             L.append(f"- Doublon de {r['doublon_de']} : non comptabilisé")
         L.append("")
@@ -127,11 +124,10 @@ def page_analyse_facture():
     for r in resultats:
         cle = f"{r['donnees']['source']}|{r['donnees'].get('numero')}"
         if cle in choix:
-            sens, compte = choix[cle]
-            _recalculer(r, sens, compte, tva_services, ma_societe)
+            _recalculer(r, choix[cle], tva_services, ma_societe)
 
     retenus = [r for r in resultats if not r.get("doublon_de")]
-    a_verifier = [r for r in retenus if r["confiance"] == "basse" or r["donnees"].get("ocr") or r["compte"] == "471000"
+    a_verifier = [r for r in retenus if r["confiance"] == "basse" or r["donnees"].get("ocr") or _en_attente(r)
                   or any(s == "KO" and not m.startswith(("SIREN", "N° de TVA")) for s, m in r["controles"])]
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Pièces détectées", len(resultats))
@@ -163,22 +159,49 @@ def page_analyse_facture():
                 st.caption(f"Désignation : {d['objet']}")
 
             cle = f"{d['source']}|{d.get('numero')}"
+            fmt = lambda c: f"{c} · {PCG.get(c, '')}"
+            arts = r.get("lignes_articles") or []
             s1, s2 = st.columns([1, 3])
             sens = s1.selectbox("Sens", ["achat", "vente"], index=["achat", "vente"].index(r["sens"]),
                                 key=f"cf_sens_{i}", help=r["justif_sens"])
-            options = _comptes_possibles(sens)
-            if r["compte"] not in options:
-                options = [r["compte"]] + options
-            compte = s2.selectbox("Compte de charge / produit", options, index=options.index(r["compte"]),
-                                  format_func=lambda c: f"{c} · {PCG.get(c, '')}", key=f"cf_cpt_{i}")
             if sens != r["sens"]:
-                # Changement de sens : le compte proposé est recalculé, l'ancien choix de compte est oublié
-                choix[cle] = (sens, r["compte"])
-                st.session_state.pop(f"cf_cpt_{i}", None)
+                # Changement de sens : les comptes proposés sont recalculés, les anciens choix sont oubliés
+                choix[cle] = {"sens": sens, "mode": "lignes"}
+                for k in [k for k in st.session_state if k.startswith((f"cf_cpt_{i}", f"cf_l_{i}_", f"cf_v_{i}"))]:
+                    st.session_state.pop(k, None)
                 st.rerun()
-            if compte != r["compte"]:
-                choix[cle] = (sens, compte)
-                st.rerun()
+            options = _comptes_possibles(sens)
+            par_ligne = False
+            if arts:
+                par_ligne = s2.toggle("Imputer ligne par ligne", value=bool(r.get("ventilation")) or
+                                      choix.get(cle, {}).get("mode") == "lignes", key=f"cf_v_{i}",
+                                      help="Les montants des lignes redonnent le total HT : chaque ligne peut "
+                                           "avoir son propre compte.")
+                if par_ligne != (choix.get(cle, {}).get("mode", "lignes" if r.get("ventilation") else "unique") == "lignes"):
+                    choix[cle] = {"sens": sens, "mode": "lignes" if par_ligne else "unique"}
+                    st.rerun()
+            if par_ligne:
+                actuels = [l["compte"] for l in arts]
+                nouveaux = []
+                for j, l in enumerate(arts):
+                    opts = options if l["compte"] in options else [l["compte"]] + options
+                    c1_, c2_ = st.columns([3, 2])
+                    nouveaux.append(c1_.selectbox(
+                        f"{l['libelle'][:70]} · {nb_fr(l['ht'], 2)} € HT", opts, index=opts.index(l["compte"]),
+                        format_func=fmt, key=f"cf_l_{i}_{j}"))
+                    c2_.caption(f"{l['regle']} · confiance {l['confiance']}")
+                if nouveaux != actuels:
+                    choix[cle] = {"sens": sens, "mode": "lignes", "lignes": nouveaux}
+                    st.rerun()
+            else:
+                if r["compte"] not in options:
+                    options = [r["compte"]] + options
+                compte = (s2 if not arts else st).selectbox(
+                    "Compte de charge / produit", options, index=options.index(r["compte"]),
+                    format_func=fmt, key=f"cf_cpt_{i}")
+                if compte != r["compte"]:
+                    choix[cle] = {"sens": sens, "mode": "unique", "compte": compte}
+                    st.rerun()
             st.caption(f"Proposition : {r['regle']} · confiance {r['confiance']}")
 
             lignes = pd.DataFrame([{
@@ -216,7 +239,7 @@ def page_analyse_facture():
         (st.success if td == tc else st.error)(
             f"Total débit {eur_fr(td, 2)} · total crédit {eur_fr(tc, 2)}"
             + (" · journal équilibré" if td == tc else " · journal déséquilibré"))
-        if any(r["compte"] == "471000" for r in retenus):
+        if any(_en_attente(r) for r in retenus):
             st.warning("Des pièces sont en compte d'attente 471000 : choisissez leur compte avant import.")
 
         e1, e2, e3 = st.columns(3)

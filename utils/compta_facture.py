@@ -247,6 +247,9 @@ def _convertir_euros(d, t):
     for l in d.get("lignes_tva", []):
         if l.get("montant") is not None:
             l["montant"] = d["tva"] if len(d["lignes_tva"]) == 1 else round(l["montant"] * facteur, 2)
+    for a in d.get("articles") or []:
+        if a.get("ht") is not None:
+            a["ht_devise"], a["ht"] = a["ht"], round(a["ht"] * facteur, 2)
     return d
 
 
@@ -470,6 +473,71 @@ def _lignes_tableau(t):
     return ""
 
 
+_MONTANT_COL = re.compile(r"^-?\d{1,3}(?:[  .]\d{3})+(?:,\d{1,2})?$|^-?\d+(?:[.,]\d{1,2})?$")
+_ENTETE_COL = re.compile(r"(?i)\s*(qty|quantity|qt[ée]s?|quantit[ée]s?|unit price|price|prix( unitaire)?( ht)?|p\.?u\.?( ht)?|"
+                         r"amount|montant( ht)?|total( ht)?|rate|taux|tva|vat|tax|unit[ée]?|r[ée]f(\.|[ée]rence)?|"
+                         r"remise|d[ée]signation|description|libell[ée]|article)\s*")
+
+
+def _colonnes_fin(ligne):
+    """Sépare « libellé   10   4,50   45,00 » en (libellé, [10, 4.5, 45.0]).
+    Les colonnes chiffrées sont lues depuis la fin de la ligne ; pourcentages et symboles monétaires ignorés."""
+    x = re.sub(r"-?\d+(?:[.,]\d+)?\s*%", " ", ligne)
+    x = re.sub(r"€|\$|£|\bEUR\b|\bUSD\b|\|", " ", x)
+    morceaux = [m for m in re.split(r"\s{2,}|\t", x.strip()) if m.strip()]
+    nums = []
+    while morceaux:
+        dernier = morceaux[-1].strip()
+        mots = dernier.split()
+        if _MONTANT_COL.match(dernier):
+            nums.insert(0, parse_montant(dernier))
+            morceaux.pop()
+        elif mots and _MONTANT_COL.match(mots[-1]) and len(mots) > 1 and all(_MONTANT_COL.match(w) for w in mots):
+            # colonnes séparées par une seule espace : « 2 62,00 124,00 »
+            nums = [parse_montant(w) for w in mots] + nums
+            morceaux.pop()
+        else:
+            break
+    return " ".join(morceaux).strip(" -:\t"), [n for n in nums if n is not None]
+
+
+def _articles_tableau(t):
+    """Lignes d'articles avec leur montant HT (dernière colonne), lues sous l'en-tête du tableau.
+    Fonctionne aussi quand le PDF place chaque cellule sur sa propre ligne."""
+    lignes = t.splitlines()
+    for i, l in enumerate(lignes):
+        if not re.search(r"(?i)d[ée]signation|description|libell[ée]|article", l) or re.search(r"[:\-]\s*\S", l.split("|")[0][-3:]):
+            continue
+        arts, cour = [], {"lib": [], "nums": []}
+
+        def clore():
+            lib = " ".join(cour["lib"]).strip()
+            if lib and cour["nums"] and len(re.sub(r"[^A-Za-zÀ-ÿ]", "", lib)) >= 3:
+                n = cour["nums"]
+                arts.append({"libelle": lib[:120], "ht": n[-1], "qte": n[0] if len(n) >= 2 else None})
+            cour["lib"], cour["nums"] = [], []
+
+        for x in lignes[i + 1:i + 60]:
+            if not x.strip():
+                continue
+            if re.search(r"(?i)\btotal|sub-?total|\bnet [àa] payer|\bh\.?t\.?\s*:|\bamount (paid|due)", x):
+                if arts or cour["nums"] or re.search(r"\d", x):
+                    break
+                continue   # en-tête « Total HT » sur sa propre ligne
+            if _ENTETE_COL.fullmatch(x) or re.fullmatch(r"(?i)(\s*(qt[ée]|pu|p\.u\.|ht|ttc|tva|total|montant|prix|unitaire)\s*)+", x):
+                continue
+            lib, nums = _colonnes_fin(x)
+            if lib and len(re.sub(r"[^A-Za-zÀ-ÿ]", "", lib)) >= 3:
+                if cour["nums"]:
+                    clore()
+                cour["lib"].append(lib)
+            cour["nums"] += nums
+        clore()
+        if arts:
+            return arts
+    return []
+
+
 _ETIQ_CLIENT = r"^\s*(client|destinataire|acheteur|factur[ée]e?\s+[àa]|adress[ée]e?\s+[àa]|bill(?:ed)?\s+to|sold\s+to|invoice\s+to|customer)\b"
 
 
@@ -542,8 +610,9 @@ def extraire_texte(texte, source=""):
     if not d["fournisseur"]:
         d["fournisseur"] = _emetteur_entete(t, d["client"])
         d["emetteur_deduit"] = bool(d["fournisseur"])
+    arts = _articles_tableau(t)
     d["objet"] = _champ(t, ["objet", "d[ée]signation", "description", "libell[ée]", "prestation", "nature"]) \
-        or _lignes_tableau(t)
+        or " ; ".join(a["libelle"] for a in arts)[:200] or _lignes_tableau(t)
 
     bloc_client, hors_client = _bloc_client(t)
     d["siren"] = _siren_dans(hors_client)
@@ -601,6 +670,7 @@ def extraire_texte(texte, source=""):
     d["exoneration"] = bool(re.search(r"exoneration|exonere|art(icle)?\.?\s*26[12]", ts))
     if d["franchise"] or d["exoneration"]:
         d["lignes_tva"], d["tva"] = [], None   # aucune TVA facturée
+    d["articles"] = arts
     d = _completer(d)
     if d["devise"] != "EUR":
         _convertir_euros(d, t)
@@ -721,6 +791,88 @@ def proposer_compte(d, sens, ma_societe=""):
     return "471000", "service", "basse", "Nature non identifiée : compte d'attente à affecter"
 
 
+def articles_utilisables(d):
+    """Lignes d'articles dont la somme des montants HT redonne le total HT de la facture (sinon : [])."""
+    arts = [a for a in d.get("articles") or [] if a.get("ht") is not None]
+    ht = d.get("ht")
+    if len(arts) < 2 or ht is None:
+        return []
+    somme = round(sum(abs(a["ht"]) for a in arts), 2)
+    return arts if abs(somme - abs(ht)) <= 0.01 * len(arts) + 0.01 else []
+
+
+def ventiler(d, sens, ma_societe="", comptes=None):
+    """Imputation ligne par ligne. comptes : choix de l'utilisateur, un compte par ligne (facultatif).
+    Retourne la liste des lignes avec leur compte, ou [] si les montants des lignes sont inutilisables."""
+    arts = articles_utilisables(d)
+    if not arts:
+        return []
+    ref = proposer_compte(d, sens, ma_societe)   # imputation de la facture entière, en secours
+    out = []
+    for i, a in enumerate(arts):
+        ht = abs(a["ht"])
+        unitaire = ht / a["qte"] if a.get("qte") and a["qte"] > 0 else ht
+        if comptes and i < len(comptes) and comptes[i]:
+            cpt, conf, regle = comptes[i], "haute", "Compte choisi par l'utilisateur"
+            nat = nature_compte(cpt)
+        elif sens == "achat" and re.fullmatch(r"[26]\d{5}", a.get("compte_acheteur") or ""):
+            cpt, conf, regle = a["compte_acheteur"], "haute", "Compte indiqué dans la facture électronique"
+            nat = nature_compte(cpt)
+        else:
+            # la ligne est lue seule ; le seuil de 500 € HT s'apprécie par bien (prix unitaire)
+            cpt, nat, conf, regle = proposer_compte({"objet": a["libelle"], "ht": unitaire}, sens, ma_societe)
+            if cpt in ("471000", "706000") and conf == "basse":
+                cpt, nat, conf, regle = ref
+                regle = f"Aucun mot-clé sur la ligne : imputation de la facture ({regle})"
+                conf = "basse" if cpt == "471000" else "moyenne"
+        out.append({"libelle": a["libelle"], "ht": ht, "taux": a.get("taux"), "compte": cpt,
+                    "nature": nat, "confiance": conf, "regle": regle})
+    return out
+
+
+def _repartir(total, poids):
+    """Répartit un montant au prorata des poids, l'écart d'arrondi sur le plus gros poids."""
+    tp = sum(poids)
+    if not tp:
+        return [0.0] * len(poids)
+    parts = [round(total * x / tp, 2) for x in poids]
+    parts[poids.index(max(poids))] += round(total - sum(parts), 2)
+    return [round(x, 2) for x in parts]
+
+
+def groupes_ventilation(d, lignes):
+    """Regroupe les lignes par compte et répartit la TVA de la facture entre les comptes.
+    TVA calculée ligne par ligne si les taux des lignes redonnent la TVA totale, sinon au prorata du HT."""
+    ordre, ht_c, tva_th, nat = [], {}, {}, {}
+    for l in lignes:
+        if l["compte"] not in ht_c:
+            ordre.append(l["compte"])
+            nat[l["compte"]] = l["nature"]
+            ht_c[l["compte"]], tva_th[l["compte"]] = 0.0, 0.0
+        ht_c[l["compte"]] += l["ht"]
+        tva_th[l["compte"]] += l["ht"] * (l["taux"] or 0) / 100
+    ht_tot = abs(d.get("ht") or 0)
+    tva_tot = abs(d.get("tva") or 0)
+    hts = _repartir(ht_tot, [ht_c[c] for c in ordre])          # somme exacte = HT de la facture
+    taux_ok = all(l["taux"] is not None for l in lignes) and abs(sum(tva_th.values()) - tva_tot) <= 0.01 * len(lignes) + 0.01
+    tvas = _repartir(tva_tot, [tva_th[c] if taux_ok else ht_c[c] for c in ordre])
+    return [{"compte": c, "nature": nat[c], "ht": h, "tva": t,
+             "libelles": " ; ".join(l["libelle"] for l in lignes if l["compte"] == c)[:200]}
+            for c, h, t in zip(ordre, hts, tvas)]
+
+
+def natures_multiples(d, sens, ma_societe=""):
+    """Comptes différents suggérés par les libellés des lignes, quand les montants par ligne manquent."""
+    libs = [a["libelle"] for a in d.get("articles") or []] or \
+        [x for x in re.split(r"\s*;\s*", d.get("objet") or "") if x]
+    comptes = []
+    for lib in libs:
+        cpt, _, conf, _ = proposer_compte({"objet": lib, "ht": d.get("ht")}, sens, ma_societe)
+        if conf != "basse" and cpt not in comptes:
+            comptes.append(cpt)
+    return comptes if len(comptes) > 1 else []
+
+
 def nature_compte(compte):
     """Nature déduite du compte choisi : immobilisation, bien ou service (pour la TVA et le tiers)."""
     c = str(compte)
@@ -731,11 +883,15 @@ def nature_compte(compte):
     return "service"
 
 
-def generer_ecriture(d, sens, compte, nature, tva_services="exigibilite", journal_achat="AC", journal_vente="VE"):
+def generer_ecriture(d, sens, compte, nature, tva_services="exigibilite", journal_achat="AC", journal_vente="VE",
+                     groupes=None):
     """
     Lignes d'écriture équilibrées.
     tva_services : 'exigibilite' (4458 jusqu'au paiement sauf option débits) ou 'directe' (44566).
+    groupes : ventilation par compte (groupes_ventilation) ; sinon toute la facture sur « compte ».
     """
+    if groupes and len(groupes) > 1:
+        return _ecriture_ventilee(d, sens, groupes, tva_services, journal_achat, journal_vente)
     ht, tva, ttc = d.get("ht") or 0.0, d.get("tva") or 0.0, d.get("ttc") or 0.0
     avoir = d.get("type") == "avoir"
     tiers_nom = d.get("fournisseur") if sens == "achat" else (d.get("client") or "Client")
@@ -772,6 +928,63 @@ def generer_ecriture(d, sens, compte, nature, tva_services="exigibilite", journa
         ligne(compte, "", 0, ht)
         ligne("445710", "", 0, tva)
     return {"journal": journal_achat if sens == "achat" else journal_vente, "lignes": L}
+
+
+def _ecriture_ventilee(d, sens, groupes, tva_services, journal_achat, journal_vente):
+    """Une ligne de charge (ou de produit) par compte ; TVA regroupée par compte de TVA ;
+    fournisseur d'immobilisations (404) et fournisseur ordinaire (401) séparés."""
+    avoir = d.get("type") == "avoir"
+    tiers_nom = d.get("fournisseur") if sens == "achat" else (d.get("client") or "Client")
+    lib = f"{'Avoir' if avoir else 'Fact.'} {d.get('numero') or ''} {tiers_nom or ''}".strip()[:60]
+    ttc = abs(d.get("ttc") or 0.0)
+    L = []
+    def ligne(cpt, aux, deb, cre, libelle=lib):
+        if avoir:
+            deb, cre = cre, deb
+        if round(deb, 2) or round(cre, 2):
+            L.append({"compte": cpt, "aux": aux, "libelle": libelle, "debit": round(deb, 2), "credit": round(cre, 2)})
+
+    if sens == "vente":
+        aux = code_auxiliaire(tiers_nom or "", "C")
+        ligne("411000", aux, ttc, 0)
+        for g in groupes:
+            ligne(g["compte"], "", 0, g["ht"])
+        ligne("445710", "", 0, sum(g["tva"] for g in groupes))
+        return {"journal": journal_vente, "lignes": L}
+
+    aux = code_auxiliaire(tiers_nom or "", "F")
+    for g in groupes:
+        ligne(g["compte"], "", g["ht"], 0)
+    if d.get("autoliquidation"):
+        tva_auto = round(sum(g["ht"] for g in groupes) * 0.20, 2)
+        ligne("445660", "", tva_auto, 0, lib + " TVA autoliquidée")
+        ligne("445200", "", 0, tva_auto, lib + " TVA autoliquidée")
+        dus = {g["nature"] == "immo": 0 for g in groupes}
+        for g in groupes:
+            dus[g["nature"] == "immo"] += g["ht"]
+    else:
+        tva_c, dus = {}, {}
+        for g in groupes:
+            if g["nature"] == "immo":
+                c = "445620"
+            elif g["nature"] == "service" and tva_services == "exigibilite" and not d.get("option_debits"):
+                c = "445800"
+            else:
+                c = "445660"
+            tva_c[c] = tva_c.get(c, 0) + g["tva"]
+            dus[g["nature"] == "immo"] = dus.get(g["nature"] == "immo", 0) + g["ht"] + g["tva"]
+        for c, m in tva_c.items():
+            ligne(c, "", m, 0)
+        # le TTC de la facture fait foi : l'écart d'arrondi éventuel va sur la dette la plus importante
+        ecart = round(ttc - sum(dus.values()), 2)
+        if ecart and abs(ecart) <= 0.05:
+            k = max(dus, key=dus.get)
+            dus[k] += ecart
+    if dus.get(True):
+        ligne("404000", aux, 0, dus[True])
+    if dus.get(False):
+        ligne("401000", aux, 0, dus[False])
+    return {"journal": journal_achat, "lignes": L}
 
 
 def controler(d, ecriture=None):
@@ -897,15 +1110,10 @@ def analyser(pieces, ma_societe="", tva_services="exigibilite"):
         else:
             d = extraire_texte(p["texte"], p["source"])
         sens, why_sens = determiner_sens(d, ma_societe)
-        compte, nature, confiance, regle = proposer_compte(d, sens, ma_societe)
-        ecr = generer_ecriture(d, sens, compte, nature, tva_services)
-        ctrl = controler(d, ecr)
         if p.get("ocr"):
             d["ocr"] = True
-            ctrl.append(("ALERTE", "Pièce lue par OCR (scan ou photo) : vérifiez montants, dates et numéros avec l'original"))
-        r = {"donnees": d, "sens": sens, "justif_sens": why_sens, "compte": compte,
-             "libelle_compte": PCG.get(compte, ""), "nature": nature, "confiance": confiance,
-             "regle": regle, "ecriture": ecr, "controles": ctrl, "doublon_de": None}
+        r = {"donnees": d, "sens": sens, "justif_sens": why_sens, "doublon_de": None}
+        imputer(r, ma_societe, tva_services)
         k = cle_doublon(d)
         if k in vus:
             # On conserve la pièce la plus complète (imputation la plus sûre) ; l'autre est marquée doublon
@@ -921,6 +1129,47 @@ def analyser(pieces, ma_societe="", tva_services="exigibilite"):
             vus[k] = r
         resultats.append(r)   # chaque pièce n'est ajoutée qu'une fois, doublon ou non
     return resultats
+
+
+def imputer(r, ma_societe="", tva_services="exigibilite", compte=None, comptes_lignes=None, ventiler_lignes=True):
+    """Imputation, écriture et contrôles d'une pièce (r contient déjà donnees et sens).
+    compte : compte unique imposé par l'utilisateur ; comptes_lignes : un compte par ligne d'article."""
+    d, sens = r["donnees"], r["sens"]
+    lignes = ventiler(d, sens, ma_societe, comptes_lignes)
+    groupes = groupes_ventilation(d, lignes) if lignes and ventiler_lignes and compte is None else []
+    if len(groupes) > 1:
+        princ = max(groupes, key=lambda g: g["ht"])
+        ordre_conf = {"basse": 0, "moyenne": 1, "haute": 2}
+        conf = min((l["confiance"] for l in lignes), key=ordre_conf.get)
+        r.update(compte=princ["compte"], nature=princ["nature"], confiance=conf,
+                 regle=f"Ventilation ligne par ligne sur {len(groupes)} comptes",
+                 lignes_articles=lignes, ventilation=groupes)
+    else:
+        if compte is None and comptes_lignes and len(groupes) == 1:   # toutes les lignes sur un même compte
+            compte = groupes[0]["compte"]
+        if compte is None:
+            compte, nature, confiance, regle = proposer_compte(d, sens, ma_societe)
+        else:
+            nature, confiance, regle = nature_compte(compte), "haute", "Compte choisi par l'utilisateur"
+        r.update(compte=compte, nature=nature, confiance=confiance, regle=regle,
+                 lignes_articles=lignes, ventilation=[])
+    r["libelle_compte"] = PCG.get(r["compte"], "")
+    r["ecriture"] = generer_ecriture(d, sens, r["compte"], r["nature"], tva_services, groupes=r["ventilation"])
+    ctrl = controler(d, r["ecriture"])
+    if r["ventilation"]:
+        ctrl.insert(0, ("OK", f"Facture ventilée sur {len(r['ventilation'])} comptes : "
+                              "la somme des lignes d'articles est égale au total HT"))
+    elif compte is None or r.get("regle") != "Compte choisi par l'utilisateur":
+        autres = natures_multiples(d, sens, ma_societe)
+        if autres and not articles_utilisables(d):
+            ctrl.append(("ALERTE", "Plusieurs natures de dépenses détectées (" + ", ".join(
+                f"{c} {PCG.get(c, '')}" for c in autres) + ") mais les montants des lignes sont absents ou ne redonnent pas le total HT "
+                "(remise ou frais au niveau de la facture) : "
+                f"toute la facture est imputée en {r['compte']}, à ventiler manuellement si nécessaire"))
+    if d.get("ocr"):
+        ctrl.append(("ALERTE", "Pièce lue par OCR (scan ou photo) : vérifiez montants, dates et numéros avec l'original"))
+    r["controles"] = ctrl + [c for c in r.get("controles", []) if c[1].startswith("Doublon")]
+    return r
 
 
 def _score(r):
