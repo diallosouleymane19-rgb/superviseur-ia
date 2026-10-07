@@ -3,6 +3,7 @@
 Module Immobilisations - SMD Global Consulting LLC
 Gestion des amortissements, cessions et plan d'investissement
 """
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -410,7 +411,7 @@ def page_immobilisations():
 
         uploaded_file = st.file_uploader(
             "📎 Fichier immobilisations (CSV, XLSX)",
-            type=["csv", "xlsx"],
+            type=TYPES_TABLEUR_CSV,
             help="Colonnes attendues : Désignation, Valeur, Date acquisition, Durée, Amort. cumulé"
         )
 

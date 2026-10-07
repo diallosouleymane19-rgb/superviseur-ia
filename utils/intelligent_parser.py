@@ -3,6 +3,7 @@
 Parseur Intelligent Universel - SMD Global Consulting LLC
 Compatible : Sage, Cegid, EBP, Ciel, ACD, Tiime, Pennylane, QuickBooks, Excel
 """
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
 
@@ -235,7 +236,7 @@ def parser_balance_intelligent(fichier):
         'colonnes_manquantes': []
     }
     
-    if hasattr(fichier, 'name') and fichier.name.endswith('xlsx'):
+    if est_tableur(getattr(fichier, 'name', '')):
         df_raw = pd.read_excel(fichier, header=None)
     else:
         df_raw = _lire_texte_brut(fichier)
@@ -320,7 +321,7 @@ def charger_balance_ou_fec(fichier):
     Returns: df, message, info (info = None pour un FEC)
     """
     nom = getattr(fichier, "name", "").lower()
-    if not nom.endswith(("xlsx", "xls")):
+    if not est_tableur(nom):
         from utils.fec import lire_fec
         fichier.seek(0)
         df, sep, enc = lire_fec(fichier)

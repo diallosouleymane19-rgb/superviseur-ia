@@ -4,6 +4,7 @@ Module Comparatif N vs N-1
 Bilan + Compte de Résultat côte à côte avec écarts €/%
 SMD Global Consulting LLC - PCG France
 """
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -247,7 +248,7 @@ def page_comparatif():
         st.markdown(f"### 📁 Balance N ({label_n})")
         file_n = st.file_uploader(
             "Balance N",
-            type=["csv", "xlsx", "txt"],
+            type=TYPES_BALANCE,
             key="cmp_n",
             label_visibility="collapsed"
         )
@@ -255,7 +256,7 @@ def page_comparatif():
         st.markdown(f"### 📁 Balance N-1 ({label_n1})")
         file_n1 = st.file_uploader(
             "Balance N-1",
-            type=["csv", "xlsx", "txt"],
+            type=TYPES_BALANCE,
             key="cmp_n1",
             label_visibility="collapsed"
         )

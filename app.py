@@ -5,6 +5,7 @@ Application complète de supervision comptable augmentée par IA
 Auteur: Souleymane Diallo
 """
 
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
 import os
@@ -239,7 +240,7 @@ def _charger_fichier_bytes(file_bytes: bytes, file_name: str, header: int = 0):
     import io
     buf = io.BytesIO(file_bytes)
     try:
-        if file_name.endswith('xlsx'):
+        if est_tableur(file_name):
             return pd.read_excel(buf, header=header), None
         elif file_name.endswith('txt'):
             buf.seek(0)

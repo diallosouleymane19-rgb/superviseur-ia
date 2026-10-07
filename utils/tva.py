@@ -4,6 +4,7 @@ Module Aide TVA CA3 / CA12
 Calcul, vérification et aide à la déclaration TVA France
 SMD Global Consulting LLC - DGFiP / PCG France
 """
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -522,7 +523,7 @@ def page_tva():
     with tab2:
         st.markdown("### 📁 Import balance comptable")
         st.info("La balance est analysée pour extraire automatiquement les comptes TVA (445xx) et CA (70x).")
-        uploaded = st.file_uploader("Balance CSV / Excel", type=["csv", "xlsx"], key="tva_balance")
+        uploaded = st.file_uploader("Balance CSV / Excel", type=TYPES_TABLEUR_CSV, key="tva_balance")
         if uploaded:
             try:
                 from utils.intelligent_parser import parser_balance_intelligent

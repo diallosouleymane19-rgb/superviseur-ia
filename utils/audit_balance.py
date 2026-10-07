@@ -3,6 +3,7 @@
 Module Audit Balance Professionnel - SMD Global Consulting LLC
 Pour Cabinets, DAF et Dirigeants
 """
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -307,7 +308,7 @@ def page_audit_balance():
 
     uploaded_file = st.file_uploader(
         "📎 Déposer votre balance (CSV, XLSX)", 
-        type=["csv", "xlsx"]
+        type=TYPES_TABLEUR_CSV
     )
 
     if uploaded_file:
@@ -355,7 +356,7 @@ def page_audit_balance():
                 with col2:
                     ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else None
 
-                if uploaded_file.name.endswith('xlsx'):
+                if est_tableur(uploaded_file.name):
                     df = pd.read_excel(uploaded_file, header=ligne_entete if a_un_entete else None)
                 else:
                     df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)

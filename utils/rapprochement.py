@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Module Rapprochement Bancaire - SMD Global Consulting LLC"""
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 from datetime import datetime, timedelta
 from utils.page_helpers import (
@@ -236,7 +237,7 @@ def page_rapprochement():
         st.markdown("### 📥 Relevé Bancaire")
         releve = st.file_uploader(
             "Fichier relevé (CSV, XLSX)",
-            type=["csv", "xlsx"],
+            type=TYPES_TABLEUR_CSV,
             key="releve",
             help="Colonnes attendues : Date, Libellé, Montant"
         )
@@ -245,7 +246,7 @@ def page_rapprochement():
         st.markdown("### 📚 Écritures Comptables")
         ecritures = st.file_uploader(
             "Fichier écritures (CSV, XLSX)",
-            type=["csv", "xlsx"],
+            type=TYPES_TABLEUR_CSV,
             key="ecritures",
             help="Colonnes attendues : Date, Libellé, Débit, Crédit"
         )
@@ -254,8 +255,8 @@ def page_rapprochement():
         from utils.rapprochement import rapprocher_bancaire, generer_rapport_rapprochement
 
         try:
-            df_releve = pd.read_excel(releve) if releve.name.endswith('xlsx') else pd.read_csv(releve, sep=None, engine='python')
-            df_ecritures = pd.read_excel(ecritures) if ecritures.name.endswith('xlsx') else pd.read_csv(ecritures, sep=None, engine='python')
+            df_releve = pd.read_excel(releve) if est_tableur(releve.name) else pd.read_csv(releve, sep=None, engine='python')
+            df_ecritures = pd.read_excel(ecritures) if est_tableur(ecritures.name) else pd.read_csv(ecritures, sep=None, engine='python')
 
             st.success(f"✅ Relevé : **{len(df_releve)} opérations** | Écritures : **{len(df_ecritures)} lignes**")
 

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Module Rapport Client - SMD Global Consulting LLC"""
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 from datetime import datetime
 from utils.page_helpers import (
@@ -218,7 +219,7 @@ def page_rapport_client():
 
     uploaded_file = st.file_uploader(
         "📎 Balance ou FEC du client",
-        type=["csv", "xlsx", "txt"]
+        type=TYPES_BALANCE
     )
 
     df = None
@@ -250,7 +251,7 @@ def page_rapport_client():
                 ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0, key="rc_ligne") if a_un_entete else None
 
             try:
-                if uploaded_file.name.endswith('xlsx'):
+                if est_tableur(uploaded_file.name):
                     df = pd.read_excel(uploaded_file, header=ligne_entete if a_un_entete else None)
                 else:
                     df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)

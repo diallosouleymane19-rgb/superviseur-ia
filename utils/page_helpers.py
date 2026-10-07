@@ -4,6 +4,7 @@ utils/page_helpers.py - SMD Global Consulting LLC
 Fonctions utilitaires partagées par toutes les pages (page_xxx).
 Importées depuis les modules utils/ pour éviter les dépendances circulaires app.py.
 """
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
 import io
@@ -91,7 +92,7 @@ def generer_bouton_word(titre: str, contenu):
 def _charger_fichier_bytes(file_bytes: bytes, file_name: str, header: int = 0):
     buf = io.BytesIO(file_bytes)
     try:
-        if file_name.endswith("xlsx"):
+        if est_tableur(file_name):
             return pd.read_excel(buf, header=header), None
         elif file_name.endswith("txt"):
             buf.seek(0)

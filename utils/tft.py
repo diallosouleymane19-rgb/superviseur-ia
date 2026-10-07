@@ -4,6 +4,7 @@ Module TFT PCG France — Méthode indirecte — SMD Global Consulting LLC
 Tableau de Flux de Trésorerie conforme modèle OEC
 Horizon 1 à 3 exercices comparatifs
 """
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -299,9 +300,9 @@ def page_tft():
                    "Les variations sont calculées entre les deux exercices.")
         col_n, col_n1, col_ex = st.columns([2, 2, 1])
         with col_n:
-            f_n = st.file_uploader("Balance de l'exercice (N)", type=["xlsx", "csv", "txt"], key="balance_tft_n")
+            f_n = st.file_uploader("Balance de l'exercice (N)", type=TYPES_BALANCE, key="balance_tft_n")
         with col_n1:
-            f_n1 = st.file_uploader("Balance de l'exercice précédent (N-1)", type=["xlsx", "csv", "txt"], key="balance_tft_n1")
+            f_n1 = st.file_uploader("Balance de l'exercice précédent (N-1)", type=TYPES_BALANCE, key="balance_tft_n1")
         with col_ex:
             ex_import = st.selectbox("Exercice N", exercices, index=len(exercices) - 1, key="ex_import_tft")
         if f_n and f_n1 and st.button("Calculer le TFT", key="btn_extract_tft", type="primary"):

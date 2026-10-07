@@ -4,6 +4,7 @@ Module Compte de Resultat Professionnel - SMD Global Consulting LLC
 Calcul des SIG (Soldes Intermediaires de Gestion) selon PCG francais
 Pour Cabinets, DAF et Dirigeants
 """
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 from utils.sig_pcg import nb_fr, eur_fr, pct_fr
 import numpy as np
@@ -321,7 +322,7 @@ def page_compte_resultat():
 
     uploaded_file = st.file_uploader(
         "📎 Déposer votre balance ou FEC",
-        type=["csv", "xlsx", "txt"],
+        type=TYPES_BALANCE,
         help="La balance doit contenir les comptes des classes 6 (charges) et 7 (produits)"
     )
 

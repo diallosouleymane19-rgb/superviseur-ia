@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Module Alertes & Anomalies - SMD Global Consulting LLC"""
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -248,7 +249,7 @@ def page_alertes():
 
     uploaded_file = st.file_uploader(
         "📎 Données comptables (FEC, Balance, CSV, XLSX)",
-        type=["csv", "xlsx", "txt"]
+        type=TYPES_BALANCE
     )
 
     if uploaded_file:

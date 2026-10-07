@@ -3,6 +3,7 @@
 Module Loi de Benford Professionnel - SMD Global Consulting LLC
 Detection de fraude statistique pour Cabinets d'Audit
 """
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
 import math
@@ -324,7 +325,7 @@ def page_benford():
 
     uploaded_file = st.file_uploader(
         "📎 Données comptables (CSV, XLSX)",
-        type=["csv", "xlsx"],
+        type=TYPES_TABLEUR_CSV,
         help="FEC, balance, ou tout fichier avec une colonne de montants"
     )
 

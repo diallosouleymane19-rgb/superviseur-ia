@@ -3,6 +3,7 @@
 Module Plan de Financement PCG France — SMD Global Consulting LLC
 Saisie manuelle + Import balance | Analyse IA Mistral | Export Excel
 """
+from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
 from io import BytesIO
@@ -41,7 +42,7 @@ EMPLOIS = [
 def _extraire_caf_bfr_pcg(fichier_bytes: bytes, nom_fichier: str) -> dict:
     """Extrait CAF et BFR depuis une balance PCG France."""
     try:
-        if nom_fichier.endswith(".xlsx"):
+        if est_tableur(nom_fichier):
             df = pd.read_excel(BytesIO(fichier_bytes))
         else:
             df = pd.read_csv(BytesIO(fichier_bytes), sep=None, engine="python")
@@ -200,7 +201,7 @@ def page_plan_financement():
     prefill_e: dict = {}
 
     with st.expander("Importer une balance PCG pour pre-remplir CAF et BFR"):
-        fichier = st.file_uploader("Balance (.xlsx ou .csv)", type=["xlsx", "csv"],
+        fichier = st.file_uploader("Balance (Excel, LibreOffice ou CSV)", type=TYPES_TABLEUR_CSV,
                                     key="balance_plan")
         if fichier:
             with st.spinner("Extraction en cours..."):
