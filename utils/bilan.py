@@ -100,6 +100,7 @@ def calculer_bilan(df, date_cloture=None):
     from utils.sig_pcg import _preparer
     d = _preparer(df)
     d = d[d["_cpt"].str.match(r"^\d")]
+    total_debit, total_credit = round(float(d["_d"].sum()), 2), round(float(d["_c"].sum()), 2)
     soldes = (d.groupby("_cpt")["_d"].sum() - d.groupby("_cpt")["_c"].sum()).round(2)
 
     brut = {k: 0.0 for k in (AI_INCORP, AI_CORP, AI_FIN, STOCKS, CLIENTS, AUTRES_CREANCES, CCA, VMP, DISPO)}
@@ -151,7 +152,9 @@ def calculer_bilan(df, date_cloture=None):
         'actif': actif, 'actif_detail': actif_detail, 'passif': passif, 'ratios': {}, 'analyse': [],
         'totaux': {'total_actif': total_actif, 'total_passif': total_passif,
                    'ecart': round(abs(total_actif - total_passif), 2), 'capitaux_propres': cp,
-                   'dettes_financieres': dettes_fin, 'tresorerie': treso, 'resultat_exercice': passif[RESULTAT]},
+                   'dettes_financieres': dettes_fin, 'tresorerie': treso, 'resultat_exercice': passif[RESULTAT],
+                   'total_debit': total_debit, 'total_credit': total_credit,
+                   'ecart_balance': round(abs(total_debit - total_credit), 2)},
     }
 
     frng = cp + passif_v[PROV_RC] + passif_v[EMPRUNTS] - ai
@@ -167,8 +170,16 @@ def calculer_bilan(df, date_cloture=None):
 
     A = bilan['analyse']
     ecart = bilan['totaux']['ecart']
-    A.append({'type': 'OK', 'message': 'Bilan équilibré'} if ecart < 1 else
-             {'type': 'CRITIQUE', 'message': f"Bilan déséquilibré : écart de {eur_fr(ecart, 2)} (balance non équilibrée ?)"})
+    if abs(total_debit - total_credit) >= 1:
+        # Balance fausse : ratios et diagnostic n'ont pas de sens, seul le constat est donné
+        A.append({'type': 'CRITIQUE', 'message':
+                  f"Balance non équilibrée : total des débits {eur_fr(total_debit, 2)}, total des crédits "
+                  f"{eur_fr(total_credit, 2)}, écart {eur_fr(abs(total_debit - total_credit), 2)}. "
+                  "Il manque des comptes ou des écritures : le bilan et les ratios ne sont pas fiables."})
+        bilan['balance_desequilibree'] = True
+        return bilan
+    A.append({'type': 'OK', 'message': 'Balance et bilan équilibrés'} if ecart < 1 else
+             {'type': 'CRITIQUE', 'message': f"Bilan déséquilibré de {eur_fr(ecart, 2)} alors que la balance est équilibrée : à signaler"})
     if abs(frng - bfr - tn) >= 1 and ecart < 1:
         A.append({'type': 'CRITIQUE', 'message': "Incohérence FRNG - BFR ≠ TN : à signaler"})
     if cp <= 0:
@@ -218,9 +229,10 @@ def generer_rapport_bilan(bilan, nom_entreprise="Entreprise", exercice=""):
     for poste, v in bilan['passif'].items():
         if v or poste.startswith("TOTAL"):
             L.append(f"| {'**' + poste + '**' if poste.startswith('TOTAL') else poste} | {nb_fr(v, 2)} |")
-    L += ["", "## ÉQUILIBRE FINANCIER ET RATIOS", ""]
-    for nom, val in bilan['ratios'].items():
-        L.append(f"- {nom} : {_fmt_ratio(nom, val)}")
+    if not bilan.get('balance_desequilibree'):
+        L += ["", "## ÉQUILIBRE FINANCIER ET RATIOS", ""]
+        for nom, val in bilan['ratios'].items():
+            L.append(f"- {nom} : {_fmt_ratio(nom, val)}")
     L += ["", "## ANALYSE", ""]
     L += [f"- [{i['type']}] {i['message']}" for i in bilan['analyse']]
     L += ["", "*Emprunts (16-17) considérés à plus d'un an : la balance ne donne pas l'échéance.*",
@@ -288,10 +300,13 @@ def page_bilan():
                         col3.metric("🏦 Capitaux propres", eur_fr(totaux['capitaux_propres']))
                         ecart = totaux['ecart']
                         col4.metric("⚖ Écart", eur_fr(ecart, 2))
-                        if ecart < 1:
+                        desequilibre = bilan.get('balance_desequilibree')
+                        if desequilibre:
+                            st.error(f"⛔ {bilan['analyse'][0]['message']}")
+                        elif ecart < 1:
                             st.success("✅ Bilan équilibré")
                         else:
-                            st.warning(f"⚠ Bilan déséquilibré de {eur_fr(ecart, 2)} : vérifiez que la balance est équilibrée")
+                            st.warning(f"⚠ Bilan déséquilibré de {eur_fr(ecart, 2)}")
 
                         st.divider()
                         col1, col2 = st.columns(2)
@@ -311,28 +326,32 @@ def page_bilan():
 
                         st.divider()
                         ratios = bilan['ratios']
-                        st.markdown("## 📈 Équilibre financier")
-                        c1, c2, c3 = st.columns(3)
-                        c1.metric("FRNG", eur_fr(ratios[R_FRNG]), help="Capitaux propres + provisions + emprunts - actif immobilisé net")
-                        c2.metric("BFR", eur_fr(ratios[R_BFR]), help="Actif circulant hors trésorerie - dettes d'exploitation et diverses")
-                        c3.metric("Trésorerie nette", eur_fr(ratios[R_TN]), help="Disponibilités + VMP - concours bancaires = FRNG - BFR")
-                        st.markdown("## 📊 Ratios")
-                        c1, c2, c3, c4 = st.columns(4)
-                        c1.metric("Autonomie financière", _fmt_ratio(R_AUTONOMIE, ratios[R_AUTONOMIE]), help="Capitaux propres / total passif. Seuil d'alerte : 20 %")
-                        c2.metric("Endettement", _fmt_ratio(R_ENDETTEMENT, ratios[R_ENDETTEMENT]), help="Dettes financières (emprunts + concours bancaires) / capitaux propres. Alerte au-delà de 1")
-                        c3.metric("Liquidité générale", _fmt_ratio(R_LIQ_GEN, ratios[R_LIQ_GEN]), help="Actif circulant (trésorerie comprise) / dettes à court terme. Alerte en dessous de 1")
-                        c4.metric("Liquidité réduite", _fmt_ratio(R_LIQ_RED, ratios[R_LIQ_RED]), help="Actif circulant hors stocks / dettes à court terme")
-                        st.caption("Emprunts (16-17) considérés à plus d'un an : la balance ne donne pas l'échéance.")
+                        if desequilibre:
+                            st.info("Ratios et diagnostic masqués tant que la balance n'est pas équilibrée. "
+                                    "Corrigez la balance (comptes manquants, à-nouveaux, écritures) puis déposez-la à nouveau.")
+                        if not desequilibre:
+                            st.markdown("## 📈 Équilibre financier")
+                            c1, c2, c3 = st.columns(3)
+                            c1.metric("FRNG", eur_fr(ratios[R_FRNG]), help="Capitaux propres + provisions + emprunts - actif immobilisé net")
+                            c2.metric("BFR", eur_fr(ratios[R_BFR]), help="Actif circulant hors trésorerie - dettes d'exploitation et diverses")
+                            c3.metric("Trésorerie nette", eur_fr(ratios[R_TN]), help="Disponibilités + VMP - concours bancaires = FRNG - BFR")
+                            st.markdown("## 📊 Ratios")
+                            c1, c2, c3, c4 = st.columns(4)
+                            c1.metric("Autonomie financière", _fmt_ratio(R_AUTONOMIE, ratios[R_AUTONOMIE]), help="Capitaux propres / total passif. Seuil d'alerte : 20 %")
+                            c2.metric("Endettement", _fmt_ratio(R_ENDETTEMENT, ratios[R_ENDETTEMENT]), help="Dettes financières (emprunts + concours bancaires) / capitaux propres. Alerte au-delà de 1")
+                            c3.metric("Liquidité générale", _fmt_ratio(R_LIQ_GEN, ratios[R_LIQ_GEN]), help="Actif circulant (trésorerie comprise) / dettes à court terme. Alerte en dessous de 1")
+                            c4.metric("Liquidité réduite", _fmt_ratio(R_LIQ_RED, ratios[R_LIQ_RED]), help="Actif circulant hors stocks / dettes à court terme")
+                            st.caption("Emprunts (16-17) considérés à plus d'un an : la balance ne donne pas l'échéance.")
 
-                        st.divider()
-                        st.markdown("## 💡 Analyse")
-                        for item in bilan['analyse']:
-                            if item['type'] == 'OK':
-                                st.success(f"✅ {item['message']}")
-                            elif item['type'] == 'WARNING':
-                                st.warning(f"⚠ {item['message']}")
-                            else:
-                                st.error(f"🔴 {item['message']}")
+                            st.divider()
+                            st.markdown("## 💡 Analyse")
+                            for item in bilan['analyse']:
+                                if item['type'] == 'OK':
+                                    st.success(f"✅ {item['message']}")
+                                elif item['type'] == 'WARNING':
+                                    st.warning(f"⚠ {item['message']}")
+                                else:
+                                    st.error(f"🔴 {item['message']}")
 
                         st.divider()
                         rapport = generer_rapport_bilan(bilan, nom_entreprise, exercice)
