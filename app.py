@@ -51,6 +51,13 @@ init_db()
 from utils.database import purger_si_necessaire
 purger_si_necessaire()
 
+# Pages légales (CGU, confidentialité) : consultables sans connexion via ?doc=cgu / ?doc=confidentialite
+_doc_legal = st.query_params.get("doc")
+if _doc_legal:
+    from utils.pages_legales import afficher_document
+    if afficher_document(_doc_legal):
+        st.stop()
+
 # =============================================================================
 # AUTHENTIFICATION
 # =============================================================================
@@ -103,7 +110,8 @@ if not is_connecte():
                 st.rerun()
             st.caption("Demander un accès : contact@smdconsulting.pro")
 
-        st.caption("SMD Global Consulting LLC © 2026")
+        st.caption("SMD Global Consulting LLC © 2026 · [CGU](?doc=cgu) · "
+                   "[Politique de confidentialité](?doc=confidentialite)")
 
     with tab_signup:
         from utils.page_inscription import page_inscription
@@ -422,6 +430,8 @@ elif page == "🔒 Confidentialité & Sécurité":
                 "sans anonymisation : n'y saisissez pas de données personnelles inutiles.")
     st.caption("La comptabilisation des factures (comptes PCG, TVA, export FEC) est calculée par des règles, sans IA.")
     st.divider()
+    st.markdown("[Conditions générales d'utilisation](?doc=cgu) · "
+                "[Politique de confidentialité complète](?doc=confidentialite)")
     st.markdown("### 📋 Politique de Conservation (RGPD)")
     st.info("Les analyses sauvegardées sont automatiquement supprimées après **30 jours**.")
     st.caption("**SMD Global Consulting LLC** — Superviseur IA Comptable © 2026")
