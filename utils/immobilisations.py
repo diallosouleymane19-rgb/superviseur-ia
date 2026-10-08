@@ -3,6 +3,7 @@
 Module Immobilisations - SMD Global Consulting LLC
 Gestion des amortissements, cessions et plan d'investissement
 """
+from utils.sig_pcg import nb_fr
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
@@ -192,8 +193,8 @@ def generer_rapport_immobilisation(bien, tableau, mode):
     
     for _, row in tableau.iterrows():
         rapport.append(
-            f"- {int(row['Année'])} : Dotation {row.get('Dotation (€)', 0):,.2f} € | "
-            f"VNC {row.get('VNC (€)', row.get('VNC Fin (€)', 0)):,.2f} € | {row['Statut']}"
+            f"- {int(row['Année'])} : Dotation {nb_fr(row.get('Dotation (€)', 0), 2)} € | "
+            f"VNC {nb_fr(row.get('VNC (€)', row.get('VNC Fin (€)', 0)), 2)} € | {row['Statut']}"
         )
     
     rapport.append("\n---")
@@ -293,15 +294,15 @@ def page_immobilisations():
 
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.metric("💰 Valeur origine", f"{valeur_origine:,.2f} €")
+                        st.metric("💰 Valeur origine", f"{nb_fr(valeur_origine, 2)} €")
                     with col2:
                         st.metric("⏱ Durée", f"{duree_ans} ans")
                     with col3:
                         taux = 100 / duree_ans
-                        st.metric("📊 Taux", f"{taux:.2f}%")
+                        st.metric("📊 Taux", f"{nb_fr(taux, 2)} %")
                     with col4:
                         dotation = tableau['Dotation (€)'].iloc[0]
-                        st.metric("📅 Dotation/an", f"{dotation:,.2f} €")
+                        st.metric("📅 Dotation/an", f"{nb_fr(dotation, 2)} €")
 
                     st.divider()
                     st.dataframe(tableau, width="stretch", hide_index=True)
@@ -326,17 +327,17 @@ def page_immobilisations():
                         dotation_courante = df_ecritures[
                             df_ecritures['Année'] == annee_courante
                         ]['Débit (€)'].sum()
-                        st.metric("📅 Dotation exercice en cours", f"{dotation_courante:,.2f} €")
+                        st.metric("📅 Dotation exercice en cours", f"{nb_fr(dotation_courante, 2)} €")
                     with col2:
                         total_amorti = df_ecritures[
                             df_ecritures['Statut'].str.contains('Passé|cours', na=False)
                         ]['Débit (€)'].sum()
-                        st.metric("📉 Total amorti à ce jour", f"{total_amorti:,.2f} €")
+                        st.metric("📉 Total amorti à ce jour", f"{nb_fr(total_amorti, 2)} €")
                     with col3:
                         vnc_col = 'VNC (€)' if 'VNC (€)' in tableau.columns else 'VNC Fin (€)'
                         vnc_actuelle = tableau[tableau['Année'] == annee_courante][vnc_col].values
                         vnc_val = vnc_actuelle[0] if len(vnc_actuelle) > 0 else 0
-                        st.metric("💼 VNC actuelle", f"{vnc_val:,.2f} €")
+                        st.metric("💼 VNC actuelle", f"{nb_fr(vnc_val, 2)} €")
 
                     st.dataframe(df_ecritures, width="stretch", hide_index=True)
 
@@ -374,31 +375,31 @@ def page_immobilisations():
 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("📦 Valeur origine", f"{result['valeur_origine']:,.2f} €")
+                    st.metric("📦 Valeur origine", f"{nb_fr(result['valeur_origine'], 2)} €")
                 with col2:
-                    st.metric("📉 VNC", f"{result['vnc']:,.2f} €")
+                    st.metric("📉 VNC", f"{nb_fr(result['vnc'], 2)} €")
                 with col3:
                     delta_color = "normal" if result['resultat_cession'] > 0 else "inverse"
                     st.metric(
                         result['type_resultat'],
-                        f"{abs(result['resultat_cession']):,.2f} €",
+                        f"{nb_fr(abs(result['resultat_cession']), 2)} €",
                         delta=result['type_resultat'],
                         delta_color=delta_color
                     )
                 with col4:
-                    st.metric("🏛 IS estimé", f"{result['impot_estime']:,.2f} €")
+                    st.metric("🏛 IS estimé", f"{nb_fr(result['impot_estime'], 2)} €")
 
                 if result['resultat_cession'] > 0:
-                    st.success(f"✅ **Plus-value de cession** : {result['resultat_cession']:,.2f} €")
+                    st.success(f"✅ **Plus-value de cession** : {nb_fr(result['resultat_cession'], 2)} €")
                 else:
-                    st.warning(f"⚠ **Moins-value de cession** : {abs(result['resultat_cession']):,.2f} €")
+                    st.warning(f"⚠ **Moins-value de cession** : {nb_fr(abs(result['resultat_cession']), 2)} €")
 
                 st.divider()
                 st.markdown("### 📚 Écritures Comptables")
                 st.dataframe(result['ecritures'], width="stretch", hide_index=True)
 
                 st.divider()
-                rapport_c = f"Cession {nom_bien_c} : {result['type_resultat']} {result['resultat_cession']:,.2f} €"
+                rapport_c = f"Cession {nom_bien_c} : {result['type_resultat']} {nb_fr(result['resultat_cession'], 2)} €"
                 bouton_sauvegarde(type_analyse="Cession Immobilisation", resultat=rapport_c, libelle="💾 Sauvegarder la cession")
     # ── ONGLET 3 : PLAN D'INVESTISSEMENT ──
     with onglet3:
@@ -427,10 +428,10 @@ def page_immobilisations():
                     st.metric("📦 Nombre de biens", len(df))
                 with col2:
                     if 'Valeur' in df.columns:
-                        st.metric("💰 Valeur totale", f"{pd.to_numeric(df['Valeur'], errors='coerce').sum():,.2f} €")
+                        st.metric("💰 Valeur totale", f"{nb_fr(pd.to_numeric(df['Valeur'], errors='coerce').sum(), 2)} €")
                 with col3:
                     if 'Amort. cumulé' in df.columns:
-                        st.metric("📉 Amort. total", f"{pd.to_numeric(df['Amort. cumulé'], errors='coerce').sum():,.2f} €")
+                        st.metric("📉 Amort. total", f"{nb_fr(pd.to_numeric(df['Amort. cumulé'], errors='coerce').sum(), 2)} €")
         else:
             st.info("💡 Vous pouvez aussi saisir vos immobilisations manuellement via l'onglet Tableau d'amortissement.")
     # -----------------------------------------------------------------------------

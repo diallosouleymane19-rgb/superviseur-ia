@@ -3,6 +3,7 @@
 Module Travaux d'Inventaire - SMD Global Consulting LLC
 Provisions, Régularisations, Stocks, Check-list clôture
 """
+from utils.sig_pcg import nb_fr
 import pandas as pd
 from datetime import datetime
 from utils.page_helpers import (
@@ -320,7 +321,7 @@ def page_inventaire():
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("💰 Total provisions", f"{total:,.2f} €")
+                    st.metric("💰 Total provisions", f"{nb_fr(total, 2)} €")
                 with col2:
                     nb_douteux = len(df_resultats[df_resultats['Taux (%)'] > 0])
                     st.metric("⚠ Créances à risque", nb_douteux)
@@ -360,11 +361,11 @@ def page_inventaire():
 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("💰 Montant risque", f"{montant_risque:,.2f} €")
+                    st.metric("💰 Montant risque", f"{nb_fr(montant_risque, 2)} €")
                 with col2:
-                    st.metric("📊 Probabilité", f"{probabilite}%")
+                    st.metric("📊 Probabilité", f"{nb_fr(probabilite, 0)} %")
                 with col3:
-                    st.metric("⚠ Provision", f"{result['provision']:,.2f} €")
+                    st.metric("⚠ Provision", f"{nb_fr(result['provision'], 2)} €")
 
                 st.divider()
                 st.markdown("### 📚 Écriture comptable")
@@ -420,7 +421,7 @@ def page_inventaire():
             st.dataframe(df_reg, width="stretch", hide_index=True)
 
             total_reg = df_reg['Montant régularisé (€)'].sum()
-            st.metric("💰 Total à régulariser", f"{total_reg:,.2f} €")
+            st.metric("💰 Total à régulariser", f"{nb_fr(total_reg, 2)} €")
 
             bouton_sauvegarde(type_analyse="Régularisations", resultat=df_reg.to_string(), libelle="💾 Sauvegarder", key="save_reg")
     # ── ONGLET 3 : STOCKS ──
@@ -446,14 +447,14 @@ def page_inventaire():
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("📊 Stock début", f"{stock_debut:,.2f} €")
+                st.metric("📊 Stock début", f"{nb_fr(stock_debut, 2)} €")
             with col2:
-                st.metric("📊 Stock fin", f"{stock_fin:,.2f} €")
+                st.metric("📊 Stock fin", f"{nb_fr(stock_fin, 2)} €")
             with col3:
                 delta_color = "normal" if result['variation'] > 0 else "inverse"
                 st.metric(
                     "🔄 Variation",
-                    f"{abs(result['variation']):,.2f} €",
+                    f"{nb_fr(abs(result['variation']), 2)} €",
                     delta=result['sens'],
                     delta_color=delta_color
                 )
@@ -462,7 +463,7 @@ def page_inventaire():
             st.markdown("### 📚 Écriture comptable")
             st.dataframe(result['ecriture'], width="stretch", hide_index=True)
 
-            bouton_sauvegarde(type_analyse="Variation stock", resultat=f"Stock {type_stock} : variation {result['variation']:,.2f} €", libelle="💾 Sauvegarder", key="save_stock")
+            bouton_sauvegarde(type_analyse="Variation stock", resultat=f"Stock {type_stock} : variation {nb_fr(result['variation'], 2)} €", libelle="💾 Sauvegarder", key="save_stock")
     # ── ONGLET 4 : CHECK-LIST CLÔTURE ──
     with onglet4:
         st.markdown("### ✅ Check-list de clôture d'exercice")

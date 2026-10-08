@@ -4,6 +4,7 @@ Module Comparatif N vs N-1
 Bilan + Compte de Résultat côte à côte avec écarts €/%
 SMD Global Consulting LLC - PCG France
 """
+from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
@@ -280,8 +281,8 @@ def page_comparatif():
         return
 
     st.success(
-        f"✅ N ({label_n}) : **{len(df_n):,} comptes** | "
-        f"N-1 ({label_n1}) : **{len(df_n1):,} comptes**"
+        f"✅ N ({label_n}) : **{nb_fr(len(df_n), 0)} comptes** | "
+        f"N-1 ({label_n1}) : **{nb_fr(len(df_n1), 0)} comptes**"
     )
     st.divider()
 
@@ -438,11 +439,11 @@ def page_comparatif():
     if ca_n1 > 0:
         ea_ca = (ca_n - ca_n1) / abs(ca_n1) * 100
         if ea_ca < -10:
-            alertes.append(('error', f"🔴 CA en baisse de {abs(ea_ca):.1f}% — analyse des causes requise"))
+            alertes.append(('error', f"🔴 CA en baisse de {nb_fr(abs(ea_ca), 1)} % — analyse des causes requise"))
         elif ea_ca > 15:
-            alertes.append(('success', f"✅ CA en hausse de {ea_ca:.1f}% — performance commerciale solide"))
+            alertes.append(('success', f"✅ CA en hausse de {nb_fr(ea_ca, 1)} % — performance commerciale solide"))
         else:
-            alertes.append(('info', f"ℹ CA stable ({ea_ca:+.1f}%)"))
+            alertes.append(('info', f"ℹ CA stable ({nb_fr_signe(ea_ca, 1)} %)"))
 
     # Résultat net
     rn_n = sig_n.get("Résultat net", 0) or 0
@@ -454,13 +455,13 @@ def page_comparatif():
     elif rn_n1 != 0:
         ea_rn, _ = _ecart(rn_n, rn_n1)
         if abs(ea_rn) / abs(rn_n1) > 0.20:
-            alertes.append(('warning', f"⚠ Résultat net : variation significative de {ea_rn:+,.0f} €"))
+            alertes.append(('warning', f"⚠ Résultat net : variation significative de {nb_fr_signe(ea_rn, 0)} €"))
 
     # BFR
     bfr_n = (bilan_n.get('ratios') or {}).get(B.R_BFR, 0) or 0
     bfr_n1 = (bilan_n1.get('ratios') or {}).get(B.R_BFR, 0) or 0
     if bfr_n > bfr_n1 * 1.20 and bfr_n1 > 0:
-        alertes.append(('warning', f"⚠ BFR en hausse de {((bfr_n/bfr_n1)-1)*100:.1f}% — surveiller le cycle d'exploitation"))
+        alertes.append(('warning', f"⚠ BFR en hausse de {nb_fr(((bfr_n/bfr_n1)-1)*100, 1)} % — surveiller le cycle d'exploitation"))
 
     # FDR
     fdr_n = (bilan_n.get('ratios') or {}).get(B.R_FRNG, 0) or 0

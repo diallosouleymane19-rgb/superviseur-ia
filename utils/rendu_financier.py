@@ -4,6 +4,7 @@ utils/rendu_financier.py — Moteur de rendu financier structuré
 SMD Global Consulting LLC — Superviseur IA PCG France
 Transforme les sorties narratives Mistral en KPIs + tableaux + alertes visuelles.
 """
+from utils.sig_pcg import nb_fr
 import re
 import html as _html_mod
 import streamlit as st
@@ -260,7 +261,7 @@ def afficher_synthese_score(
         st.markdown(
             f"""<div style='background:{bg};border:2px solid {couleur};border-radius:12px;
             padding:20px;text-align:center;'>
-            <div style='font-size:2.8em;font-weight:bold;color:{couleur}'>{score:.0f}%</div>
+            <div style='font-size:2.8em;font-weight:bold;color:{couleur}'>{nb_fr(score, 0)} %</div>
             <div style='font-size:1em;color:{couleur};font-weight:600'>{niveau}</div>
             </div>""",
             unsafe_allow_html=True
@@ -289,7 +290,7 @@ def afficher_synthese_score(
             'charges_totales':   ("Charges totales", devise),
             'produits_totaux':   ("Produits totaux", devise),
         }
-        affichables = [(lab, f"{kpis[k]:,.0f} {u}".strip() if u != "%" else f"{kpis[k]:.1f}%")
+        affichables = [(lab, f"{nb_fr(kpis[k], 0)} {u}".strip() if u != "%" else f"{nb_fr(kpis[k], 1)} %")
                        for k, (lab, u) in kpi_keys.items() if k in kpis]
         if affichables:
             cols = st.columns(min(len(affichables), 4))

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Module Cohérence des Données - SMD Global Consulting LLC"""
+from utils.sig_pcg import nb_fr
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
@@ -39,19 +40,19 @@ def verifier_coherence(df):
     if completude >= 95:
         resultat['verifications']['Complétude des données'] = {
             'status': 'OK',
-            'message': f'{completude:.1f}% des cellules sont remplies'
+            'message': f'{nb_fr(completude, 1)} % des cellules sont remplies'
         }
         points_obtenus += 20
     elif completude >= 80:
         resultat['verifications']['Complétude des données'] = {
             'status': 'WARNING',
-            'message': f'{completude:.1f}% remplies - quelques données manquantes'
+            'message': f'{nb_fr(completude, 1)} % remplies - quelques données manquantes'
         }
         points_obtenus += 12
     else:
         resultat['verifications']['Complétude des données'] = {
             'status': 'KO',
-            'message': f'{completude:.1f}% seulement - beaucoup de données manquantes'
+            'message': f'{nb_fr(completude, 1)} % seulement - beaucoup de données manquantes'
         }
         points_obtenus += 5
         resultat['recommandations'].append("Compléter les données manquantes")
@@ -94,19 +95,19 @@ def verifier_coherence(df):
         if ecart < 0.01:
             resultat['verifications']['Équilibre Débit/Crédit'] = {
                 'status': 'OK',
-                'message': f'Balance équilibrée ({total_debit:,.2f} EUR)'
+                'message': f'Balance équilibrée ({nb_fr(total_debit, 2)} EUR)'
             }
             points_obtenus += 25
         elif ecart < total_debit * 0.001:
             resultat['verifications']['Équilibre Débit/Crédit'] = {
                 'status': 'WARNING',
-                'message': f'Léger écart de {ecart:.2f} EUR'
+                'message': f'Léger écart de {nb_fr(ecart, 2)} EUR'
             }
             points_obtenus += 15
         else:
             resultat['verifications']['Équilibre Débit/Crédit'] = {
                 'status': 'KO',
-                'message': f'Déséquilibre de {ecart:,.2f} EUR'
+                'message': f'Déséquilibre de {nb_fr(ecart, 2)} EUR'
             }
             points_obtenus += 5
             resultat['recommandations'].append("Vérifier l'intégrité des écritures")
@@ -120,19 +121,19 @@ def verifier_coherence(df):
         if taux_valide >= 95:
             resultat['verifications']['Format des comptes'] = {
                 'status': 'OK',
-                'message': f'{taux_valide:.1f}% des comptes au format valide'
+                'message': f'{nb_fr(taux_valide, 1)} % des comptes au format valide'
             }
             points_obtenus += 15
         elif taux_valide >= 80:
             resultat['verifications']['Format des comptes'] = {
                 'status': 'WARNING',
-                'message': f'{taux_valide:.1f}% au format valide'
+                'message': f'{nb_fr(taux_valide, 1)} % au format valide'
             }
             points_obtenus += 10
         else:
             resultat['verifications']['Format des comptes'] = {
                 'status': 'KO',
-                'message': f'{taux_valide:.1f}% seulement au format valide'
+                'message': f'{nb_fr(taux_valide, 1)} % seulement au format valide'
             }
             points_obtenus += 3
             resultat['recommandations'].append("Vérifier le format des numéros de compte")
@@ -147,13 +148,13 @@ def verifier_coherence(df):
             if taux_dates >= 95:
                 resultat['verifications']['Format des dates'] = {
                     'status': 'OK',
-                    'message': f'{taux_dates:.1f}% des dates valides'
+                    'message': f'{nb_fr(taux_dates, 1)} % des dates valides'
                 }
                 points_obtenus += 15
             else:
                 resultat['verifications']['Format des dates'] = {
                     'status': 'WARNING',
-                    'message': f'{taux_dates:.1f}% des dates valides'
+                    'message': f'{nb_fr(taux_dates, 1)} % des dates valides'
                 }
                 points_obtenus += 8
                 resultat['recommandations'].append("Vérifier le format des dates (AAAAMMJJ)")
@@ -168,13 +169,13 @@ def verifier_coherence(df):
         if taux_libelles >= 95:
             resultat['verifications']['Libellés renseignés'] = {
                 'status': 'OK',
-                'message': f'{taux_libelles:.1f}% des écritures ont un libellé'
+                'message': f'{nb_fr(taux_libelles, 1)} % des écritures ont un libellé'
             }
             points_obtenus += 10
         else:
             resultat['verifications']['Libellés renseignés'] = {
                 'status': 'WARNING',
-                'message': f'{taux_libelles:.1f}% renseignés'
+                'message': f'{nb_fr(taux_libelles, 1)} % renseignés'
             }
             points_obtenus += 5
             resultat['recommandations'].append("Renseigner les libellés manquants (obligatoire PCG)")
@@ -221,11 +222,11 @@ def generer_rapport_coherence(resultat, nom_entreprise="Entreprise"):
     rapport.append("")
     rapport.append("## SCORE DE QUALITÉ")
     rapport.append("")
-    rapport.append(f"**{resultat.get('niveau', 'N/A')} : {resultat['score_qualite']}%**")
+    rapport.append(f"**{resultat.get('niveau', 'N/A')} : {nb_fr(resultat['score_qualite'], 1)} %**")
     rapport.append("")
-    rapport.append(f"- Lignes : {resultat['kpis'].get('nb_lignes', 0):,}")
+    rapport.append(f"- Lignes : {nb_fr(resultat['kpis'].get('nb_lignes', 0), 0)}")
     rapport.append(f"- Colonnes : {resultat['kpis'].get('nb_colonnes', 0)}")
-    rapport.append(f"- Complétude : {resultat['kpis'].get('completude', 0):.1f}%")
+    rapport.append(f"- Complétude : {nb_fr(resultat['kpis'].get('completude', 0), 1)} %")
     rapport.append(f"- Doublons : {resultat['kpis'].get('doublons', 0)}")
     rapport.append("")
     rapport.append("---")
@@ -316,13 +317,13 @@ def page_coherence():
                     col1, col2, col3 = st.columns([1, 2, 1])
                     with col2:
                         if score >= 90:
-                            st.success(f"### {niveau} : {score}% ✅")
+                            st.success(f"### {niveau} : {nb_fr(score, 1)} % ✅")
                         elif score >= 75:
-                            st.info(f"### {niveau} : {score}% ℹ")
+                            st.info(f"### {niveau} : {nb_fr(score, 1)} % ℹ")
                         elif score >= 50:
-                            st.warning(f"### {niveau} : {score}% ⚠")
+                            st.warning(f"### {niveau} : {nb_fr(score, 1)} % ⚠")
                         else:
-                            st.error(f"### {niveau} : {score}% ❌")
+                            st.error(f"### {niveau} : {nb_fr(score, 1)} % ❌")
 
                         st.progress(int(score))
 
@@ -331,11 +332,11 @@ def page_coherence():
                     kpis = resultat.get('kpis', {})
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.metric("📝 Lignes", f"{kpis.get('nb_lignes', 0):,}")
+                        st.metric("📝 Lignes", f"{nb_fr(kpis.get('nb_lignes', 0), 0)}")
                     with col2:
                         st.metric("📊 Colonnes", kpis.get('nb_colonnes', 0))
                     with col3:
-                        st.metric("✅ Complétude", f"{kpis.get('completude', 0):.1f}%")
+                        st.metric("✅ Complétude", f"{nb_fr(kpis.get('completude', 0), 1)} %")
                     with col4:
                         st.metric("⚠ Doublons", kpis.get('doublons', 0),
                                  delta_color="inverse" if kpis.get('doublons', 0) > 0 else "normal")

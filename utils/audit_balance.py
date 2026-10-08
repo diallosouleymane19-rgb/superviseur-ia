@@ -3,6 +3,7 @@
 Module Contrôle de balance - SMD Global Consulting LLC
 Pour Cabinets, DAF et Dirigeants
 """
+from utils.sig_pcg import nb_fr
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
@@ -99,20 +100,20 @@ def auditer_balance(df):
         if ecart < 0.01:
             audit['controles']['Équilibre Débit/Crédit'] = {
                 'statut': 'OK',
-                'message': f'Balance équilibrée (écart = {ecart:.2f} EUR)',
+                'message': f'Balance équilibrée (écart = {nb_fr(ecart, 2)} EUR)',
                 'gravite': None
             }
             points += 30
         else:
             audit['controles']['Équilibre Débit/Crédit'] = {
                 'statut': 'KO',
-                'message': f'Déséquilibre détecté : {ecart:,.2f} EUR',
+                'message': f'Déséquilibre détecté : {nb_fr(ecart, 2)} EUR',
                 'gravite': 'CRITIQUE'
             }
             audit['anomalies'].append({
                 'type': 'Déséquilibre',
                 'gravite': 'CRITIQUE',
-                'description': f'Écart de {ecart:,.2f} EUR entre Débit et Crédit'
+                'description': f'Écart de {nb_fr(ecart, 2)} EUR entre Débit et Crédit'
             })
             audit['recommandations'].append('Vérifier l\'intégrité des écritures comptables')
     
@@ -200,13 +201,13 @@ def auditer_balance(df):
                 if marge > 0:
                     audit['controles']['Résultat'] = {
                         'statut': 'OK',
-                        'message': f'Résultat positif : {resultat:,.2f} EUR (marge {marge:.1f}%)',
+                        'message': f'Résultat positif : {nb_fr(resultat, 2)} EUR (marge {nb_fr(marge, 1)} %)',
                         'gravite': None
                     }
                 else:
                     audit['controles']['Résultat'] = {
                         'statut': 'WARNING',
-                        'message': f'Résultat négatif : {resultat:,.2f} EUR',
+                        'message': f'Résultat négatif : {nb_fr(resultat, 2)} EUR',
                         'gravite': 'MOYENNE'
                     }
                 points += 20
@@ -248,7 +249,7 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
     
     # SYNTHESE EXECUTIVE
     rapport.append(f"## 📊 SYNTHÈSE EXÉCUTIVE\n")
-    rapport.append(f"- **Score qualité** : {audit['score_qualite']}% ({audit['niveau']})")
+    rapport.append(f"- **Score qualité** : {nb_fr(audit['score_qualite'], 1)} % ({audit['niveau']})")
     rapport.append(f"- **Anomalies détectées** : {len(audit['anomalies'])}")
     rapport.append(f"- **Date du contrôle** : {datetime.now().strftime('%d/%m/%Y')}\n")
     
@@ -257,14 +258,14 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
         rapport.append("## 💰 INDICATEURS CLÉS")
         kpis = audit['kpis']
         if 'total_debit' in kpis:
-            rapport.append(f"- **Total Débit** : {kpis['total_debit']:,.2f} EUR")
-            rapport.append(f"- **Total Crédit** : {kpis['total_credit']:,.2f} EUR")
-            rapport.append(f"- **Volume total** : {kpis['volume_total']:,.2f} EUR")
+            rapport.append(f"- **Total Débit** : {nb_fr(kpis['total_debit'], 2)} EUR")
+            rapport.append(f"- **Total Crédit** : {nb_fr(kpis['total_credit'], 2)} EUR")
+            rapport.append(f"- **Volume total** : {nb_fr(kpis['volume_total'], 2)} EUR")
         if 'nb_comptes' in kpis:
             rapport.append(f"- **Nombre de comptes** : {kpis['nb_comptes']}")
         if 'resultat_estime' in kpis:
-            rapport.append(f"- **Résultat estimé** : {kpis['resultat_estime']:,.2f} EUR")
-            rapport.append(f"- **Marge** : {kpis.get('marge_pct', 0):.1f}%")
+            rapport.append(f"- **Résultat estimé** : {nb_fr(kpis['resultat_estime'], 2)} EUR")
+            rapport.append(f"- **Marge** : {nb_fr(kpis.get('marge_pct', 0), 1)} %")
         rapport.append("")
     
     # CONTROLES
@@ -362,7 +363,7 @@ def page_audit_balance():
                 else:
                     df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
 
-                st.success(f"✅ Balance chargée : **{len(df):,} lignes**")
+                st.success(f"✅ Balance chargée : **{nb_fr(len(df), 0)} lignes**")
 
                 with st.expander("👀 Aperçu de la balance", expanded=True):
                     st.dataframe(df.head(15), width="stretch")

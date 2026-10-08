@@ -4,6 +4,7 @@ Module Aide TVA CA3 / CA12
 Calcul, vérification et aide à la déclaration TVA France
 SMD Global Consulting LLC - DGFiP / PCG France
 """
+from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
@@ -151,11 +152,11 @@ def _verifier_coherence(res: dict) -> list:
     if col == 0 and ded > 0:
         alertes.append(("warning", "TVA collectée nulle mais déductible > 0 — vérifiez les comptes 44571"))
     if ded > col * 1.5 and col > 0:
-        alertes.append(("warning", f"TVA déductible ({ded:,.0f} €) très supérieure à la TVA collectée ({col:,.0f} €) — crédit structurel, vérifiez"))
+        alertes.append(("warning", f"TVA déductible ({nb_fr(ded, 0)} €) très supérieure à la TVA collectée ({nb_fr(col, 0)} €) — crédit structurel, vérifiez"))
     if solde > 50000:
-        alertes.append(("info", f"TVA à décaisser importante ({solde:,.0f} €) — pensez à la provision en comptabilité"))
+        alertes.append(("info", f"TVA à décaisser importante ({nb_fr(solde, 0)} €) — pensez à la provision en comptabilité"))
     if res.get("credit_genere", 0) > 0:
-        alertes.append(("success", f"Crédit de TVA de {res['credit_genere']:,.0f} € — remboursement possible si > 760 € (régime réel normal)"))
+        alertes.append(("success", f"Crédit de TVA de {nb_fr(res['credit_genere'], 0)} € — remboursement possible si > 760 € (régime réel normal)"))
     return alertes
 
 # ─────────────────────────────────────────────
@@ -169,7 +170,7 @@ def _export_excel_tva(res: dict, data: dict, periode: str, entreprise: str) -> b
             rows_decl.append({
                 "Rubrique": rubrique,
                 "Base HT (€)": detail["base_ht"],
-                "Taux": f"{detail['taux']*100:.1f}%",
+                "Taux": f"{nb_fr(detail['taux']*100, 1)} %",
                 "TVA collectée (€)": detail["tva"],
             })
         rows_decl.append({"Rubrique": "TOTAL TVA COLLECTÉE", "Base HT (€)": "", "Taux": "", "TVA collectée (€)": res["tva_collectee"]})
@@ -207,12 +208,12 @@ def _chart_tva(res: dict) -> go.Figure:
     fig = go.Figure(go.Bar(
         x=labels, y=values,
         marker_color=colors_bar,
-        text=[f"{v:,.0f} €" for v in values],
+        text=[f"{nb_fr(v, 0)} €" for v in values],
         textposition="outside",
     ))
     solde = res["solde"]
     fig.add_hline(y=0, line_dash="dash", line_color="grey",
-                  annotation_text=f"Solde : {solde:+,.0f} €",
+                  annotation_text=f"Solde : {nb_fr_signe(solde, 0)} €",
                   annotation_position="bottom right")
     fig.update_layout(title="TVA Collectée vs Déductible", yaxis_title="Montant (€)", height=350)
     return fig
@@ -338,7 +339,7 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
         ("E1", "Opérations exonérées / Exportations hors UE",         "Ventes exonérées / exports"),
     ]:
         val = get_base(key)
-        elements.append(ligne(num, lib, f"{val:,.2f} €" if val else "—"))
+        elements.append(ligne(num, lib, f"{nb_fr(val, 2)} €" if val else "—"))
     elements.append(Spacer(1, 0.3*cm))
 
     # ── II. TVA BRUTE ──
@@ -365,8 +366,8 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
         ("10", "TVA au taux réduit 5,5%",          tva55),
         ("11", "TVA au taux super-réduit 2,1%",    tva21),
     ]:
-        elements.append(ligne(num, lib, f"{val:,.2f} €" if val else "—"))
-    elements.append(ligne("16", "TOTAL TVA BRUTE", f"{res['tva_collectee']:,.2f} €", gras=True))
+        elements.append(ligne(num, lib, f"{nb_fr(val, 2)} €" if val else "—"))
+    elements.append(ligne("16", "TOTAL TVA BRUTE", f"{nb_fr(res['tva_collectee'], 2)} €", gras=True))
     elements.append(Spacer(1, 0.3*cm))
 
     # ── III. TVA DÉDUCTIBLE ──
@@ -378,8 +379,8 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
         ("21", "TVA intracommunautaire déductible — compte 44563",           res["tva_ded_intra"]),
         ("22", "Crédit de TVA période précédente — compte 44567",            res["credit_reporte"]),
     ]:
-        elements.append(ligne(num, lib, f"{val:,.2f} €" if val else "—"))
-    elements.append(ligne("23", "TOTAL TVA DÉDUCTIBLE", f"{res['tva_deductible']:,.2f} €", gras=True))
+        elements.append(ligne(num, lib, f"{nb_fr(val, 2)} €" if val else "—"))
+    elements.append(ligne("23", "TOTAL TVA DÉDUCTIBLE", f"{nb_fr(res['tva_deductible'], 2)} €", gras=True))
     elements.append(Spacer(1, 0.3*cm))
 
     # ── IV. RÉSULTAT ──
@@ -388,11 +389,11 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
     if res["a_payer"] > 0:
         res_color, res_bg, res_num = rouge, colors.HexColor('#FFF0F0'), "25"
         res_lib = "TVA A DÉCAISSER — Compte 44551"
-        res_val = f"{res['a_payer']:,.2f} €"
+        res_val = f"{nb_fr(res['a_payer'], 2)} €"
     else:
         res_color, res_bg, res_num = vert, colors.HexColor('#F0FFF0'), "26"
         res_lib = "CRÉDIT DE TVA — Compte 44567"
-        res_val = f"{res['credit_genere']:,.2f} €"
+        res_val = f"{nb_fr(res['credit_genere'], 2)} €"
     res_t = Table([[
         _p(f"<b>{res_num}</b>", 8, color=colors.grey, align=TA_CENTER),
         _p(f"<b>{res_lib}</b>", 11, bold=True, color=res_color),
@@ -529,12 +530,12 @@ def page_tva():
                 from utils.intelligent_parser import parser_balance_intelligent
                 with st.spinner("Analyse de la balance..."):
                     df, info = parser_balance_intelligent(uploaded)
-                st.success(f"✅ {len(df):,} comptes chargés — {info.get('format_detecte', 'format détecté')}")
+                st.success(f"✅ {nb_fr(len(df), 0)} comptes chargés — {info.get('format_detecte', 'format détecté')}")
                 extrait = _extraire_tva_depuis_balance(df)
                 if extrait:
                     st.markdown("### 📊 Comptes TVA extraits de la balance")
                     df_ext = pd.DataFrame([
-                        {"Compte / Rubrique": k, "Montant (€)": f"{v:,.2f}"}
+                        {"Compte / Rubrique": k, "Montant (€)": f"{nb_fr(v, 2)}"}
                         for k, v in extrait.items() if v != 0
                     ])
                     st.dataframe(df_ext, width="stretch", hide_index=True)
@@ -631,14 +632,14 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
     st.caption(regime)
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("💰 TVA Collectée",  f"{res['tva_collectee']:,.0f} €")
-    col2.metric("🔻 TVA Déductible", f"{res['tva_deductible']:,.0f} €")
+    col1.metric("💰 TVA Collectée",  f"{nb_fr(res['tva_collectee'], 0)} €")
+    col2.metric("🔻 TVA Déductible", f"{nb_fr(res['tva_deductible'], 0)} €")
     if res['a_payer'] > 0:
-        col3.metric("💸 TVA à Décaisser", f"{res['a_payer']:,.0f} €", delta="À payer",  delta_color="inverse")
+        col3.metric("💸 TVA à Décaisser", f"{nb_fr(res['a_payer'], 0)} €", delta="À payer",  delta_color="inverse")
         col4.metric("✅ Crédit TVA",       "0 €")
     else:
         col3.metric("💸 TVA à Décaisser", "0 €")
-        col4.metric("✅ Crédit TVA",       f"{res['credit_genere']:,.0f} €", delta="Crédit", delta_color="normal")
+        col4.metric("✅ Crédit TVA",       f"{nb_fr(res['credit_genere'], 0)} €", delta="Crédit", delta_color="normal")
 
     st.divider()
 
@@ -648,18 +649,18 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
         for rubrique, detail in res["tva_collectee_detail"].items():
             rows.append({
                 "Rubrique":    rubrique,
-                "Base HT (€)": f"{detail['base_ht']:,.2f}",
-                "Taux":        f"{detail['taux']*100:.1f}%",
-                "TVA (€)":     f"{detail['tva']:,.2f}",
+                "Base HT (€)": f"{nb_fr(detail['base_ht'], 2)}",
+                "Taux":        f"{nb_fr(detail['taux']*100, 1)} %",
+                "TVA (€)":     f"{nb_fr(detail['tva'], 2)}",
             })
         st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     st.markdown("### 🔻 Détail TVA Déductible")
     rows_ded = []
-    if res["tva_ded_abs"]    > 0: rows_ded.append({"Compte": "44566", "Nature": "TVA déductible sur ABS",             "Montant (€)": f"{res['tva_ded_abs']:,.2f}"})
-    if res["tva_ded_immo"]   > 0: rows_ded.append({"Compte": "44562", "Nature": "TVA déductible sur immos",           "Montant (€)": f"{res['tva_ded_immo']:,.2f}"})
-    if res["tva_ded_intra"]  > 0: rows_ded.append({"Compte": "44563", "Nature": "TVA intracom. déductible",           "Montant (€)": f"{res['tva_ded_intra']:,.2f}"})
-    if res["credit_reporte"] > 0: rows_ded.append({"Compte": "44567", "Nature": "Crédit TVA période précédente",      "Montant (€)": f"{res['credit_reporte']:,.2f}"})
+    if res["tva_ded_abs"]    > 0: rows_ded.append({"Compte": "44566", "Nature": "TVA déductible sur ABS",             "Montant (€)": f"{nb_fr(res['tva_ded_abs'], 2)}"})
+    if res["tva_ded_immo"]   > 0: rows_ded.append({"Compte": "44562", "Nature": "TVA déductible sur immos",           "Montant (€)": f"{nb_fr(res['tva_ded_immo'], 2)}"})
+    if res["tva_ded_intra"]  > 0: rows_ded.append({"Compte": "44563", "Nature": "TVA intracom. déductible",           "Montant (€)": f"{nb_fr(res['tva_ded_intra'], 2)}"})
+    if res["credit_reporte"] > 0: rows_ded.append({"Compte": "44567", "Nature": "Crédit TVA période précédente",      "Montant (€)": f"{nb_fr(res['credit_reporte'], 2)}"})
     if rows_ded:
         st.dataframe(pd.DataFrame(rows_ded), width="stretch", hide_index=True)
     else:
@@ -672,7 +673,7 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
         "TVA Déductible":     res["tva_deductible"],
         "Solde (+ = à payer)": res["solde"],
     }.items()):
-        cols_s[i].metric(k, f"{v:,.2f} €")
+        cols_s[i].metric(k, f"{nb_fr(v, 2)} €")
 
     st.plotly_chart(_chart_tva(res), width="stretch")
 

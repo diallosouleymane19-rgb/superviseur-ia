@@ -16,6 +16,12 @@ def nb_fr(x, dec=0):
     return f"{x:,.{dec}f}".replace(",", " ").replace(".", ",")
 
 
+def nb_fr_signe(x, dec=0):
+    """Nombre signé au format français : +1 234 ou -5,2"""
+    t = nb_fr(x, dec)
+    return t if t.startswith("-") or round(float(x), dec) == 0 else "+" + t
+
+
 def eur_fr(x, dec=0):
     """Montant au format français : 61 497 €"""
     return nb_fr(x, dec) + " €"

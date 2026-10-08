@@ -3,6 +3,7 @@
 Module Plan de Financement PCG France — SMD Global Consulting LLC
 Saisie manuelle + Import balance | Analyse IA Mistral | Export Excel
 """
+from utils.sig_pcg import nb_fr
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
@@ -212,7 +213,7 @@ def page_plan_financement():
                 prefill_e["Variation du besoin en fonds de roulement (BFR)"] = vals.get("Variation BFR estimée", 0)
                 caf_v = prefill_r["Capacité d'autofinancement (CAF)"]
                 bfr_v = prefill_e["Variation du besoin en fonds de roulement (BFR)"]
-                st.success(f"CAF estimée : {caf_v:,.0f} EUR | BFR estimé : {bfr_v:,.0f} EUR")
+                st.success(f"CAF estimée : {nb_fr(caf_v, 0)} EUR | BFR estimé : {nb_fr(bfr_v, 0)} EUR")
             else:
                 st.warning("Extraction impossible - saisissez les valeurs manuellement.")
 
@@ -255,10 +256,10 @@ def page_plan_financement():
         total_e = df_e[a].sum()
         solde = total_r - total_e
         with cols[i]:
-            st.metric(f"Ressources {a}", f"{total_r:,.0f} EUR")
-            st.metric(f"Emplois {a}", f"{total_e:,.0f} EUR")
+            st.metric(f"Ressources {a}", f"{nb_fr(total_r, 0)} EUR")
+            st.metric(f"Emplois {a}", f"{nb_fr(total_e, 0)} EUR")
             delta_color = "normal" if solde >= 0 else "inverse"
-            st.metric(f"Solde {a}", f"{solde:,.0f} EUR",
+            st.metric(f"Solde {a}", f"{nb_fr(solde, 0)} EUR",
                       delta=f"{'Excedent' if solde >= 0 else 'Deficit'}",
                       delta_color=delta_color)
 

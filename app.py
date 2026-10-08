@@ -43,6 +43,15 @@ st.set_page_config(
 
 # Charte graphique
 from utils.theme import appliquer_theme
+
+# Graphiques Plotly : virgule décimale et espace pour les milliers (1 234,5)
+try:
+    import plotly.io as _pio
+    import plotly.graph_objects as _go
+    _pio.templates["fr"] = _go.layout.Template(layout={"separators": ", "})
+    _pio.templates.default = "plotly+fr"
+except Exception:
+    pass
 appliquer_theme()
 
 # Initialisation de la base de données

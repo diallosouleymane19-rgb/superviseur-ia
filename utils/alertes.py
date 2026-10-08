@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Module Alertes & Anomalies - SMD Global Consulting LLC"""
+from utils.sig_pcg import nb_fr
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
@@ -36,7 +37,7 @@ def detecter_alertes(df):
         alertes.append({
             'niveau': 'CRITIQUE',
             'titre': 'Déséquilibre Débit/Crédit',
-            'message': f"Écart de {ecart:,.2f} EUR",
+            'message': f"Écart de {nb_fr(ecart, 2)} EUR",
             'count': 1
         })
     
@@ -70,7 +71,7 @@ def detecter_alertes(df):
             alertes.append({
                 'niveau': 'WARNING',
                 'titre': 'Montants ronds suspects',
-                'message': f"{taux_ronds:.1f}% de montants multiples de 100",
+                'message': f"{nb_fr(taux_ronds, 1)} % de montants multiples de 100",
                 'count': int(montants_ronds)
             })
     

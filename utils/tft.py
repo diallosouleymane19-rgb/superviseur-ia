@@ -4,6 +4,7 @@ Module TFT PCG France — Méthode indirecte — SMD Global Consulting LLC
 Tableau de Flux de Trésorerie conforme modèle OEC
 Horizon 1 à 3 exercices comparatifs
 """
+from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
@@ -145,7 +146,7 @@ def _extraire_tft(df_n, df_n1) -> dict:
     variation = sum(v.values())
     ecart = round(variation - (cloture - ouverture), 2)
     if abs(ecart) >= 1:
-        alertes.append(f"Contrôle : la variation calculée diffère de {ecart:,.0f} € de la variation réelle "
+        alertes.append(f"Contrôle : la variation calculée diffère de {nb_fr(ecart, 0)} € de la variation réelle "
                        "de trésorerie (comptes non classés ou balances incohérentes).".replace(",", " "))
     v["_treso_ouverture"] = ouverture
     v["_treso_cloture"] = cloture
@@ -245,10 +246,10 @@ def _analyser_ia(resultats: dict, exercices: list, entreprise: str) -> str:
         for ex in exercices:
             r = resultats[ex]
             lignes.append(
-                f"  {ex} : Activité={r['Flux activité (I)']:+,.0f}€ | "
-                f"Investissement={r['Flux investissement (II)']:+,.0f}€ | "
-                f"Financement={r['Flux financement (III)']:+,.0f}€ | "
-                f"Tréso clôture={r['Trésorerie clôture']:,.0f}€"
+                f"  {ex} : Activité={nb_fr_signe(r['Flux activité (I)'], 0)}€ | "
+                f"Investissement={nb_fr_signe(r['Flux investissement (II)'], 0)}€ | "
+                f"Financement={nb_fr_signe(r['Flux financement (III)'], 0)}€ | "
+                f"Tréso clôture={nb_fr(r['Trésorerie clôture'], 0)}€"
             )
         prompt = f"""Tu es expert-comptable PCG France. Analyse ce TFT (méthode indirecte) pour {entreprise} :
 

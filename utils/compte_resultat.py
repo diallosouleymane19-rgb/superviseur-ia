@@ -383,10 +383,18 @@ def page_compte_resultat():
                             for nom, val in sig.items()
                         ])
                         st.dataframe(df_sig, width="stretch", hide_index=True)
-                        st.bar_chart(pd.DataFrame([
-                            {'Indicateur': nom, 'Montant': val} 
-                            for nom, val in sig.items()
-                        ]).set_index('Indicateur'))
+                        try:
+                            import plotly.graph_objects as go
+                            noms, vals = list(sig.keys())[::-1], [float(v) for v in list(sig.values())[::-1]]
+                            fig = go.Figure(go.Bar(
+                                x=vals, y=noms, orientation="h",
+                                marker_color=["#1F4E79" if v >= 0 else "#C0392B" for v in vals],
+                                hovertemplate="%{y} : %{x:,.0f} €<extra></extra>"))
+                            fig.update_layout(separators=", ", height=28 * len(noms) + 80,
+                                              margin=dict(l=10, r=10, t=10, b=10), xaxis_title="€", xaxis_tickformat=",.0f")
+                            st.plotly_chart(fig, width="stretch")
+                        except Exception:
+                            pass
 
                         st.divider()
                         if resultat['ratios']:

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Module Rapprochement Bancaire - SMD Global Consulting LLC"""
+from utils.sig_pcg import nb_fr
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 from datetime import datetime, timedelta
@@ -152,7 +153,7 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
                 'Libellé relevé': str(lib_r)[:50] if lib_r else '',
                 'Montant': montant_r,
                 'Date écriture': df_e.at[meilleur_match, '_date'],
-                'Score': f"{meilleur_score*100:.0f}%"
+                'Score': f"{nb_fr(meilleur_score*100, 0)} %"
             })
         else:
             non_rapproches_releve.append({
@@ -196,12 +197,12 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
     rapport.append("")
     rapport.append("## SYNTHÈSE")
     rapport.append("")
-    rapport.append(f"- Opérations relevé : {resultats['nb_total_releve']:,}")
-    rapport.append(f"- Écritures comptables : {resultats['nb_total_ecritures']:,}")
-    rapport.append(f"- Rapprochées : {resultats['nb_rapproches']:,}")
-    rapport.append(f"- Non rapprochées (relevé) : {resultats['nb_non_rapproches_releve']:,}")
-    rapport.append(f"- Non rapprochées (écritures) : {resultats['nb_non_rapproches_ecritures']:,}")
-    rapport.append(f"- Taux de rapprochement : {resultats['taux_rapprochement']:.1f}%")
+    rapport.append(f"- Opérations relevé : {nb_fr(resultats['nb_total_releve'], 0)}")
+    rapport.append(f"- Écritures comptables : {nb_fr(resultats['nb_total_ecritures'], 0)}")
+    rapport.append(f"- Rapprochées : {nb_fr(resultats['nb_rapproches'], 0)}")
+    rapport.append(f"- Non rapprochées (relevé) : {nb_fr(resultats['nb_non_rapproches_releve'], 0)}")
+    rapport.append(f"- Non rapprochées (écritures) : {nb_fr(resultats['nb_non_rapproches_ecritures'], 0)}")
+    rapport.append(f"- Taux de rapprochement : {nb_fr(resultats['taux_rapprochement'], 1)} %")
     rapport.append("")
     
     if resultats['taux_rapprochement'] >= 90:
@@ -294,7 +295,7 @@ def page_rapprochement():
                         st.metric("❌ Non rapp. écritures", resultats['nb_non_rapproches_ecritures'])
                     with col4:
                         taux = resultats['taux_rapprochement']
-                        st.metric("📈 Taux", f"{taux:.1f}%",
+                        st.metric("📈 Taux", f"{nb_fr(taux, 1)} %",
                                  delta="Excellent" if taux >= 90 else "Bon" if taux >= 70 else "À vérifier",
                                  delta_color="normal" if taux >= 70 else "inverse")
 

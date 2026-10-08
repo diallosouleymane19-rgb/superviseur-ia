@@ -3,6 +3,7 @@
 Module Loi de Benford Professionnel - SMD Global Consulting LLC
 Détection d'anomalies statistiques (loi de Benford)
 """
+from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import re
 import pandas as pd
@@ -259,7 +260,7 @@ def analyse_benford_complete(df, col_montant, deb_cre=(None, None)):
         fig.update_yaxes(title_text="Z-score", row=1, col=2)
         
         fig.update_layout(
-            title_text=f"Analyse Benford - {n:,} valeurs analysées",
+            title_text=f"Analyse Benford - {nb_fr(n, 0)} valeurs analysées",
             height=500,
             showlegend=True
         )
@@ -268,17 +269,17 @@ def analyse_benford_complete(df, col_montant, deb_cre=(None, None)):
     rapport = []
     rapport.append("## 📊 ANALYSE LOI DE BENFORD\n")
     rapport.append(f"**Date d'analyse** : {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    rapport.append(f"**Échantillon** : {n:,} valeurs analysées"
+    rapport.append(f"**Échantillon** : {nb_fr(n, 0)} valeurs analysées"
                    + (" (moins de 100 : résultat seulement indicatif)" if n < 100 else ""))
     rapport.append(f"**Colonne** : {col_montant}\n")
     
     # Indicateurs cles
     rapport.append("### 🎯 INDICATEURS CLÉS\n")
-    rapport.append(f"- **MAD (écart absolu moyen)** : {mad:.4f}%")
+    rapport.append(f"- **MAD (écart absolu moyen)** : {nb_fr(mad, 4)} %")
     rapport.append(f"- **Interprétation MAD** : {interpretation_mad}")
-    rapport.append(f"- **Chi-carré** : {chi2:.4f}")
+    rapport.append(f"- **Chi-carré** : {nb_fr(chi2, 4)}")
     if p_value is not None:
-        rapport.append(f"- **P-value** : {p_value:.4f}")
+        rapport.append(f"- **P-value** : {nb_fr(p_value, 4)}")
     rapport.append(f"- **Chiffres anormaux (Z>2.58)** : {len(chiffres_anormaux)}")
     rapport.append("")
     
@@ -288,7 +289,7 @@ def analyse_benford_complete(df, col_montant, deb_cre=(None, None)):
     rapport.append("|---------|---------------|-------------|-------|---------|")
     for d in range(1, 10):
         ecart = freq_observee[d] - freq_theorique[d]
-        rapport.append(f"| {d} | {freq_theorique[d]:.2f} | {freq_observee[d]:.2f} | {ecart:+.2f} | {z_scores[d]:.2f} |")
+        rapport.append(f"| {d} | {nb_fr(freq_theorique[d], 2)} | {nb_fr(freq_observee[d], 2)} | {nb_fr_signe(ecart, 2)} | {nb_fr(z_scores[d], 2)} |")
     rapport.append("")
     
     # Chiffres anormaux
@@ -296,7 +297,7 @@ def analyse_benford_complete(df, col_montant, deb_cre=(None, None)):
         rapport.append("### ⚠ CHIFFRES SUSPECTS\n")
         for d, z in chiffres_anormaux.items():
             sur_sous = "surreprésenté" if freq_observee[d] > freq_theorique[d] else "sous-représenté"
-            rapport.append(f"- **Chiffre {d}** : Z-score = {z:.2f} ({sur_sous})")
+            rapport.append(f"- **Chiffre {d}** : Z-score = {nb_fr(z, 2)} ({sur_sous})")
         rapport.append("")
     
     # Score et recommandations
@@ -382,7 +383,7 @@ def page_benford():
             st.error(f"❌ Erreur lecture fichier : {erreur}")
             st.stop()
 
-        st.success(f"✅ Fichier chargé : **{len(df):,} lignes**")
+        st.success(f"✅ Fichier chargé : **{nb_fr(len(df), 0)} lignes**")
 
         with st.expander("👀 Aperçu des données"):
             st.dataframe(df.head(10), width="stretch")

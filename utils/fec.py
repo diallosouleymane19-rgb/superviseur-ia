@@ -3,6 +3,7 @@
 Module Traitement FEC Professionnel - SMD Global Consulting LLC
 Conforme aux exigences DGFiP (Article L.47 A du LPF)
 """
+from utils.sig_pcg import nb_fr
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -116,13 +117,13 @@ def valider_fec(df):
             if taux_valide >= 95:
                 resultats['Format dates (AAAAMMJJ)'] = {
                     "valide": True,
-                    "message": f"Format conforme ({taux_valide:.0f}% valide)"
+                    "message": f"Format conforme ({nb_fr(taux_valide, 0)} % valide)"
                 }
                 points += 10
             else:
                 resultats['Format dates (AAAAMMJJ)'] = {
                     "valide": False,
-                    "message": f"Format non conforme ({taux_valide:.0f}% valide)"
+                    "message": f"Format non conforme ({nb_fr(taux_valide, 0)} % valide)"
                 }
         except Exception:
             resultats['Format dates (AAAAMMJJ)'] = {
@@ -217,12 +218,12 @@ def analyser_fec(df):
     
     # 1. STATISTIQUES GENERALES
     rapport.append("### 1. STATISTIQUES GÉNÉRALES")
-    rapport.append(f"- **Nombre total d'écritures** : {len(df):,}")
+    rapport.append(f"- **Nombre total d'écritures** : {nb_fr(len(df), 0)}")
     rapport.append(f"- **Nombre de colonnes** : {len(df.columns)}")
     
     if 'EcritureNum' in df.columns:
         nb_pieces = df['EcritureNum'].nunique()
-        rapport.append(f"- **Nombre de pièces comptables** : {nb_pieces:,}")
+        rapport.append(f"- **Nombre de pièces comptables** : {nb_fr(nb_pieces, 0)}")
     
     if 'CompteNum' in df.columns:
         nb_comptes = df['CompteNum'].nunique()
@@ -258,7 +259,7 @@ def analyser_fec(df):
         repartition = df['JournalCode'].value_counts().head(10)
         for journal, count in repartition.items():
             pct = (count / len(df)) * 100
-            rapport.append(f"- **{journal}** : {count:,} écritures ({pct:.1f}%)")
+            rapport.append(f"- **{journal}** : {nb_fr(count, 0)} écritures ({nb_fr(pct, 1)} %)")
     
     # 4. ANALYSE PERIODE
     if 'EcritureDate' in df.columns:
@@ -361,14 +362,14 @@ def page_fec():
             st.info("Pour une facture, utilisez la page **Analyse et comptabilisation de factures**, "
                     "puis exportez les écritures au format FEC.")
         else:
-            st.success(f"✅ FEC chargé : **{len(df):,} écritures** | Séparateur : `{sep}` | Encodage : `{enc}`")
+            st.success(f"✅ FEC chargé : **{nb_fr(len(df), 0)} écritures** | Séparateur : `{sep}` | Encodage : `{enc}`")
 
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("📝 Écritures", f"{len(df):,}")
+                st.metric("📝 Écritures", f"{nb_fr(len(df), 0)}")
             with col2:
                 if 'EcritureNum' in df.columns:
-                    st.metric("📄 Pièces", f"{df['EcritureNum'].nunique():,}")
+                    st.metric("📄 Pièces", f"{nb_fr(df['EcritureNum'].nunique(), 0)}")
             with col3:
                 if 'CompteNum' in df.columns:
                     st.metric("🔢 Comptes", f"{df['CompteNum'].nunique()}")
@@ -394,13 +395,13 @@ def page_fec():
                     col1, col2, col3 = st.columns([1, 2, 1])
                     with col2:
                         if score >= 90:
-                            st.success(f"### {niveau} : {score}% ✅")
+                            st.success(f"### {niveau} : {nb_fr(score, 1)} % ✅")
                         elif score >= 75:
-                            st.info(f"### {niveau} : {score}% ℹ")
+                            st.info(f"### {niveau} : {nb_fr(score, 1)} % ℹ")
                         elif score >= 50:
-                            st.warning(f"### {niveau} : {score}% ⚠")
+                            st.warning(f"### {niveau} : {nb_fr(score, 1)} % ⚠")
                         else:
-                            st.error(f"### {niveau} : {score}% ❌")
+                            st.error(f"### {niveau} : {nb_fr(score, 1)} % ❌")
 
                         st.progress(min(int(score), 100))
                         st.caption(f"Points obtenus : {meta.get('points', 0)} / {meta.get('points_max', 100)}")
@@ -453,11 +454,11 @@ def page_fec():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Contrôle FEC", resultat=f"Score: {score}% - {analyse}", libelle="💾 Sauvegarder le rapport")
+                        bouton_sauvegarde(type_analyse="Contrôle FEC", resultat=f"Score : {nb_fr(score, 1)} % – {analyse}", libelle="💾 Sauvegarder le rapport")
                     with col2:
                         rapport_complet = f"""# RAPPORT DE CONTRÔLE FEC
 
-    ## Score de Conformité DGFiP : {score}% ({niveau})
+    ## Score de Conformité DGFiP : {nb_fr(score, 1)} % ({niveau})
 
     {analyse}
 
