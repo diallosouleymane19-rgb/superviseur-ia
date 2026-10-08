@@ -4,6 +4,7 @@ Module Loi de Benford Professionnel - SMD Global Consulting LLC
 Détection d'anomalies statistiques (loi de Benford)
 """
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
+import re
 import pandas as pd
 import numpy as np
 import math
@@ -71,7 +72,55 @@ def extraire_deux_premiers_chiffres(valeur):
         return None
 
 
-def analyse_benford_complete(df, col_montant):
+# ─── Choix des colonnes de montants ─────────────────────────────────────────
+DEUX_SENS = "Débit et Crédit (tous les montants)"
+_NOM_MONTANT = re.compile(r"(?i)d[ée]bit|cr[ée]dit|montant|solde|amount|valeur|\bttc\b|\bht\b|\btva\b|prix|total")
+_NOM_IDENTIFIANT = re.compile(r"(?i)compte|account|\bnum|n°|code|date|journal|pi[eè]ce|r[ée]f|lettr|\bid\b|siren|siret|ann[ée]e|exercice|p[ée]riode|ligne")
+
+
+def _nombres(serie):
+    """Montants lus au format français ou anglais (« 1 234,56 », « 1234.56 », « 1.234,56 »)."""
+    from utils.compta_facture import parse_montant
+    motif = re.compile(r"\s*[-+−]?\s*[\d\s\u00a0\u202f.,]*\d[\d\s\u00a0\u202f.,]*\s*(€|EUR)?\s*")
+    return pd.to_numeric(serie.map(lambda x: parse_montant(str(x).replace("−", "-"))
+                                   if pd.notna(x) and motif.fullmatch(str(x)) else None), errors="coerce")
+
+
+def colonnes_montants(df):
+    """Colonnes de montants utilisables pour Benford, les plus probables d'abord.
+    Écartées : numéros de compte, dates, codes et références (même s'ils sont numériques)."""
+    retenues = []
+    for col in df.columns:
+        nom = str(col)
+        if _NOM_IDENTIFIANT.search(nom) and not _NOM_MONTANT.search(nom):
+            continue
+        v = _nombres(df[col])
+        if v.notna().sum() <= len(df) * 0.5:
+            continue
+        nz = v[v.notna() & (v != 0)]
+        if not _NOM_MONTANT.search(nom) and len(nz):
+            # entiers de longueur fixe (comptes, dates AAAAMMJJ, codes) : pas des montants
+            txt = df[col].astype(str).str.strip()
+            if txt.str.fullmatch(r"\d+").mean() > 0.9 and txt.str.len().nunique() <= 2:
+                continue
+        retenues.append(nom)
+    retenues.sort(key=lambda c: 0 if _NOM_MONTANT.search(c) else 1)
+    deb = next((c for c in retenues if re.search(r"(?i)d[ée]bit", c)), None)
+    cre = next((c for c in retenues if re.search(r"(?i)cr[ée]dit", c)), None)
+    return ([DEUX_SENS] if deb and cre else []) + retenues, (deb, cre)
+
+
+def valeurs_montants(df, choix, deb_cre=(None, None)):
+    """Série des montants non nuls à analyser (les deux colonnes empilées pour « Débit et Crédit »)."""
+    if choix == DEUX_SENS:
+        v = pd.concat([_nombres(df[deb_cre[0]]), _nombres(df[deb_cre[1]])], ignore_index=True)
+    else:
+        v = _nombres(df[choix])
+    v = v.dropna()
+    return v[v != 0]
+
+
+def analyse_benford_complete(df, col_montant, deb_cre=(None, None)):
     """
     Analyse Benford professionnelle complète
     
@@ -81,11 +130,7 @@ def analyse_benford_complete(df, col_montant):
         score_risque: 'Faible', 'Modéré', 'Élevé'
     """
     # Extraction des valeurs
-    valeurs = pd.to_numeric(
-        df[col_montant].astype(str).str.replace(',', '.').str.replace(' ', ''),
-        errors='coerce'
-    ).dropna()
-    valeurs = valeurs[valeurs != 0]
+    valeurs = valeurs_montants(df, col_montant, deb_cre)
     
     if len(valeurs) < 30:
         return None, "Échantillon trop faible (minimum 30 valeurs requises)", "Indeterminee"
@@ -223,7 +268,8 @@ def analyse_benford_complete(df, col_montant):
     rapport = []
     rapport.append("## 📊 ANALYSE LOI DE BENFORD\n")
     rapport.append(f"**Date d'analyse** : {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    rapport.append(f"**Échantillon** : {n:,} valeurs analysées")
+    rapport.append(f"**Échantillon** : {n:,} valeurs analysées"
+                   + (" (moins de 100 : résultat seulement indicatif)" if n < 100 else ""))
     rapport.append(f"**Colonne** : {col_montant}\n")
     
     # Indicateurs cles
@@ -325,8 +371,8 @@ def page_benford():
         """)
 
     uploaded_file = st.file_uploader(
-        "📎 Données comptables (CSV, XLSX)",
-        type=TYPES_TABLEUR_CSV,
+        "📎 Données comptables (FEC, balance : TXT, CSV, Excel)",
+        type=TYPES_BALANCE,
         help="FEC, balance, ou tout fichier avec une colonne de montants"
     )
 
@@ -341,31 +387,30 @@ def page_benford():
         with st.expander("👀 Aperçu des données"):
             st.dataframe(df.head(10), width="stretch")
 
-        colonnes_num = []
-        for col in df.columns:
-            try:
-                test = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce')
-                if test.notna().sum() > len(df) * 0.5:
-                    colonnes_num.append(col)
-            except:
-                pass
-
+        colonnes_num, deb_cre = colonnes_montants(df)
         if colonnes_num:
             col_choix = st.selectbox(
-                "🔢 Sélectionnez la colonne des montants",
+                "🔢 Montants à analyser",
                 colonnes_num,
-                help="Colonnes numériques détectées automatiquement"
+                help="Colonnes de montants détectées. Les numéros de compte, dates, codes et références sont écartés : "
+                     "la loi de Benford ne s'applique qu'à des montants."
             )
         else:
-            col_choix = st.selectbox(
-                "🔢 Sélectionnez la colonne des montants",
-                df.columns
-            )
+            st.warning("Aucune colonne de montants reconnue : choisissez-la vous-même. "
+                       "Un numéro de compte, une date ou un code ne convient pas.")
+            col_choix = st.selectbox("🔢 Montants à analyser", [str(c) for c in df.columns])
+        n_val = len(valeurs_montants(df, col_choix, deb_cre)) if col_choix in colonnes_num or col_choix in df.columns else 0
+        st.caption(f"{n_val} montants non nuls à analyser."
+                   + (" Moins de 100 : résultat seulement indicatif." if 30 <= n_val < 100 else ""))
 
         if st.button("🔍 Lancer l'analyse Benford", type="primary", width="stretch"):
             with st.spinner("Analyse statistique en cours..."):
                 try:
-                    fig, rapport, score_risque = analyse_benford_complete(df, col_choix)
+                    fig, rapport, score_risque = analyse_benford_complete(df, col_choix, deb_cre)
+                    if score_risque == "Indeterminee":
+                        st.warning(f"⚠ Analyse impossible : {rapport[:1].lower() + rapport[1:].rstrip('.')}. "
+                                   "Utilisez un fichier plus détaillé (FEC ou grand livre plutôt qu'une balance courte).")
+                        st.stop()
 
                     st.markdown("## 🎯 Score de Risque")
                     col1, col2, col3 = st.columns([1, 2, 1])

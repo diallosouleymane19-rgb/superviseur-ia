@@ -137,9 +137,17 @@ def _charger_fichier_bytes(file_bytes: bytes, file_name: str, header: int = 0):
     try:
         if est_tableur(file_name):
             return pd.read_excel(buf, header=header), None
-        elif file_name.endswith("txt"):
+        elif file_name.lower().endswith("txt"):
+            # FEC (| ou tabulation) ou balance (;) : séparateur lu sur la ligne d'en-tête
+            for enc in ("utf-8-sig", "latin-1"):
+                try:
+                    entete = file_bytes.decode(enc).splitlines()[0] if file_bytes else ""
+                    break
+                except UnicodeDecodeError:
+                    continue
+            sep = max(["|", "\t", ";", ","], key=entete.count) if entete else "|"
             buf.seek(0)
-            return pd.read_csv(buf, sep="|", encoding="utf-8", header=header), None
+            return pd.read_csv(buf, sep=sep, encoding=enc, header=header), None
         else:
             buf.seek(0)
             return pd.read_csv(buf, sep=None, engine="python", header=header), None
