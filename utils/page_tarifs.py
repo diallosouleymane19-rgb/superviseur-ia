@@ -17,7 +17,7 @@ PLANS_DISPLAY = {
         "features": [
             "10 analyses / mois",
             "Analyse de factures",
-            "Audit balance basique",
+            "Contrôle de balance basique",
             "Compte de résultat",
         ],
         "locked": [
@@ -62,7 +62,7 @@ PLANS_DISPLAY = {
             "Tous les modules",
             "Multi-agents PCG + SYSCOHADA",
             "Gestion cabinet & clients",
-            "Audit logs complets",
+            "Journal des actions complet",
             "Support dédié & onboarding",
         ],
         "locked": [],

@@ -59,6 +59,7 @@ h1, h2, h3, h4 { color: var(--smd-encre); letter-spacing: -0.01em; font-weight: 
 .smd-date { color: var(--smd-ardoise); font-size: .95rem; }
 
 /* Bandeau échéance : l'élément fort de la page */
+.smd-cta { margin: .25rem 0 .5rem; color: var(--smd-marine); font-weight: 500; }
 .smd-echeance { background: var(--smd-marine); color: #fff; border-radius: 6px;
   padding: 1.1rem 1.4rem; display: grid; grid-template-columns: auto 1fr auto;
   gap: .25rem 1.75rem; align-items: center; margin-bottom: 1.75rem; }

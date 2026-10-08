@@ -13,7 +13,7 @@ _MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
 # Boutons d'accès rapide : libellé d'action -> page du menu
 ACCES_RAPIDE = [
     ("Analyser une facture", "🧾 Analyse et comptabilisation de factures"),
-    ("Auditer une balance", "📊 Audit Balance"),
+    ("Contrôler une balance", "📊 Contrôle de balance"),
     ("Contrôler un FEC", "📂 Traitement FEC"),
     ("Compte de résultat", "📈 Compte de Résultat"),
     ("Bilan comptable", "📊 Bilan Comptable"),
@@ -72,6 +72,30 @@ def _mistral_configure():
     return bool(os.getenv("MISTRAL_API_KEY"))
 
 
+MAIL_DEMO = ("mailto:contact@smdconsulting.pro?subject=Demande%20de%20d%C3%A9mo%20personnalis%C3%A9e"
+             "&body=Bonjour%2C%0A%0AJe%20souhaite%20une%20d%C3%A9mo%20personnalis%C3%A9e%20du%20Superviseur%20IA%20Comptable.%0A%0A"
+             "Cabinet%20%2F%20entreprise%20%3A%0AT%C3%A9l%C3%A9phone%20%3A%0ADisponibilit%C3%A9s%20%3A%0A")
+
+
+def _vers_inscription():
+    """Quitte la démonstration et ouvre l'onglet « Créer un compte » (plan gratuit)."""
+    for k in ["authenticated", "user_email", "role", "nom", "plan", "cabinet", "pays_user", "login_time", "nav_page"]:
+        st.session_state.pop(k, None)
+    st.session_state["ouvrir_inscription"] = True
+
+
+def _appel_action():
+    """Boutons d'action pour les visiteurs en démonstration."""
+    st.markdown("<div class='smd-cta'>Vous découvrez l'outil ? Testez-le sur votre propre dossier "
+                "ou demandez une présentation adaptée à votre cabinet.</div>", unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    c1.button("Tester gratuitement sur un dossier", type="primary", width="stretch",
+              on_click=_vers_inscription, key="cta_tester",
+              help="Compte gratuit : 10 analyses par mois sur vos propres fichiers.")
+    c2.link_button("Demander une démo personnalisée", MAIL_DEMO, width="stretch",
+                   help="Ouvre un e-mail à contact@smdconsulting.pro")
+
+
 def page_accueil(aller_a):
     """aller_a : callback qui change la page du menu (défini dans app.py)."""
     maintenant = datetime.now()
@@ -90,6 +114,8 @@ def page_accueil(aller_a):
         f"<div class='smd-date'>{_date_fr(maintenant)}</div></div>",
         unsafe_allow_html=True,
     )
+    if role == "demo":
+        _appel_action()
 
     ech, jours = _prochaine_echeance(maintenant)
     if ech:
@@ -123,7 +149,7 @@ def page_accueil(aller_a):
 
     st.subheader("Modules disponibles")
     groupes = [
-        ("Analyse et audit", ["Factures (OCR)", "Audit de balance", "Loi de Benford", "Alertes", "Cohérence des données"]),
+        ("Analyse et contrôle", ["Factures (OCR)", "Contrôle de balance", "Loi de Benford", "Alertes", "Cohérence des données"]),
         ("États financiers", ["Bilan", "Compte de résultat et SIG", "TFT trésorerie", "Plan de financement", "Comparatif N/N-1"]),
         ("Gestion et clôture", ["Immobilisations", "Inventaire et clôture", "Rapprochement bancaire"]),
         ("Reporting et fiscal", ["FEC DGFiP", "TVA CA3/CA12", "Rapport client", "Veille fiscale"]),

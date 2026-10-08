@@ -116,7 +116,7 @@ def page_inscription(app_name: str = "pcg") -> None:
                                   help="8 caractères min, 1 majuscule, 1 chiffre")
             mdp2 = st.text_input("🔑 Confirmer le mot de passe *", type="password")
 
-            cgv = st.checkbox("J'accepte les [Conditions Générales d'Utilisation](?doc=cgu) et la [Politique de Confidentialité](?doc=confidentialité)")
+            cgv = st.checkbox("J'accepte les [Conditions Générales d'Utilisation](?doc=cgu) et la [Politique de Confidentialité](?doc=confidentialite)")
 
             submitted = st.form_submit_button(
                 "✅ Créer mon compte" if plan_choisi == "free" else "✅ Créer et payer",

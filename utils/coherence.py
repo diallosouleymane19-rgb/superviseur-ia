@@ -266,7 +266,7 @@ def page_coherence():
         afficher_rapport, afficher_synthese_score,
     )
     st.title("✅ Cohérence des Données")
-    st.markdown("**Audit qualité** des données comptables")
+    st.markdown("**Contrôle qualité** des données comptables")
     st.caption("✨ 7 contrôles automatiques + Score qualité")
 
     with st.expander("ℹ Quels contrôles ?"):

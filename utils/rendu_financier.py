@@ -249,8 +249,8 @@ def afficher_synthese_score(
     devise: str = "€"
 ):
     """
-    Rendu premium pour les modules d'audit avec score de qualité.
-    Utilisé par Audit Balance, FEC, Benford.
+    Rendu premium pour les modules de contrôle avec score de qualité.
+    Utilisé par Contrôle de balance, FEC, Benford.
     """
     # Score visuel ─────────────────────────────────────────────────────────
     col_score, col_info = st.columns([1, 3])

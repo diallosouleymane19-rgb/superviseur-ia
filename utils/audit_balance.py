@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Module Audit Balance Professionnel - SMD Global Consulting LLC
+Module Contrôle de balance - SMD Global Consulting LLC
 Pour Cabinets, DAF et Dirigeants
 """
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
@@ -238,10 +238,10 @@ def auditer_balance(df):
 
 
 def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
-    """Génère un rapport d'audit professionnel"""
+    """Génère le rapport de contrôle de la balance"""
     
     rapport = []
-    rapport.append(f"# RAPPORT D'AUDIT - BALANCE COMPTABLE")
+    rapport.append(f"# RAPPORT DE CONTRÔLE – BALANCE COMPTABLE")
     rapport.append(f"## {nom_entreprise}")
     rapport.append(f"*Date : {datetime.now().strftime('%d/%m/%Y %H:%M')}*\n")
     rapport.append(f"---\n")
@@ -250,7 +250,7 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
     rapport.append(f"## 📊 SYNTHÈSE EXÉCUTIVE\n")
     rapport.append(f"- **Score qualité** : {audit['score_qualite']}% ({audit['niveau']})")
     rapport.append(f"- **Anomalies détectées** : {len(audit['anomalies'])}")
-    rapport.append(f"- **Date d'audit** : {datetime.now().strftime('%d/%m/%Y')}\n")
+    rapport.append(f"- **Date du contrôle** : {datetime.now().strftime('%d/%m/%Y')}\n")
     
     # KPIs
     if audit['kpis']:
@@ -303,7 +303,7 @@ def page_audit_balance():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("📊 Audit de Balance Comptable")
+    st.title("📊 Contrôle de balance comptable")
     st.markdown("**Analyse approfondie** pour Cabinets, DAF et Dirigeants")
     st.caption("✨ Compatible : Sage, Cegid, EBP, Ciel, ACD, Tiime, Pennylane, QuickBooks")
 
@@ -317,7 +317,7 @@ def page_audit_balance():
             from utils.audit_balance import auditer_balance, generer_rapport_audit
             from utils.intelligent_parser import parser_balance_intelligent, nettoyer_balance
         except ImportError as _imp_err:
-            st.error(f"Module d'audit indisponible : {_imp_err}")
+            st.error(f"Module de contrôle indisponible : {_imp_err}")
             st.stop()
 
         mode_lecture = st.radio(
@@ -399,8 +399,8 @@ def page_audit_balance():
             with col2:
                 exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
 
-            if st.button("🔍 Lancer l'audit professionnel", type="primary", width="stretch"):
-                with st.spinner("Audit en cours..."):
+            if st.button("🔍 Lancer le contrôle", type="primary", width="stretch"):
+                with st.spinner("Contrôle en cours..."):
                     audit = auditer_balance(df)
 
                     afficher_synthese_score(
@@ -417,10 +417,10 @@ def page_audit_balance():
                     rapport = generer_rapport_audit(audit, nom_entreprise)
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Audit Balance", resultat=rapport, libelle="💾 Sauvegarder")
+                        bouton_sauvegarde(type_analyse="Contrôle de balance", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
                         try:
-                            generer_bouton_word(f"Audit_Balance_{nom_entreprise}", rapport)
+                            generer_bouton_word(f"Controle_Balance_{nom_entreprise}", rapport)
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 

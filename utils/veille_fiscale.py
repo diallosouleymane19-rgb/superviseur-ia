@@ -237,7 +237,7 @@ def obtenir_contenu_enrichi():
 - Réduction générale dégressive unique (RGDU) depuis le 1er janvier 2026 : jusqu'à 3 SMIC (remplace la réduction Fillon)
 - Aides à l'embauche : selon dispositifs
 
-**Conseil SMD :** Audit annuel des charges sociales pour optimiser les exonérations applicables.
+**Conseil SMD :** revue annuelle des charges sociales pour optimiser les exonérations applicables.
             """,
             'lien': 'https://www.urssaf.fr'
         }

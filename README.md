@@ -21,11 +21,11 @@ Les traitements comptables (écritures, bilan, SIG, contrôles) sont calculés *
 
 ## 🚀 Fonctionnalités — 21 pages
 
-### 🔍 Analyse & Audit
+### 🔍 Analyse & Contrôle
 | Module | Fichier |
 |--------|---------|
 | 🧾 Analyse et comptabilisation de factures — voir détail ci-dessous | `utils/analyse_facture.py`, `utils/compta_facture.py`, `utils/facture_electronique.py` |
-| 📊 Audit Balance — score qualité, anomalies, répartition par classes PCG | `utils/audit_balance.py` |
+| 📊 Contrôle de balance — score qualité, anomalies, répartition par classes PCG | `utils/audit_balance.py` |
 | 🛡 Loi de Benford — détection statistique (MAD, Chi-carré, Z-score) | `utils/benford_module.py` |
 | ⚠ Alertes & Anomalies — contrôles automatiques multi-niveaux | `utils/alertes.py` |
 | ✅ Cohérence des Données — vérifications qualité + score sur 100 | `utils/coherence.py` |

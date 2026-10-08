@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Module Loi de Benford Professionnel - SMD Global Consulting LLC
-Détection de fraude statistique pour Cabinets d'Audit
+Détection d'anomalies statistiques (loi de Benford)
 """
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
@@ -261,7 +261,7 @@ def analyse_benford_complete(df, col_montant):
         rapport.append("")
         rapport.append("**Recommandations cabinet :**")
         rapport.append("- Vérification routine - pas d'investigation approfondie nécessaire")
-        rapport.append("- Conserver l'analyse pour la documentation d'audit")
+        rapport.append("- Conserver l'analyse dans le dossier de travail")
     
     elif score_risque == "Modéré":
         rapport.append("⚠ **Écarts statistiques détectés** : certains chiffres s'écartent de la distribution théorique.")
@@ -275,11 +275,11 @@ def analyse_benford_complete(df, col_montant):
         rapport.append("🚨 **ANOMALIES SIGNIFICATIVES** : la distribution s'écarte fortement de Benford.")
         rapport.append("")
         rapport.append("**Recommandations cabinet :**")
-        rapport.append("- **Audit approfondi recommandé**")
+        rapport.append("- **Revue approfondie recommandée**")
         rapport.append("- Examiner les transactions saisies manuellement")
         rapport.append("- Vérifier les seuils d'arrondi et de validation")
         rapport.append("- Analyser les cycles de paiement et autorisations")
-        rapport.append("- Croiser avec d'autres tests d'audit (Z-score, percentiles)")
+        rapport.append("- Croiser avec d'autres contrôles (Z-score, percentiles)")
         rapport.append("- Considérer une enquête sur la fraude potentielle")
     
     rapport.append("")
@@ -302,9 +302,9 @@ def page_benford():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("🛡 Audit de Fraude - Loi de Benford")
+    st.title("🛡 Loi de Benford – Détection d'anomalies")
     st.markdown("**Détection statistique** d'anomalies et manipulations de données")
-    st.caption("✨ Méthode utilisée par les cabinets d'audit, IRS, CAC pour la détection de fraude")
+    st.caption("✨ Méthode statistique reconnue pour repérer les montants atypiques à examiner")
 
     with st.expander("ℹ Comment ça marche ?"):
         st.markdown("""
@@ -362,7 +362,7 @@ def page_benford():
                 df.columns
             )
 
-        if st.button("🔍 Lancer l'audit Benford", type="primary", width="stretch"):
+        if st.button("🔍 Lancer l'analyse Benford", type="primary", width="stretch"):
             with st.spinner("Analyse statistique en cours..."):
                 try:
                     fig, rapport, score_risque = analyse_benford_complete(df, col_choix)
@@ -378,7 +378,7 @@ def page_benford():
                             st.warning("**Écarts détectés** - Investigation recommandée")
                         else:
                             st.error(f"### 🚨 Risque {score_risque}")
-                            st.error("**Anomalies significatives** - Audit approfondi nécessaire")
+                            st.error("**Anomalies significatives** – revue approfondie nécessaire")
 
                     st.divider()
                     if fig:
@@ -392,7 +392,7 @@ def page_benford():
                         bouton_sauvegarde(type_analyse="Loi de Benford", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
                         try:
-                            generer_bouton_word("Audit_Benford", rapport)
+                            generer_bouton_word("Analyse_Benford", rapport)
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 

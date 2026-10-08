@@ -264,14 +264,14 @@ def analyser_fec(df):
     rapport.append("\n### 5. SYNTHÈSE")
     rapport.append("Le FEC analysé contient les données comptables de l'exercice.")
     rapport.append("Les contrôles automatiques portent sur la conformité formelle (article A.47 A-1 du LPF).")
-    rapport.append("\n**Recommandation** : Croiser cette analyse avec les modules Audit Balance et Loi de Benford pour une expertise complète.")
+    rapport.append("\n**Recommandation** : Croiser cette analyse avec les modules Contrôle de balance et Loi de Benford pour une expertise complète.")
     
     return "\n".join(rapport)
 
 
 def detecter_anomalies_fec(df):
     """
-    Détection d'anomalies dans le FEC - Approche audit
+    Détection d'anomalies dans le FEC
     """
     anomalies = []
     
@@ -327,7 +327,7 @@ def page_fec():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("📂 Traitement FEC - Audit Conformité DGFiP")
+    st.title("📂 Traitement FEC – Contrôle de conformité DGFiP")
     st.markdown("**Validation et analyse approfondie** des Fichiers des Écritures Comptables (Article L.47 A du LPF)")
 
     uploaded_file = st.file_uploader(
@@ -437,9 +437,9 @@ def page_fec():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Audit FEC", resultat=f"Score: {score}% - {analyse}", libelle="💾 Sauvegarder le rapport")
+                        bouton_sauvegarde(type_analyse="Contrôle FEC", resultat=f"Score: {score}% - {analyse}", libelle="💾 Sauvegarder le rapport")
                     with col2:
-                        rapport_complet = f"""# RAPPORT D'AUDIT FEC
+                        rapport_complet = f"""# RAPPORT DE CONTRÔLE FEC
 
     ## Score de Conformité DGFiP : {score}% ({niveau})
 
@@ -452,12 +452,12 @@ def page_fec():
     *Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*
     """
                         try:
-                            generer_bouton_word("Rapport_Audit_FEC", rapport_complet)
+                            generer_bouton_word("Rapport_Controle_FEC", rapport_complet)
                         except Exception as e:
                             st.error(f"Erreur export : {e}")
 
 
     # -----------------------------------------------------------------------------
-    # 5. LOI DE BENFORD - VERSION PROFESSIONNELLE CABINET D'AUDIT
+    # 5. LOI DE BENFORD - VERSION PROFESSIONNELLE
     # -----------------------------------------------------------------------------
 

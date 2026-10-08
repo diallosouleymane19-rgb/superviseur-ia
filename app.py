@@ -68,7 +68,11 @@ if not is_connecte():
     from utils.stripe_billing import gerer_retour_stripe
     gerer_retour_stripe()
 
-    tab_login, tab_signup = st.tabs(["Se connecter", "Créer un compte"])
+    # Venant du bouton « Tester gratuitement » : l'onglet d'inscription s'ouvre en premier
+    if st.session_state.get("ouvrir_inscription"):
+        tab_signup, tab_login = st.tabs(["Créer un compte", "Se connecter"])
+    else:
+        tab_login, tab_signup = st.tabs(["Se connecter", "Créer un compte"])
 
     with tab_login:
         col_marque, _, col_form = st.columns([5, 1, 4])
@@ -76,7 +80,7 @@ if not is_connecte():
             st.markdown(
                 "<div class='smd-marque'>SMD Global Consulting LLC</div>"
                 "<h1 style='margin:0 0 .75rem'>Superviseur IA Comptable</h1>"
-                "<p class='smd-accroche'>Audit et supervision comptable pour les cabinets, "
+                "<p class='smd-accroche'>Analyse et supervision comptable pour les cabinets, "
                 "conformes au PCG et aux exigences de la DGFiP.</p>"
                 "<ul class='smd-engagements'>"
                 "<li>Fichiers non enregistrés <span>: lus en mémoire le temps de l'analyse</span></li>"
@@ -113,13 +117,15 @@ if not is_connecte():
             st.caption("Demander un accès : contact@smdconsulting.pro")
 
         st.caption("SMD Global Consulting LLC © 2026 · [CGU](?doc=cgu) · "
-                   "[Politique de confidentialité](?doc=confidentialité)")
+                   "[Politique de confidentialité](?doc=confidentialite)")
 
     with tab_signup:
         from utils.page_inscription import page_inscription
         page_inscription(app_name="pcg")
 
     st.stop()
+
+st.session_state.pop("ouvrir_inscription", None)   # connecté : ordre normal des onglets la prochaine fois
 
 # =============================================================================
 # SIDEBAR - NAVIGATION
@@ -147,9 +153,9 @@ page = st.sidebar.selectbox(
     "Navigation",
     [
         "🏠 Accueil",
-        "─── Analyse & Audit ───",
+        "─── Analyse & Contrôle ───",
         "🧾 Analyse et comptabilisation de factures",
-        "📊 Audit Balance",
+        "📊 Contrôle de balance",
         "🛡 Loi de Benford",
         "⚠ Alertes & Anomalies",
         "✅ Cohérence des Données",
@@ -178,7 +184,7 @@ page = st.sidebar.selectbox(
 )
 
 # Neutraliser les séparateurs
-separateurs = ["─── Analyse & Audit ───", "─── États Financiers ───",
+separateurs = ["─── Analyse & Contrôle ───", "─── États Financiers ───",
                "─── Supervision & Reporting ───", "─── Connecteurs ───",
                "─── Paramètres ───"]
 if page in separateurs:
@@ -282,7 +288,7 @@ elif page == "🧾 Analyse et comptabilisation de factures":
         page_analyse_facture()
     except ImportError as e:
         st.error(f"Module analyse_facture indisponible : {e}")
-elif page == "📊 Audit Balance":
+elif page == "📊 Contrôle de balance":
     try:
         from utils.audit_balance import page_audit_balance
         page_audit_balance()
@@ -436,7 +442,7 @@ elif page == "🔒 Confidentialité & Sécurité":
     st.caption("La comptabilisation des factures (comptes PCG, TVA, export FEC) est calculée par des règles, sans IA.")
     st.divider()
     st.markdown("[Conditions générales d'utilisation](?doc=cgu) · "
-                "[Politique de confidentialité complète](?doc=confidentialité)")
+                "[Politique de confidentialité complète](?doc=confidentialite)")
     st.markdown("### 📋 Politique de Conservation (RGPD)")
     st.info("Les analyses sauvegardées sont automatiquement supprimées après **30 jours**.")
     st.caption("**SMD Global Consulting LLC** — Superviseur IA Comptable © 2026")

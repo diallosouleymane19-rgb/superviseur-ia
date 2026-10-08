@@ -79,7 +79,7 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
         elif rn < 0 and ebe > 0:
             rapport.append("**Vigilance** : Résultat net négatif malgré EBE positif")
         else:
-            rapport.append("**Situation préoccupante** : Audit approfondi recommandé")
+            rapport.append("**Situation préoccupante** : revue approfondie recommandée")
     else:
         rapport.append("*Données insuffisantes pour synthèse détaillée*")
     
@@ -168,7 +168,7 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     rapport.append("- **Suivi mensuel** : Tableau de bord mensuel des KPIs clés")
     rapport.append("- **Optimisation fiscale** : Vérifier éligibilité CIR, CII, JEI")
     rapport.append("- **Trésorerie** : Plan prévisionnel à 3 mois")
-    rapport.append("- **Audit interne** : Audit annuel des processus comptables")
+    rapport.append("- **Contrôle interne** : revue annuelle des processus comptables")
     rapport.append("")
     
     if objectifs:
