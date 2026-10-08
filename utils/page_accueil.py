@@ -92,8 +92,7 @@ def _appel_action():
     c1.button("Tester gratuitement sur un dossier", type="primary", width="stretch",
               on_click=_vers_inscription, key="cta_tester",
               help="Compte gratuit : 10 analyses par mois sur vos propres fichiers.")
-    c2.link_button("Demander une démo personnalisée", MAIL_DEMO, width="stretch",
-                   help="Ouvre un e-mail à contact@smdconsulting.pro")
+    c2.link_button("Demander une démo personnalisée", MAIL_DEMO, width="stretch")
 
 
 def page_accueil(aller_a):
@@ -109,7 +108,7 @@ def page_accueil(aller_a):
         st.info("Mode démonstration : données fictives, sauvegarde désactivée.")
 
     st.markdown(
-        f"<div class='smd-entete'><div><h1>Bienvenue à {escape(nom)}</h1>"
+        f"<div class='smd-entete'><div><h1>{'Bienvenue dans la démonstration' if role == 'demo' else 'Bienvenue à ' + escape(nom)}</h1>"
         f"<p>Superviseur IA Comptable, référentiel PCG France</p></div>"
         f"<div class='smd-date'>{_date_fr(maintenant)}</div></div>",
         unsafe_allow_html=True,
