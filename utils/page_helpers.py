@@ -47,6 +47,34 @@ def avec_mention_ia(texte) -> str:
     return f"{texte}\n\n---\n*{MENTION_IA}*"
 
 
+def meta_ia(modele: str = "") -> dict:
+    """Informations de marquage IA (AI Act, art. 50.2) pour un texte rédigé à l'instant par l'IA."""
+    from datetime import datetime, timezone
+    return {"mention": MENTION_IA, "modele": modele or "",
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+
+def afficher_contenu_ia(texte: str, cle: str, modele: str = "", masques: int = 0):
+    """Affiche un texte rédigé par l'IA avec :
+    - la mention visible (art. 50) ;
+    - un marquage lisible par machine (art. 50.2) : bloc HTML portant la classe « st-key-contenu_ia_… »
+      et un élément invisible data-ai-generated="true" avec le fournisseur, le modèle, la date
+      et le type de source IPTC « trainedAlgorithmicMedia »."""
+    from html import escape
+    from utils.export_word import IPTC_IA
+    m = meta_ia(modele)
+    with st.container(key=f"contenu_ia_{cle}"):
+        st.markdown(
+            f'<span hidden data-ai-generated="true" data-ai-provider="Mistral AI" '
+            f'data-ai-model="{escape(m["modele"] or "non précisé")}" data-ai-generation-date="{m["date"]}" '
+            f'data-digital-source-type="{IPTC_IA}" data-ai-system="Superviseur IA Comptable"></span>',
+            unsafe_allow_html=True)
+        mention_ia()
+        if masques:
+            st.caption(f"🔒 {masques} identifiant(s) masqué(s) avant l'envoi à Mistral, remis en clair ici.")
+        st.markdown(texte)
+
+
 # =============================================================================
 # SAUVEGARDE
 # =============================================================================
@@ -82,11 +110,12 @@ def bouton_sauvegarde(type_analyse: str, resultat, libelle: str = "💾 Sauvegar
 # EXPORT WORD
 # =============================================================================
 
-def generer_bouton_word(titre: str, contenu):
-    """Génère un bouton de téléchargement Word sécurisé."""
+def generer_bouton_word(titre: str, contenu, ia=None):
+    """Génère un bouton de téléchargement Word sécurisé.
+    ia : meta_ia(...) si le texte est rédigé par l'IA (le fichier porte alors le marquage IA)."""
     try:
         texte_final = extraire_contenu_mistral(contenu)
-        buf = export_analyse_word(titre, texte_final)
+        buf = export_analyse_word(titre, texte_final, ia=ia)
         st.download_button(
             f"📄 Télécharger {titre}",
             buf,

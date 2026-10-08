@@ -240,7 +240,7 @@ def _appel_mistral_brut(prompt, temperature=0.3, max_tokens=2000, use_fallback=F
             
             logger.info(f"✅ Réponse reçue: {len(content)} caractères")
             increment_rate_counter()
-            return {"success": True, "content": content, "error": ""}
+            return {"success": True, "content": content, "error": "", "model": data.get("model") or model}
             
         except requests.exceptions.ConnectTimeout:
             last_error = f"Timeout connexion ({CONNECT_TIMEOUT}s)"

@@ -102,6 +102,7 @@ Ce que le module traite :
 | Déclenchement des purges | Automatique, au chargement des pages, au plus une fois par heure (`utils/database.py`) |
 | Masquage avant envoi à Mistral | E-mails, IBAN, n° de TVA, SIREN / SIRET, téléphones et nom de l'entreprise remplacés par des repères, remis en clair dans la réponse (`utils/pseudonymisation.py`). Protection partielle : un nom de personne écrit librement n'est pas détecté. |
 | Transparence IA (AI Act, art. 50) | Mention « Contenu généré par intelligence artificielle (Mistral AI)… » sur les textes rédigés par l'IA (`utils/page_helpers.py`) |
+| Marquage lisible par machine (AI Act, art. 50.2) | À l'écran : bloc `st-key-contenu_ia_…` et élément `data-ai-generated="true"` (fournisseur, modèle, date, type de source IPTC `trainedAlgorithmicMedia`). Exports Word : propriétés du document et propriétés personnalisées `AIGenerated`, `AIProvider`, `AIModel`, `AIGenerationDate`, `DigitalSourceType` (`utils/export_word.py`) |
 | Statistiques Streamlit | Désactivées (`.streamlit/config.toml`) |
 
 ---

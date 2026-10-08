@@ -333,11 +333,9 @@ def page_veille_fiscale():
                         result = analyses_ia.get(idx)
                         if result and result.get("success"):
                             st.markdown("#### 🤖 Analyse IA")
-                            from utils.page_helpers import mention_ia
-                            mention_ia()
-                            if result.get("masques"):
-                                st.caption(f"🔒 {result['masques']} identifiant(s) masqué(s) avant l'envoi à Mistral.")
-                            st.markdown(result["content"])
+                            from utils.page_helpers import afficher_contenu_ia
+                            afficher_contenu_ia(result["content"], f"veille_{idx}", result.get("model", ""),
+                                                result.get("masques", 0))
                         elif result:
                             st.error(f"❌ {result.get('error') or 'Analyse IA indisponible.'}")
 
@@ -373,18 +371,17 @@ def page_veille_fiscale():
 
                 if result["success"]:
                     st.markdown("### 🤖 Réponse IA")
-                    from utils.page_helpers import mention_ia, avec_mention_ia
-                    mention_ia()
-                    if result.get("masques"):
-                        st.caption(f"🔒 {result['masques']} identifiant(s) masqué(s) avant l'envoi à Mistral, remis en clair ici.")
-                    st.markdown(result["content"])
+                    from utils.page_helpers import afficher_contenu_ia, avec_mention_ia, meta_ia
+                    afficher_contenu_ia(result["content"], "question_fiscale", result.get("model", ""),
+                                        result.get("masques", 0))
 
                     col1, col2 = st.columns(2)
                     with col1:
                         bouton_sauvegarde(type_analyse="Question Fiscale IA", resultat=avec_mention_ia(result["content"]), libelle="💾 Sauvegarder")
                     with col2:
                         try:
-                            generer_bouton_word("Reponse_Fiscale", avec_mention_ia(result["content"]))
+                            generer_bouton_word("Reponse_Fiscale", avec_mention_ia(result["content"]),
+                                               ia=meta_ia(result.get("model", "")))
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 

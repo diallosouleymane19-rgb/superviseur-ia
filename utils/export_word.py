@@ -3,7 +3,40 @@ from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
 
-def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice=""):
+IPTC_IA = "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"
+
+
+def marquer_docx_ia(doc, mention, modele="", date_iso=""):
+    """Marquage lisible par machine d'un document rédigé par IA (AI Act, art. 50.2) :
+    propriétés du document (mots-clés, commentaire, catégorie) et propriétés personnalisées
+    (AIGenerated, AIProvider, AIModel, DigitalSourceType IPTC, date)."""
+    from docx.opc.part import Part
+    from docx.opc.packuri import PackURI
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
+    from xml.sax.saxutils import escape
+    cp = doc.core_properties
+    cp.author = "Superviseur IA Comptable - SMD Global Consulting LLC"
+    cp.category = "Contenu généré par IA"
+    cp.keywords = "AI-generated; contenu généré par IA; Mistral AI; trainedAlgorithmicMedia"
+    cp.comments = mention
+    props = [("AIGenerated", "true"), ("AIProvider", "Mistral AI"), ("AIModel", modele or "non précisé"),
+             ("AIGenerationDate", date_iso), ("DigitalSourceType", IPTC_IA),
+             ("AISystem", "Superviseur IA Comptable (SMD Global Consulting LLC)"), ("AIDisclosure", mention)]
+    corps = "".join(
+        f'<property fmtid="{{D5CDD505-2E9C-101B-9397-08002B2CF9AE}}" pid="{i}" name="{n}">'
+        f"<vt:lpwstr>{escape(v)}</vt:lpwstr></property>" for i, (n, v) in enumerate(props, start=2))
+    xml = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+           '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" '
+           'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' + corps + "</Properties>")
+    paquet = doc.part.package
+    part = Part(PackURI("/docProps/custom.xml"),
+                "application/vnd.openxmlformats-officedocument.custom-properties+xml", xml.encode("utf-8"), paquet)
+    paquet.relate_to(part, RT.CUSTOM_PROPERTIES)
+    return doc
+
+
+def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice="", ia=None):
+    """ia : None pour un contenu calculé par règles ; sinon dict {"mention", "modele", "date"} pour un texte rédigé par IA."""
     doc = Document()
     
     # --- STYLE GLOBAL (Police et taille) ---
@@ -58,6 +91,9 @@ def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice=""
     f_p = footer.paragraphs[0]
     f_p.text = "Document confidentiel généré par SMD Global Consulting LLC - © 2026"
     f_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    if ia:
+        marquer_docx_ia(doc, ia.get("mention", ""), ia.get("modele", ""), ia.get("date", ""))
 
     # Sauvegarde en mémoire pour le téléchargement Streamlit
     buffer = io.BytesIO()

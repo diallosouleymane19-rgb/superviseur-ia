@@ -392,9 +392,8 @@ def page_tft():
             with st.spinner("Analyse en cours..."):
                 analyse = _analyser_ia(resultats, exercices, entreprise)
             st.markdown("### 🤖 Analyse IA")
-            from utils.page_helpers import mention_ia
-            mention_ia()
-            st.markdown(analyse)
+            from utils.page_helpers import afficher_contenu_ia
+            afficher_contenu_ia(analyse, "tft")
     with col_xl:
         excel_bytes = _export_excel_tft(data, resultats, exercices, entreprise)
         st.download_button(
