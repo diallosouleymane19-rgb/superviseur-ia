@@ -48,6 +48,18 @@ def lire_fec(fichier):
     return None, None, None
 
 
+def colonnes_trouvees(fichier):
+    """Nombre de colonnes de la première ligne (meilleur séparateur parmi | tabulation ;)."""
+    try:
+        fichier.seek(0)
+        brut = fichier.read()
+        texte = brut.decode("utf-8", errors="replace") if isinstance(brut, bytes) else str(brut)
+        entete = next((l for l in texte.splitlines() if l.strip()), "")
+        return max(entete.count(sep) for sep in ("|", "\t", ";")) + 1 if entete else 0
+    except Exception:
+        return 0
+
+
 def valider_fec(df):
     """
     Validation complète du FEC selon normes DGFiP
@@ -337,13 +349,17 @@ def page_fec():
     )
 
     if uploaded_file:
-        from utils.fec import lire_fec, valider_fec, analyser_fec, detecter_anomalies_fec
+        from utils.fec import lire_fec, valider_fec, analyser_fec, detecter_anomalies_fec, colonnes_trouvees
 
         with st.spinner("📖 Lecture du FEC..."):
             df, sep, enc = lire_fec(uploaded_file)
 
         if df is None:
-            st.error("❌ Impossible de lire le FEC. Vérifiez le format (séparateur pipe | ou tabulation).")
+            n = colonnes_trouvees(uploaded_file)
+            st.error(f"❌ Ce fichier n'est pas un FEC : {n} colonne{'s' if n > 1 else ''} trouvée{'s' if n > 1 else ''}, "
+                     "18 attendues (JournalCode, EcritureDate, CompteNum…), séparées par | ou une tabulation.")
+            st.info("Pour une facture, utilisez la page **Analyse et comptabilisation de factures**, "
+                    "puis exportez les écritures au format FEC.")
         else:
             st.success(f"✅ FEC chargé : **{len(df):,} écritures** | Séparateur : `{sep}` | Encodage : `{enc}`")
 
