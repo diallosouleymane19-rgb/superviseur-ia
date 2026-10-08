@@ -124,7 +124,7 @@ def auditer_balance(df):
         if nb_comptes > 0:
             audit['controles']['Nombre de comptes'] = {
                 'statut': 'OK',
-                'message': f'{nb_comptes} comptes utilises',
+                'message': f'{nb_comptes} comptes utilisés',
                 'gravite': None
             }
             points += 15
@@ -198,13 +198,13 @@ def auditer_balance(df):
                 audit['kpis']['marge_pct'] = marge
                 
                 if marge > 0:
-                    audit['controles']['Resultat'] = {
+                    audit['controles']['Résultat'] = {
                         'statut': 'OK',
                         'message': f'Résultat positif : {resultat:,.2f} EUR (marge {marge:.1f}%)',
                         'gravite': None
                     }
                 else:
-                    audit['controles']['Resultat'] = {
+                    audit['controles']['Résultat'] = {
                         'statut': 'WARNING',
                         'message': f'Résultat négatif : {resultat:,.2f} EUR',
                         'gravite': 'MOYENNE'

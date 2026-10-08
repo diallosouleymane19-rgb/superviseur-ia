@@ -1,7 +1,8 @@
 from docx import Document
-from docx.shared import Inches, Pt, RGBColor
+from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
+import re
 
 IPTC_IA = "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"
 
@@ -35,67 +36,222 @@ def marquer_docx_ia(doc, mention, modele="", date_iso=""):
     return doc
 
 
+# ─── Typographie française ───────────────────────────────────────────────────
+NBSP, NNBSP = "\u00a0", "\u202f"   # espace insécable, espace fine insécable
+
+
+def typo_fr(texte: str) -> str:
+    """Espaces insécables : avant « : » (insécable), avant « ; ! ? % € » (fine), dans « ... » et les milliers.
+    Les adresses web (https://...) et les heures (10:30) ne sont pas touchées."""
+    t = str(texte)
+    t = re.sub(r"[ \u00a0\u202f]+:(?=\s|$)", NBSP + ":", t)
+    t = re.sub(r"[ \u00a0\u202f]+([;!?])", NNBSP + r"\1", t)
+    t = re.sub(r"(\d)[ \u00a0\u202f]*(%|€)", r"\1" + NNBSP + r"\2", t)
+    t = re.sub(r"(?<!\d) - | - (?=\D)", " – ", t)   # tiret de séparation → tiret demi-cadratin (hors « 2025 - 2026 »)
+    t = re.sub(r"«[ \u00a0\u202f]*", "«" + NNBSP, t)
+    t = re.sub(r"[ \u00a0\u202f]*»", NNBSP + "»", t)
+    t = re.sub(r"(?<![\d,.])(\d{1,3})((?:[ \u00a0\u202f]\d{3})+)(?![\d])",
+               lambda m: m.group(1) + re.sub(r"[ \u00a0\u202f]", NNBSP, m.group(2)), t)
+    return t
+
+
+def nombres_fr(texte: str) -> str:
+    """Rapports calculés par l'appli : 1,234.56 → 1 234,56 et 95.5 → 95,5 (hors adresses web).
+    Non appliqué aux textes rédigés par l'IA, où « 1,250 » peut être un nombre décimal français."""
+    def conv(seg):
+        seg = re.sub(r"(?<![\d.,])([1-9]\d{0,2}(?:,\d{3})+)(\.\d+)?(?![\d,])",
+                     lambda m: m.group(1).replace(",", NNBSP) + (m.group(2) or "").replace(".", ","), seg)
+        return re.sub(r"(?<![\d.])(\d+)\.(\d+)(?![\d.])", r"\1,\2", seg)
+    return "".join(x if "://" in x else conv(x) for x in re.split(r"(\S*://\S*)", str(texte)))
+
+
+def titre_lisible(titre: str) -> str:
+    """« Compte_Resultat_Entreprise » → « Compte Résultat Entreprise » (titre affiché, pas le nom de fichier)."""
+    t = re.sub(r"[_]+", " ", str(titre or "")).strip()
+    for a, b in (("Reponse", "Réponse"), ("Resultat", "Résultat"), ("Coherence", "Cohérence"),
+                 ("Cloture", "Clôture"), ("Checklist", "Check-list")):
+        t = re.sub(rf"\b{a}\b", b, t)
+    return t[:1].upper() + t[1:] if t else "Rapport"
+
+
+# ─── Conversion Markdown → Word ──────────────────────────────────────────────
+_INLINE = re.compile(r"(\*\*\*.+?\*\*\*|\*\*.+?\*\*|__.+?__|(?<![\w*])\*(?!\s).+?(?<!\s)\*(?![\w*])|"
+                     r"(?<![\w_])_(?!\s).+?(?<!\s)_(?![\w_])|`[^`]+`|~~.+?~~|\[[^\]]+\]\([^)]+\))")
+
+
+def _runs(par, texte, gras=False, italique=False):
+    """Ajoute le texte au paragraphe en interprétant **gras**, *italique*, `code`, ~~barré~~ et [lien](url)."""
+    texte = re.sub(r"<br\s*/?>", "\n", texte).replace("\\*", "*").replace("\\_", "_")
+    pos = 0
+    for m in _INLINE.finditer(texte):
+        if m.start() > pos:
+            _run(par, texte[pos:m.start()], gras, italique)
+        x = m.group(0)
+        if x.startswith("***"):
+            _runs(par, x[3:-3], True, True)
+        elif x.startswith(("**", "__")):
+            _runs(par, x[2:-2], True, italique)
+        elif x.startswith(("*", "_")):
+            _runs(par, x[1:-1], gras, True)
+        elif x.startswith("`"):
+            r = _run(par, x[1:-1], gras, italique)
+            r.font.name = "Consolas"
+        elif x.startswith("~~"):
+            _run(par, x[2:-2], gras, italique).font.strike = True
+        else:
+            lib, url = re.match(r"\[([^\]]+)\]\(([^)]+)\)", x).groups()
+            _run(par, lib, gras, italique)
+            if url.strip() != lib.strip():
+                _run(par, f" ({url})", gras, italique).font.color.rgb = RGBColor(31, 78, 121)
+        pos = m.end()
+    if pos < len(texte):
+        _run(par, texte[pos:], gras, italique)
+
+
+def _run(par, texte, gras, italique):
+    r = par.add_run(texte if "://" in texte else typo_fr(texte))
+    r.bold, r.italic = gras or None, italique or None
+    return r
+
+
+def _filet(doc):
+    """Ligne de séparation (bordure basse d'un paragraphe vide), à la place de « --- »."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    p = doc.add_paragraph()
+    bdr = OxmlElement("w:pBdr")
+    bas = OxmlElement("w:bottom")
+    for k, v in (("w:val", "single"), ("w:sz", "6"), ("w:space", "1"), ("w:color", "A6B4C8")):
+        bas.set(qn(k), v)
+    bdr.append(bas)
+    p._p.get_or_add_pPr().append(bdr)
+
+
+def _cellules(ligne):
+    return [c.strip() for c in ligne.strip().strip("|").split("|")]
+
+
+def _tableau(doc, lignes):
+    """Tableau Markdown (| a | b |) → tableau Word ; alignement à droite repris de |---:|."""
+    rangs = [_cellules(l) for l in lignes]
+    aligns = []
+    if len(rangs) > 1 and all(re.fullmatch(r":?-{2,}:?", c) for c in rangs[1] if c):
+        aligns = ["droite" if c.endswith(":") and not c.startswith(":") else "centre" if c.startswith(":") and c.endswith(":")
+                  else "gauche" if c.startswith(":") else "auto" for c in rangs[1]]
+        rangs = [rangs[0]] + rangs[2:]
+    n = max(len(r) for r in rangs)
+    t = doc.add_table(rows=len(rangs), cols=n)
+    t.style = "Table Grid"
+    for i, r in enumerate(rangs):
+        for j in range(n):
+            cel = t.cell(i, j)
+            par = cel.paragraphs[0]
+            _runs(par, r[j] if j < len(r) else "", gras=(i == 0))
+            a = aligns[j] if j < len(aligns) else "auto"
+            if a == "auto":   # colonne chiffrée (toutes les valeurs sont des nombres) : à droite, en-tête compris
+                vals = [x[j] for x in rangs[1:] if j < len(x) and x[j]]
+                codes = vals and all(re.fullmatch(r"\d+", v) for v in vals)   # n° de compte, codes : à gauche
+                a = "droite" if vals and not codes and all(re.fullmatch(r"[-+−]?[\d\s\u00a0\u202f.,]+\s*(%|€|EUR)?", v.replace("*", "")) for v in vals) else "gauche"
+            par.alignment = {"droite": WD_ALIGN_PARAGRAPH.RIGHT, "centre": WD_ALIGN_PARAGRAPH.CENTER}.get(a, WD_ALIGN_PARAGRAPH.LEFT)
+            for run in par.runs:
+                run.font.size = Pt(9.5)
+    doc.add_paragraph()
+
+
+def ecrire_markdown(doc, texte, sauter_titre=None):
+    """Écrit un texte Markdown dans le document Word avec une vraie mise en forme."""
+    lignes = str(texte).replace("\r\n", "\n").split("\n")
+    i, titre_saute = 0, False
+    while i < len(lignes):
+        brut = lignes[i]
+        ligne = brut.strip()
+        if not ligne:
+            i += 1
+            continue
+        if ligne.startswith("|"):
+            bloc = []
+            while i < len(lignes) and lignes[i].strip().startswith("|"):
+                bloc.append(lignes[i])
+                i += 1
+            _tableau(doc, bloc)
+            continue
+        i += 1
+        m = re.match(r"^(#{1,6})\s+(.*?)\s*#*$", ligne)
+        if m:
+            niveau, txt = len(m.group(1)), m.group(2).replace("**", "")
+            if sauter_titre and not titre_saute and niveau == 1 and txt == sauter_titre:
+                titre_saute = True
+                continue
+            h = doc.add_heading(level=min(niveau, 4))
+            _runs(h, txt)
+            continue
+        if re.fullmatch(r"(-{3,}|\*{3,}|_{3,}|={3,})", ligne):
+            _filet(doc)
+            continue
+        m = re.match(r"^(\s*)([-*+•])\s+(.*)$", brut)
+        if m:
+            niv = min(len(m.group(1).replace("\t", "  ")) // 2, 2)
+            p = doc.add_paragraph(style="List Bullet" + (f" {niv + 1}" if niv else ""))
+            _runs(p, m.group(3))
+            continue
+        m = re.match(r"^(\s*)(\d{1,3})[.)]\s+(.*)$", brut)
+        if m:
+            p = doc.add_paragraph()
+            p.paragraph_format.left_indent = Pt(18 + 12 * min(len(m.group(1)) // 2, 2))
+            p.paragraph_format.first_line_indent = Pt(-18)
+            _runs(p, f"{m.group(2)}.\t{m.group(3)}")
+            p.paragraph_format.tab_stops.add_tab_stop(p.paragraph_format.left_indent)
+            continue
+        if ligne.startswith(">"):
+            p = doc.add_paragraph()
+            p.paragraph_format.left_indent = Pt(18)
+            _runs(p, ligne.lstrip("> "), italique=True)
+            continue
+        p = doc.add_paragraph()
+        _runs(p, ligne)
+
+
 def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice="", ia=None):
     """ia : None pour un contenu calculé par règles ; sinon dict {"mention", "modele", "date"} pour un texte rédigé par IA."""
+    from datetime import datetime
     doc = Document()
-    
-    # --- STYLE GLOBAL (Police et taille) ---
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Segoe UI'
-    font.size = Pt(11)
 
-    # --- EN-TÊTE CORPORATE ---
+    style = doc.styles["Normal"]
+    style.font.name = "Segoe UI"
+    style.font.size = Pt(11)
+
     section = doc.sections[0]
-    header = section.header
-    p = header.paragraphs[0]
-    # Signature de votre cabinet
-    run_header = p.add_run("SMD Global Consulting LLC | Superviseur IA")
-    run_header.font.color.rgb = RGBColor(31, 119, 180) # Bleu institutionnel
+    p = section.header.paragraphs[0]
+    run_header = p.add_run("SMD Global Consulting LLC | Superviseur IA Comptable")
+    run_header.font.color.rgb = RGBColor(31, 119, 180)
     run_header.font.bold = True
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
-    # --- TITRE DU RAPPORT ---
-    doc.add_paragraph("\n")
-    t = doc.add_heading(titre_analyse, 0)
+    contenu_texte = str(contenu_texte) if ia else nombres_fr(contenu_texte)
+    # Titre : le premier titre « # … » du rapport s'il existe, sinon le titre lisible du bouton
+    m = re.search(r"(?m)^#\s+(.+?)\s*$", contenu_texte)
+    titre = m.group(1).replace("**", "").strip() if m else titre_lisible(titre_analyse)
+    t = doc.add_heading(level=0)
+    _runs(t, titre)
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    # --- INFOS CLIENT (Tableau discret) ---
-    table = doc.add_table(rows=1, cols=2)
-    table.style = 'Table Grid'
-    cells = table.rows[0].cells
-    cells[0].text = f"Client : {nom_client if nom_client else 'Client SMD'}"
-    cells[1].text = f"Exercice : {exercice if exercice else '2024'}"
-    doc.add_paragraph("\n")
+    # Client et exercice : affichés seulement s'ils sont connus
+    infos = [x for x in (f"Client : {nom_client}" if nom_client else "",
+                         f"Exercice : {exercice}" if exercice else "") if x]
+    if infos:
+        p = doc.add_paragraph()
+        _runs(p, "   ·   ".join(infos))
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    # --- TRAITEMENT DU CONTENU ---
-    # Cette étape est cruciale pour éviter les erreurs de plantage (AttributeError)
-    contenu_texte = str(contenu_texte)
-    
-    for line in contenu_texte.split('\n'):
-        line = line.strip()
-        if not line: continue
-            
-        if line.startswith('###'):
-            doc.add_heading(line.replace('###', '').strip(), level=2)
-        elif line.startswith('##'):
-            doc.add_heading(line.replace('##', '').strip(), level=1)
-        elif line.startswith('**') and line.endswith('**'):
-            p = doc.add_paragraph()
-            p.add_run(line.replace('**', '').strip()).bold = True
-        else:
-            p = doc.add_paragraph(line.replace('**', ''))
+    ecrire_markdown(doc, contenu_texte, sauter_titre=titre if m else None)
 
-    # --- PIED DE PAGE ---
-    footer = section.footer
-    f_p = footer.paragraphs[0]
-    f_p.text = "Document confidentiel généré par SMD Global Consulting LLC - © 2026"
+    f_p = section.footer.paragraphs[0]
+    f_p.text = typo_fr(f"Document confidentiel généré par SMD Global Consulting LLC – © {datetime.now().year}")
     f_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     if ia:
         marquer_docx_ia(doc, ia.get("mention", ""), ia.get("modele", ""), ia.get("date", ""))
 
-    # Sauvegarde en mémoire pour le téléchargement Streamlit
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)

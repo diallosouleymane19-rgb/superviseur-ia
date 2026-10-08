@@ -228,9 +228,9 @@ def analyse_benford_complete(df, col_montant):
     
     # Indicateurs cles
     rapport.append("### 🎯 INDICATEURS CLÉS\n")
-    rapport.append(f"- **MAD (Mean Absolute Déviation)** : {mad:.4f}%")
+    rapport.append(f"- **MAD (écart absolu moyen)** : {mad:.4f}%")
     rapport.append(f"- **Interprétation MAD** : {interpretation_mad}")
-    rapport.append(f"- **Chi-carre** : {chi2:.4f}")
+    rapport.append(f"- **Chi-carré** : {chi2:.4f}")
     if p_value is not None:
         rapport.append(f"- **P-value** : {p_value:.4f}")
     rapport.append(f"- **Chiffres anormaux (Z>2.58)** : {len(chiffres_anormaux)}")
@@ -249,7 +249,7 @@ def analyse_benford_complete(df, col_montant):
     if chiffres_anormaux:
         rapport.append("### ⚠ CHIFFRES SUSPECTS\n")
         for d, z in chiffres_anormaux.items():
-            sur_sous = "SUR-represente" if freq_observee[d] > freq_theorique[d] else "SOUS-represente"
+            sur_sous = "surreprésenté" if freq_observee[d] > freq_theorique[d] else "sous-représenté"
             rapport.append(f"- **Chiffre {d}** : Z-score = {z:.2f} ({sur_sous})")
         rapport.append("")
     

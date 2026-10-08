@@ -199,7 +199,7 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
     rapport.append(f"- Opérations relevé : {resultats['nb_total_releve']:,}")
     rapport.append(f"- Écritures comptables : {resultats['nb_total_ecritures']:,}")
     rapport.append(f"- Rapprochées : {resultats['nb_rapproches']:,}")
-    rapport.append(f"- Non rapprochées (releve) : {resultats['nb_non_rapproches_releve']:,}")
+    rapport.append(f"- Non rapprochées (relevé) : {resultats['nb_non_rapproches_releve']:,}")
     rapport.append(f"- Non rapprochées (écritures) : {resultats['nb_non_rapproches_ecritures']:,}")
     rapport.append(f"- Taux de rapprochement : {resultats['taux_rapprochement']:.1f}%")
     rapport.append("")
@@ -209,7 +209,7 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
     elif resultats['taux_rapprochement'] >= 70:
         rapport.append("**Bon** : Rapprochement satisfaisant")
     else:
-        rapport.append("**A vérifier** : Investigations nécessaires")
+        rapport.append("**À vérifier** : investigations nécessaires")
     
     rapport.append("")
     rapport.append("---")

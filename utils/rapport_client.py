@@ -48,7 +48,7 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     
     rapport.append(f"# RAPPORT D'ACTIVITÉ COMPTABLE")
     rapport.append(f"## {nom_client}")
-    rapport.append(f"### Période : {periode} {exercice}")
+    rapport.append(f"### Période : {periode} · Exercice {exercice}")
     rapport.append(f"")
     rapport.append(f"**Date d'édition** : {datetime.now().strftime('%d/%m/%Y')}")
     rapport.append(f"**SIRET** : {siret if siret else 'Non renseigné'}")
@@ -182,7 +182,7 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     rapport.append("---")
     rapport.append("")
     rapport.append("*Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*")
-    rapport.append(f"*(c) {datetime.now().year} - Tous droits réservés*")
+    rapport.append(f"*© {datetime.now().year} – Tous droits réservés*")
     
     return "\n".join(rapport)
 

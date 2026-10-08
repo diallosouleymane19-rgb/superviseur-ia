@@ -500,7 +500,12 @@ def page_inventaire():
                 bouton_sauvegarde(type_analyse="Check-list clôture", resultat=df_checklist.to_string(), libelle="💾 Sauvegarder", key="save_checklist")
             with col2:
                 try:
-                    rapport = f"CHECK-LIST CLÔTURE {exercice}\n\n" + df_checklist.to_string()
+                    rapport = [f"# CHECK-LIST DE CLÔTURE {exercice}", ""]
+                    for categorie in df_checklist['Catégorie'].unique():
+                        rapport += ["", f"## {categorie}", "", "| Tâche | Priorité | Délai |", "|---|---|---|"]
+                        for _, l in df_checklist[df_checklist['Catégorie'] == categorie].iterrows():
+                            rapport.append(f"| {l['Tâche']} | {l['Priorité']} | {l['Délai']} |")
+                    rapport = "\n".join(rapport)
                     generer_bouton_word(f"Checklist_Cloture_{exercice}", rapport)
                 except Exception as e:
                     st.error(f"Erreur : {e}")

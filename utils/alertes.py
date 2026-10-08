@@ -166,7 +166,7 @@ def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
     rapport.append("## SYNTHÈSE")
     rapport.append("")
     rapport.append(f"- Alertes critiques : {nb_critique}")
-    rapport.append(f"- Alertes warnings : {nb_warning}")
+    rapport.append(f"- Alertes à surveiller : {nb_warning}")
     rapport.append(f"- Alertes info : {nb_info}")
     rapport.append(f"- Total : {len(alertes)}")
     rapport.append("")
@@ -191,7 +191,7 @@ def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
         for niveau in ['CRITIQUE', 'WARNING', 'INFO']:
             alertes_n = [a for a in alertes if a['niveau'] == niveau]
             if alertes_n:
-                rapport.append(f"### {niveau}")
+                rapport.append(f"### {dict(CRITIQUE='Critiques', WARNING='À surveiller', INFO='Pour information').get(niveau, niveau)}")
                 rapport.append("")
                 for a in alertes_n:
                     rapport.append(f"- **{a['titre']}** : {a['message']}")
