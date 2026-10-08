@@ -129,6 +129,8 @@ def page_accueil(aller_a):
         )
 
     k = _kpis(email, plan)
+    if role == "demo":   # un prospect ne voit pas les chiffres réels de la plateforme
+        k["users"], k["analyses"] = 0, 0
     st.markdown(
         "<div class='smd-ligne'>"
         f"<div><div class='lib'>Utilisateurs actifs</div><div class='val'>{escape(str(k['users']))}</div></div>"
