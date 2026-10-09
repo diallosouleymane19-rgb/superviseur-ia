@@ -100,10 +100,10 @@ def page_inscription(app_name: str = "pcg") -> None:
             # Choix du plan
             st.markdown("**💳 Choisissez votre plan**")
             plan_options = {
-                "🆓 Gratuit — 10 analyses/mois (€0)":           "free",
-                "🚀 Starter — 50 analyses/mois (€29/mois)":     "starter",
-                "⭐ Pro — 200 analyses/mois (€79/mois)":        "pro",
-                "🏆 Entreprise — Illimité (€199/mois)":         "enterprise",
+                "🆓 Gratuit — 10 analyses/mois (0\u00a0€)":                "free",
+                "🚀 Starter — 50 analyses/mois (29\u00a0€ HT/mois)":       "starter",
+                "⭐ Pro — 200 analyses/mois (79\u00a0€ HT/mois)":          "pro",
+                "🏆 Entreprise — analyses illimitées (199\u00a0€ HT/mois)": "enterprise",
             }
             plan_label  = st.selectbox("Plan", list(plan_options.keys()),
                                        label_visibility="collapsed")

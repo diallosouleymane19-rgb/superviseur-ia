@@ -396,6 +396,6 @@ def afficher_tableau_financier(
 
     # Formatage numérique des colonnes numériques
     for col in df.select_dtypes(include='number').columns:
-        styled = styled.format({col: f"{{:,.0f}} {devise}".strip()})
+        styled = styled.format({col: lambda v, d=devise: "—" if pd.isna(v) else f"{nb_fr(v)} {d}".strip()})
 
     st.dataframe(styled, width="stretch")

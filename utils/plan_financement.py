@@ -91,15 +91,15 @@ def _chart_plan(df_r: pd.DataFrame, df_e: pd.DataFrame, annees: list):
     fig = go.Figure()
     fig.add_trace(go.Bar(name="Ressources", x=annees, y=total_r,
                          marker_color="#1E8449",
-                         hovertemplate="%{y:,.0f} EUR<extra>Ressources</extra>"))
+                         hovertemplate="%{y:,.0f} €<extra>Ressources</extra>"))
     fig.add_trace(go.Bar(name="Emplois", x=annees, y=total_e,
                          marker_color="#C0392B",
-                         hovertemplate="%{y:,.0f} EUR<extra>Emplois</extra>"))
+                         hovertemplate="%{y:,.0f} €<extra>Emplois</extra>"))
     fig.add_trace(go.Scatter(name="Solde", x=annees, y=solde,
                              mode="lines+markers",
                              line=dict(color="#2C3E50", width=2.5, dash="dot"),
                              marker=dict(size=9),
-                             hovertemplate="%{y:,.0f} EUR<extra>Solde</extra>"))
+                             hovertemplate="%{y:,.0f} €<extra>Solde</extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="#888", line_width=1)
     fig.update_layout(
         title="Plan de financement - Ressources vs Emplois",
@@ -156,7 +156,7 @@ def _analyser_ia(df_r: pd.DataFrame, df_e: pd.DataFrame, annees: list, entrepris
         for a in annees:
             r = df_r[a].sum()
             e = df_e[a].sum()
-            lignes.append(f"  {a} : Ressources={r:,.0f}EUR | Emplois={e:,.0f}EUR | Solde={r-e:,.0f}EUR")
+            lignes.append(f"  {a} : Ressources = {nb_fr(r)} € | Emplois = {nb_fr(e)} € | Solde = {nb_fr(r - e)} €")
         resume = "\n".join(lignes)
 
         prompt = f"""Tu es expert-comptable PCG France. Analyse ce plan de financement pour {entreprise} :

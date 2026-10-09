@@ -29,6 +29,21 @@ def _ecart(val_n: float, val_n1: float):
     return ecart_abs, ecart_pct
 
 
+def _vide(v) -> bool:
+    try:
+        return v is None or v == "" or pd.isna(v)
+    except (TypeError, ValueError):
+        return False
+
+
+def _formats(c1: str, c2: str) -> dict:
+    """Formats français des tableaux comparatifs : 12 500 · +1 250 · +12,5"""
+    nb = lambda v: "—" if _vide(v) else nb_fr(v, 0)
+    return {c1: nb, c2: nb,
+            'Écart (€)': lambda v: "—" if _vide(v) else nb_fr_signe(v, 0),
+            'Écart (%)': lambda v: "—" if _vide(v) else nb_fr_signe(v, 1)}
+
+
 def _fmt(v: float) -> str:
     if v is None:
         return "—"
@@ -88,7 +103,7 @@ def _style_comparatif(df: pd.DataFrame, col_n: str, col_n1: str):
         df.style
         .apply(bold_totaux, axis=1)
         .applymap(color_ecart, subset=['Écart (€)', 'Écart (%)'])
-        .format({col_n1: '{:,.0f}', col_n: '{:,.0f}', 'Écart (€)': '{:+,.0f}', 'Écart (%)': '{:+.1f}'})
+        .format(_formats(col_n1, col_n))
     )
     return styled
 
@@ -341,7 +356,7 @@ def page_comparatif():
     df_sig = _build_comparatif_df(sig_n, sig_n1, label_n, label_n1)
     st.dataframe(
         df_sig.style
-        .format({label_n1: '{:,.0f}', label_n: '{:,.0f}', 'Écart (€)': '{:+,.0f}', 'Écart (%)': '{:+.1f}'})
+        .format(_formats(label_n1, label_n))
         .applymap(
             lambda v: 'color: #28a745; font-weight:bold' if isinstance(v, (int, float)) and v > 0
             else ('color: #dc3545; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else ''),
@@ -360,14 +375,14 @@ def page_comparatif():
         df_prod = _build_comparatif_df(cdr_n['produits'], cdr_n1['produits'], label_n, label_n1)
         df_prod = df_prod[df_prod[label_n].abs() + df_prod[label_n1].abs() > 0]
         st.dataframe(df_prod.style.format(
-            {label_n1: '{:,.0f}', label_n: '{:,.0f}', 'Écart (€)': '{:+,.0f}', 'Écart (%)': '{:+.1f}'}
+            _formats(label_n1, label_n)
         ), width="stretch", hide_index=True)
     with col_c:
         st.markdown("### 💸 Charges N vs N-1")
         df_chg = _build_comparatif_df(cdr_n['charges'], cdr_n1['charges'], label_n, label_n1)
         df_chg = df_chg[df_chg[label_n].abs() + df_chg[label_n1].abs() > 0]
         st.dataframe(df_chg.style.format(
-            {label_n1: '{:,.0f}', label_n: '{:,.0f}', 'Écart (€)': '{:+,.0f}', 'Écart (%)': '{:+.1f}'}
+            _formats(label_n1, label_n)
         ), width="stretch", hide_index=True)
 
     # ═══════════════════════════════════════════
@@ -405,7 +420,7 @@ def page_comparatif():
         df_actif = _build_comparatif_df(bilan_n['actif'], bilan_n1['actif'], label_n, label_n1)
         df_actif = df_actif[df_actif[label_n].abs() + df_actif[label_n1].abs() > 0]
         st.dataframe(df_actif.style.format(
-            {label_n1: '{:,.0f}', label_n: '{:,.0f}', 'Écart (€)': '{:+,.0f}', 'Écart (%)': '{:+.1f}'}
+            _formats(label_n1, label_n)
         ).applymap(
             lambda v: 'color: #28a745; font-weight:bold' if isinstance(v, (int, float)) and v > 0
             else ('color: #dc3545; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else ''),
@@ -416,7 +431,7 @@ def page_comparatif():
         df_passif = _build_comparatif_df(bilan_n['passif'], bilan_n1['passif'], label_n, label_n1)
         df_passif = df_passif[df_passif[label_n].abs() + df_passif[label_n1].abs() > 0]
         st.dataframe(df_passif.style.format(
-            {label_n1: '{:,.0f}', label_n: '{:,.0f}', 'Écart (€)': '{:+,.0f}', 'Écart (%)': '{:+.1f}'}
+            _formats(label_n1, label_n)
         ).applymap(
             lambda v: 'color: #28a745; font-weight:bold' if isinstance(v, (int, float)) and v > 0
             else ('color: #dc3545; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else ''),

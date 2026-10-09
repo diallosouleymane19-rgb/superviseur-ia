@@ -330,8 +330,8 @@ def page_inventaire():
                 st.markdown("### 📚 Écriture comptable")
                 st.info(f"""
     **Dotation aux provisions :**
-    - Débit **6817** (Dotation provisions créances) : {total:,.2f} €
-    - Crédit **491** (Provision créances douteuses) : {total:,.2f} €
+    - Débit **6817** (Dotation provisions créances) : {nb_fr(total, 2)} €
+    - Crédit **491** (Provision créances douteuses) : {nb_fr(total, 2)} €
                 """)
 
                 bouton_sauvegarde(type_analyse="Provisions créances", resultat=df_resultats.to_string(), libelle="💾 Sauvegarder", key="save_prov_creances")
