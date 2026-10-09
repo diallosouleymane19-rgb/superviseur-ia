@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 RETENTION_JOURS = 30            # analyses sauvegardées (politique de confidentialité, art. 4)
 RETENTION_COMPTE_JOURS = 3 * 365  # compte gratuit inactif : 3 ans après la dernière connexion
 RETENTION_JOURNAL_JOURS = 365     # journal des actions et décompte des quotas : 12 mois
+RETENTION_INVITATION_JOURS = 30   # invitations : 30 jours après leur expiration
 
 
 # =============================================================================
@@ -239,7 +240,20 @@ def purger_si_necessaire(intervalle_s: int = 3600) -> bool:
     purger_donnees_expirees()
     purger_journaux()
     purger_comptes_inactifs()
+    purger_invitations()
     return True
+
+
+def purger_invitations():
+    """Supprime les invitations 30 jours après leur date d'expiration, acceptées ou non (RGPD) :
+    soit au plus tard 60 jours après leur envoi."""
+    limite = (datetime.utcnow() - timedelta(days=RETENTION_INVITATION_JOURS)).isoformat()
+    try:
+        res = get_supabase().table("smd_invitations").delete().lt("expires_at", limite).execute()
+        if res.data:
+            logger.info(f"RGPD : {len(res.data)} invitation(s) supprimée(s)")
+    except Exception as e:
+        logger.error(f"purger_invitations : {e}")
 
 
 def purger_journaux():

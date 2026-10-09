@@ -8,7 +8,7 @@ en attente de relecture juridique : les mentions entre crochets restent à valid
 """
 import streamlit as st
 
-VERSION = "Projet du 07/10/2026, en cours de validation juridique"
+VERSION = "Projet du 09/10/2026, en cours de validation juridique"
 
 CGU_MD = """
 ### Article 1 — Objet et acceptation
@@ -27,6 +27,7 @@ Hébergement de l'application : Streamlit Community Cloud (Snowflake Inc., État
 - **Données de l'Utilisateur** : fichiers, balances, FEC, factures et informations que l'Utilisateur dépose ou saisit dans le Service, y compris celles de ses propres clients.
 - **Analyse** : traitement décompté du quota mensuel de l'abonnement.
 - **Fonction IA** : fonction dont le texte est rédigé par un modèle d'intelligence artificielle (Mistral AI).
+- **Cabinet** : espace commun à un responsable et aux collaborateurs qu'il invite. Il est créé à l'inscription. L'abonnement, le quota d'Analyses, les dossiers clients et les analyses sauvegardées sont partagés par tous ses membres.
 
 ### Article 4 — Description du Service
 
@@ -38,6 +39,8 @@ La comptabilisation des factures est calculée par des règles, sans intelligenc
 
 L'Utilisateur fournit des informations exactes lors de son inscription et les tient à jour. Il garde son mot de passe confidentiel et reste responsable de l'utilisation de son compte. Il informe sans délai l'Éditeur de toute utilisation non autorisée.
 
+Le responsable du Cabinet invite ses collaborateurs depuis la page « Mon cabinet ». L'invitation est valable 30 jours ; le collaborateur rejoint le Cabinet en créant son compte avec l'adresse invitée. Le responsable peut retirer un collaborateur : son compte est alors fermé et les analyses qu'il a sauvegardées restent dans le Cabinet. Le responsable s'assure que ses collaborateurs respectent les présentes CGU.
+
 ### Article 6 — Abonnements, prix et paiement
 
 | Plan | Analyses par mois | Prix mensuel | Prix annuel |
@@ -46,6 +49,8 @@ L'Utilisateur fournit des informations exactes lors de son inscription et les ti
 | Starter | 50 | 29 € | 279 € |
 | Pro | 200 | 79 € | 759 € |
 | Entreprise | Illimité | 199 € | 1 909 € |
+
+L'abonnement et le quota mensuel sont attachés au Cabinet et communs à tous ses membres. Seul le responsable du Cabinet peut souscrire, modifier ou résilier l'abonnement.
 
 Les prix s'entendent hors taxes. Le Service étant fourni à des professionnels par une société établie hors de l'Union européenne, la TVA éventuellement due est autoliquidée par le client établi dans l'Union européenne [MÉCANISME À FAIRE VALIDER PAR UN CONSEIL FISCAL]. Le paiement est traité par Stripe ; l'Éditeur n'a jamais accès aux numéros de carte. L'abonnement se renouvelle automatiquement à chaque échéance. L'Utilisateur peut le résilier à tout moment depuis le portail Stripe ; la résiliation prend effet à la fin de la période en cours, sans remboursement de la période entamée. Le quota non utilisé n'est pas reporté au mois suivant. L'Éditeur peut modifier ses prix pour les périodes suivantes, en prévenant l'Utilisateur au moins 30 jours à l'avance.
 
@@ -101,6 +106,7 @@ SMD Global Consulting LLC (coordonnées à l'article 2 des CGU) est responsable 
 | Catégorie | Données | Source |
 | --- | --- | --- |
 | Compte | E-mail, nom, prénom, cabinet, pays, plan, mot de passe chiffré (bcrypt), date de dernière connexion | Formulaire d'inscription |
+| Cabinet | Nom du cabinet ; adresses e-mail des collaborateurs invités ; rôle de chaque membre | Responsable du cabinet |
 | Facturation | Identifiants client et abonnement Stripe ; les numéros de carte sont traités par Stripe seul | Stripe |
 | Utilisation | Nombre d'analyses du mois, type d'analyse, journal des actions (sauvegarde, suppression) | Service |
 | Contenus | Fichiers déposés, lus en mémoire et non enregistrés ; analyses que l'Utilisateur choisit de sauvegarder | Utilisateur |
@@ -126,9 +132,12 @@ Aucune décision produisant des effets juridiques n'est prise de façon entière
 | Analyses sauvegardées | 30 jours, puis suppression automatique |
 | Compte | Durée de la relation, puis 3 ans après la dernière connexion |
 | Journal des actions et décompte des quotas | 12 mois |
+| Invitations de collaborateurs | 30 jours après leur expiration, soit 60 jours au plus après l'envoi |
 | Factures et données de facturation | 10 ans (obligation légale) |
 
 ### Article 5 — Destinataires et sous-traitants
+
+Au sein d'un Cabinet, chaque membre voit les dossiers clients et les analyses sauvegardées du Cabinet, ainsi que le nom, l'e-mail, le rôle et la date de dernière connexion des autres membres.
 
 Les données ne sont ni vendues ni louées. Elles sont accessibles à l'Éditeur et aux prestataires suivants, dans la limite de leur mission :
 

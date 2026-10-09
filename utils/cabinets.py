@@ -110,7 +110,10 @@ def retirer_membre(tenant_id, email: str, par: str = "") -> dict:
     if m.get("role") != ROLE_COLLABORATEUR:
         return {"error": "Seuls les collaborateurs peuvent être retirés."}
     try:
-        get_supabase().table("users").update({"is_active": False, "tenant_id": None, "updated_at": _maintenant()}) \
+        # Plan remis à « gratuit » : le compte fermé suit la purge des comptes inactifs (3 ans)
+        get_supabase().table("users").update({"is_active": False, "tenant_id": None, "plan": "free",
+                                              "stripe_customer_id": "", "stripe_subscription_id": "",
+                                              "updated_at": _maintenant()}) \
             .eq("email", email).eq("tenant_id", str(tenant_id)).execute()
         return {"ok": True}
     except Exception as e:
