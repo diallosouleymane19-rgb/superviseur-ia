@@ -6,6 +6,7 @@ Provisions, Régularisations, Stocks, Check-list clôture
 from utils.sig_pcg import nb_fr
 import pandas as pd
 from datetime import datetime
+from utils.page_helpers import champ_exercice, champs_remplis
 from utils.page_helpers import (
     bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
@@ -386,7 +387,7 @@ def page_inventaire():
     | **PAR** | 418 | Produits à facturer non encore encaissés |
             """)
 
-        date_cloture = st.date_input("📅 Date de clôture de l'exercice")
+        date_cloture = st.date_input("📅 Date de clôture de l'exercice", value=None, format="DD/MM/YYYY")
 
         nb_elements = st.number_input("Nombre d'éléments à régulariser", min_value=1, max_value=10, value=2)
 
@@ -411,10 +412,11 @@ def page_inventaire():
                 'montant_total': montant,
                 'date_debut': datetime.combine(date_debut, datetime.min.time()),
                 'date_fin': datetime.combine(date_fin, datetime.min.time()),
-                'date_cloture': datetime.combine(date_cloture, datetime.min.time())
+                'date_cloture': datetime.combine(date_cloture, datetime.min.time()) if date_cloture else None
             })
 
-        if st.button("🔄 Calculer les régularisations", type="primary", width="stretch"):
+        if st.button("🔄 Calculer les régularisations", type="primary", width="stretch") and \
+                champs_remplis(**{"Date de clôture de l'exercice": date_cloture}):
             df_reg = calculer_regularisations(elements)
 
             st.markdown("## 📊 Résultats des régularisations")
@@ -469,9 +471,9 @@ def page_inventaire():
         st.markdown("### ✅ Check-list de clôture d'exercice")
         st.caption("Toutes les opérations à effectuer avant clôture")
 
-        exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
+        exercice = champ_exercice(key="exercice_checklist")
 
-        if st.button("✅ Générer la check-list", type="primary", width="stretch"):
+        if st.button("✅ Générer la check-list", type="primary", width="stretch") and champs_remplis(Exercice=exercice):
             df_checklist = generer_checklist_cloture(exercice)
 
             # Résumé

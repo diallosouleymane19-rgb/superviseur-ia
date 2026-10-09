@@ -524,7 +524,7 @@ def page_tva():
     with tab2:
         st.markdown("### 📁 Import balance comptable")
         st.info("La balance est analysée pour extraire automatiquement les comptes TVA (445xx) et CA (70x).")
-        uploaded = st.file_uploader("Balance CSV / Excel", type=TYPES_TABLEUR_CSV, key="tva_balance")
+        uploaded = st.file_uploader("Balance CSV, TXT ou Excel", type=TYPES_BALANCE, key="tva_balance")
         if uploaded:
             try:
                 from utils.intelligent_parser import parser_balance_intelligent

@@ -37,6 +37,21 @@ MENTION_IA = ("Contenu généré par intelligence artificielle (Mistral AI). Il 
               "à vérifier par un professionnel avant toute utilisation.")
 
 
+def champ_exercice(label: str = "📅 Exercice", key: str = None) -> str:
+    """Exercice à saisir : aucune valeur proposée par défaut."""
+    return st.text_input(label, value="", placeholder="ex. 2025", key=key).strip()
+
+
+def champs_remplis(**champs) -> bool:
+    """Vrai si tous les champs sont remplis ; sinon affiche lesquels manquent.
+    Ex. : champs_remplis(Exercice=exercice, **{"Date de clôture": date_cloture})"""
+    manquants = [nom for nom, v in champs.items() if v is None or (isinstance(v, str) and not v.strip())]
+    if manquants:
+        st.warning("Renseignez d'abord : " + ", ".join(manquants) + ".")
+        return False
+    return True
+
+
 def mention_ia():
     """Signale à l'utilisateur que le texte qui suit est produit par une IA."""
     st.caption("🤖 " + MENTION_IA)

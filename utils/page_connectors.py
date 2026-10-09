@@ -4,6 +4,7 @@ utils/page_connectors.py - SMD Global Consulting LLC
 Page de gestion des connecteurs ERP.
 """
 
+from utils.page_helpers import champs_remplis
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -199,7 +200,7 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
         st.markdown("#### Importer des données")
         exercice = st.number_input(
             "Exercice", min_value=2018, max_value=datetime.now().year,
-            value=datetime.now().year - 1,
+            value=None, step=1, placeholder="ex. 2025",
             key="ex_" + erp_key
         )
         type_import = st.selectbox(
@@ -209,7 +210,7 @@ def _render_connecteur_tab(erp_key, cfg, app_name):
         )
 
         if st.button("Importer", key="imp_" + erp_key,
-                     width="stretch", type="primary"):
+                     width="stretch", type="primary") and champs_remplis(Exercice=exercice):
             with st.spinner("Import en cours depuis " + cfg["nom"] + "..."):
                 try:
                     creds_saved = st.session_state.get(_creds_key(erp_key), {})

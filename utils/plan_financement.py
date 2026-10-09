@@ -41,42 +41,29 @@ EMPLOIS = [
 
 @st.cache_data(show_spinner=False)
 def _extraire_caf_bfr_pcg(fichier_bytes: bytes, nom_fichier: str) -> dict:
-    """Extrait CAF et BFR depuis une balance PCG France."""
+    """CAF (méthode additive PCG) et BFR à la clôture, depuis une balance ou un FEC.
+    CAF = résultat net + dotations (681, 686, 687) - reprises (781, 786, 787)
+          + VNC des éléments cédés (675) - produits de cession (775) - quote-part de subventions virée (777).
+    Résultat net : classe 7 - classe 6 (balance avant affectation), sinon comptes 120 / 129."""
     try:
-        if est_tableur(nom_fichier):
-            df = pd.read_excel(BytesIO(fichier_bytes))
-        else:
-            df = pd.read_csv(BytesIO(fichier_bytes), sep=None, engine="python")
+        from utils.intelligent_parser import charger_balance_ou_fec
+        from utils.sig_pcg import _preparer, _solde
+        from utils.bilan import calculer_bilan, R_BFR
+        f = BytesIO(fichier_bytes)
+        f.name = nom_fichier
+        df, _, _ = charger_balance_ou_fec(f)
+        d = _preparer(df)
+        c = lambda p, ex=(): _solde(d, p, ex, "credit")
+        db = lambda p, ex=(): _solde(d, p, ex, "debit")
 
-        df.columns = [str(c).strip().lower() for c in df.columns]
-        col_cpte = next((c for c in df.columns if any(k in c for k in ["compte", "cpte", "n"])), None)
-        col_sol = next((c for c in df.columns if any(k in c for k in ["solde", "credit", "montant"])), None)
+        a_gestion = d["_cpt"].str.match(r"^[67]").any()
+        resultat_net = (c(["7"]) - db(["6"])) if a_gestion else (c(["120"]) - db(["129"]))
+        caf = (resultat_net + db(["681", "686", "687"]) - c(["781", "786", "787"])
+               + db(["675"]) - c(["775"]) - c(["777"]))
 
-        if not col_cpte:
-            return {}
-
-        df[col_cpte] = df[col_cpte].astype(str).str.strip()
-
-        def somme(prefixes):
-            mask = df[col_cpte].str.startswith(tuple(prefixes), na=False)
-            if col_sol:
-                return abs(df.loc[mask, col_sol].apply(pd.to_numeric, errors="coerce").fillna(0).sum())
-            return 0.0
-
-        resultat_net = somme(["120", "121"]) - somme(["129"])
-        dotations = somme(["681", "682", "686", "687"])
-        reprises = somme(["781", "786", "787"])
-        caf = resultat_net + dotations - reprises
-
-        stocks = somme(["3"])
-        creances = somme(["411", "409", "413"])
-        dettes_ct = somme(["401", "403", "421", "431", "437", "441", "443", "444", "445", "447"])
-        bfr = stocks + creances - dettes_ct
-
-        return {
-            "CAF estimée": max(caf, 0),
-            "Variation BFR estimée": abs(bfr),
-        }
+        bilan = calculer_bilan(df)
+        bfr = None if "erreur" in bilan else bilan["ratios"][R_BFR]
+        return {"CAF": caf, "Résultat net": resultat_net, "BFR à la clôture": bfr}
     except Exception:
         return {}
 
@@ -139,9 +126,9 @@ def _export_excel(df_r: pd.DataFrame, df_e: pd.DataFrame, annees: list, entrepri
 
         synth = pd.DataFrame({
             "Annee": annees,
-            "Total Ressources (EUR)": [df_r[a].sum() for a in annees],
-            "Total Emplois (EUR)": [df_e[a].sum() for a in annees],
-            "Solde (EUR)": [df_r[a].sum() - df_e[a].sum() for a in annees],
+            "Total Ressources (€)": [df_r[a].sum() for a in annees],
+            "Total Emplois (€)": [df_e[a].sum() for a in annees],
+            "Solde (€)": [df_r[a].sum() - df_e[a].sum() for a in annees],
         })
         synth.to_excel(writer, sheet_name="Synthèse", index=False)
         _style(writer.sheets["Synthèse"], "2C3E50")
@@ -202,18 +189,21 @@ def page_plan_financement():
     prefill_r: dict = {}
     prefill_e: dict = {}
 
-    with st.expander("Importer une balance PCG pour pre-remplir CAF et BFR"):
-        fichier = st.file_uploader("Balance (Excel, LibreOffice ou CSV)", type=TYPES_TABLEUR_CSV,
+    with st.expander("Importer une balance PCG pour pré-remplir la CAF"):
+        fichier = st.file_uploader("Balance (Excel, LibreOffice, CSV ou TXT)", type=TYPES_BALANCE,
                                     key="balance_plan")
         if fichier:
             with st.spinner("Extraction en cours..."):
                 vals = _extraire_caf_bfr_pcg(fichier.read(), fichier.name)
             if vals:
-                prefill_r["Capacité d'autofinancement (CAF)"] = vals.get("CAF estimée", 0)
-                prefill_e["Variation du besoin en fonds de roulement (BFR)"] = vals.get("Variation BFR estimée", 0)
-                caf_v = prefill_r["Capacité d'autofinancement (CAF)"]
-                bfr_v = prefill_e["Variation du besoin en fonds de roulement (BFR)"]
-                st.success(f"CAF estimée : {nb_fr(caf_v, 0)} EUR | BFR estimé : {nb_fr(bfr_v, 0)} EUR")
+                prefill_r["Capacité d'autofinancement (CAF)"] = max(vals["CAF"], 0.0)
+                st.success(f"CAF : {nb_fr(vals['CAF'])} € (résultat net : {nb_fr(vals['Résultat net'])} €), "
+                           "reportée dans les ressources.")
+                if vals["CAF"] < 0:
+                    st.warning("CAF négative : elle n'est pas reportée dans les ressources ; à traiter en emploi si besoin.")
+                if vals["BFR à la clôture"] is not None:
+                    st.info(f"BFR à la clôture : {nb_fr(vals['BFR à la clôture'])} €. Une seule balance ne donne pas "
+                            "sa variation : saisissez la variation du BFR dans les emplois.")
             else:
                 st.warning("Extraction impossible - saisissez les valeurs manuellement.")
 
@@ -227,7 +217,7 @@ def page_plan_financement():
         pd.DataFrame(r_data),
         width="stretch",
         hide_index=True,
-        column_config={a: st.column_config.NumberColumn(a, format="%.0f EUR", min_value=0)
+        column_config={a: st.column_config.NumberColumn(f"{a} (€)", format="localized", min_value=0)
                        for a in annees},
         key="editor_ressources",
     )
@@ -242,7 +232,7 @@ def page_plan_financement():
         pd.DataFrame(e_data),
         width="stretch",
         hide_index=True,
-        column_config={a: st.column_config.NumberColumn(a, format="%.0f EUR", min_value=0)
+        column_config={a: st.column_config.NumberColumn(f"{a} (€)", format="localized", min_value=0)
                        for a in annees},
         key="editor_emplois",
     )
@@ -256,10 +246,10 @@ def page_plan_financement():
         total_e = df_e[a].sum()
         solde = total_r - total_e
         with cols[i]:
-            st.metric(f"Ressources {a}", f"{nb_fr(total_r, 0)} EUR")
-            st.metric(f"Emplois {a}", f"{nb_fr(total_e, 0)} EUR")
+            st.metric(f"Ressources {a}", f"{nb_fr(total_r, 0)} €")
+            st.metric(f"Emplois {a}", f"{nb_fr(total_e, 0)} €")
             delta_color = "normal" if solde >= 0 else "inverse"
-            st.metric(f"Solde {a}", f"{nb_fr(solde, 0)} EUR",
+            st.metric(f"Solde {a}", f"{nb_fr(solde, 0)} €",
                       delta=f"{'Excedent' if solde >= 0 else 'Deficit'}",
                       delta_color=delta_color)
 

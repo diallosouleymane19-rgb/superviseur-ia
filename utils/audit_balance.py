@@ -8,6 +8,7 @@ from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from utils.page_helpers import champ_exercice, champs_remplis
 from utils.page_helpers import (
     bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
@@ -100,20 +101,20 @@ def auditer_balance(df):
         if ecart < 0.01:
             audit['controles']['Équilibre Débit/Crédit'] = {
                 'statut': 'OK',
-                'message': f'Balance équilibrée (écart = {nb_fr(ecart, 2)} EUR)',
+                'message': f'Balance équilibrée (écart = {nb_fr(ecart, 2)} €)',
                 'gravite': None
             }
             points += 30
         else:
             audit['controles']['Équilibre Débit/Crédit'] = {
                 'statut': 'KO',
-                'message': f'Déséquilibre détecté : {nb_fr(ecart, 2)} EUR',
+                'message': f'Déséquilibre détecté : {nb_fr(ecart, 2)} €',
                 'gravite': 'CRITIQUE'
             }
             audit['anomalies'].append({
                 'type': 'Déséquilibre',
                 'gravite': 'CRITIQUE',
-                'description': f'Écart de {nb_fr(ecart, 2)} EUR entre Débit et Crédit'
+                'description': f'Écart de {nb_fr(ecart, 2)} € entre Débit et Crédit'
             })
             audit['recommandations'].append('Vérifier l\'intégrité des écritures comptables')
     
@@ -201,13 +202,13 @@ def auditer_balance(df):
                 if marge > 0:
                     audit['controles']['Résultat'] = {
                         'statut': 'OK',
-                        'message': f'Résultat positif : {nb_fr(resultat, 2)} EUR (marge {nb_fr(marge, 1)} %)',
+                        'message': f'Résultat positif : {nb_fr(resultat, 2)} € (marge {nb_fr(marge, 1)} %)',
                         'gravite': None
                     }
                 else:
                     audit['controles']['Résultat'] = {
                         'statut': 'WARNING',
-                        'message': f'Résultat négatif : {nb_fr(resultat, 2)} EUR',
+                        'message': f'Résultat négatif : {nb_fr(resultat, 2)} €',
                         'gravite': 'MOYENNE'
                     }
                 points += 20
@@ -238,12 +239,12 @@ def auditer_balance(df):
     return audit
 
 
-def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
+def generer_rapport_audit(audit, nom_entreprise="Entreprise", exercice=""):
     """Génère le rapport de contrôle de la balance"""
     
     rapport = []
     rapport.append(f"# RAPPORT DE CONTRÔLE – BALANCE COMPTABLE")
-    rapport.append(f"## {nom_entreprise}")
+    rapport.append(f"## {nom_entreprise}" + (f" – Exercice {exercice}" if exercice else ""))
     rapport.append(f"*Date : {datetime.now().strftime('%d/%m/%Y %H:%M')}*\n")
     rapport.append(f"---\n")
     
@@ -258,13 +259,13 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise"):
         rapport.append("## 💰 INDICATEURS CLÉS")
         kpis = audit['kpis']
         if 'total_debit' in kpis:
-            rapport.append(f"- **Total Débit** : {nb_fr(kpis['total_debit'], 2)} EUR")
-            rapport.append(f"- **Total Crédit** : {nb_fr(kpis['total_credit'], 2)} EUR")
-            rapport.append(f"- **Volume total** : {nb_fr(kpis['volume_total'], 2)} EUR")
+            rapport.append(f"- **Total Débit** : {nb_fr(kpis['total_debit'], 2)} €")
+            rapport.append(f"- **Total Crédit** : {nb_fr(kpis['total_credit'], 2)} €")
+            rapport.append(f"- **Volume total** : {nb_fr(kpis['volume_total'], 2)} €")
         if 'nb_comptes' in kpis:
             rapport.append(f"- **Nombre de comptes** : {kpis['nb_comptes']}")
         if 'resultat_estime' in kpis:
-            rapport.append(f"- **Résultat estimé** : {nb_fr(kpis['resultat_estime'], 2)} EUR")
+            rapport.append(f"- **Résultat estimé** : {nb_fr(kpis['resultat_estime'], 2)} €")
             rapport.append(f"- **Marge** : {nb_fr(kpis.get('marge_pct', 0), 1)} %")
         rapport.append("")
     
@@ -309,8 +310,8 @@ def page_audit_balance():
     st.caption("✨ Compatible : Sage, Cegid, EBP, Ciel, ACD, Tiime, Pennylane, QuickBooks")
 
     uploaded_file = st.file_uploader(
-        "📎 Déposer votre balance (CSV, XLSX)", 
-        type=TYPES_TABLEUR_CSV
+        "📎 Déposer votre balance (CSV, TXT, Excel ou LibreOffice)",
+        type=TYPES_BALANCE
     )
 
     if uploaded_file:
@@ -398,9 +399,9 @@ def page_audit_balance():
             with col1:
                 nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
             with col2:
-                exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
+                exercice = champ_exercice()
 
-            if st.button("🔍 Lancer le contrôle", type="primary", width="stretch"):
+            if st.button("🔍 Lancer le contrôle", type="primary", width="stretch") and champs_remplis(Exercice=exercice):
                 with st.spinner("Contrôle en cours..."):
                     audit = auditer_balance(df)
 
@@ -415,7 +416,7 @@ def page_audit_balance():
                     )
 
                     st.divider()
-                    rapport = generer_rapport_audit(audit, nom_entreprise)
+                    rapport = generer_rapport_audit(audit, nom_entreprise, exercice)
                     col1, col2 = st.columns(2)
                     with col1:
                         bouton_sauvegarde(type_analyse="Contrôle de balance", resultat=rapport, libelle="💾 Sauvegarder")

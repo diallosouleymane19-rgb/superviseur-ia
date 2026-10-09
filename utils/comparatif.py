@@ -6,6 +6,7 @@ SMD Global Consulting LLC - PCG France
 """
 from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
+from utils.page_helpers import champ_exercice, champs_remplis
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -248,9 +249,9 @@ def page_comparatif():
     with col1:
         entreprise = st.text_input("🏢 Entreprise", value="Entreprise")
     with col2:
-        label_n = st.text_input("📅 Exercice N", value=str(datetime.now().year))
+        label_n = champ_exercice("📅 Exercice N")
     with col3:
-        label_n1 = st.text_input("📅 Exercice N-1", value=str(datetime.now().year - 1))
+        label_n1 = champ_exercice("📅 Exercice N-1")
 
     col_type, _ = st.columns([1, 2])
     with col_type:
@@ -261,7 +262,7 @@ def page_comparatif():
     # ── Upload balances ──
     col_n, col_n1 = st.columns(2)
     with col_n:
-        st.markdown(f"### 📁 Balance N ({label_n})")
+        st.markdown(f"### 📁 Balance N" + (f" ({label_n})" if label_n else ""))
         file_n = st.file_uploader(
             "Balance N",
             type=TYPES_BALANCE,
@@ -269,7 +270,7 @@ def page_comparatif():
             label_visibility="collapsed"
         )
     with col_n1:
-        st.markdown(f"### 📁 Balance N-1 ({label_n1})")
+        st.markdown(f"### 📁 Balance N-1" + (f" ({label_n1})" if label_n1 else ""))
         file_n1 = st.file_uploader(
             "Balance N-1",
             type=TYPES_BALANCE,
@@ -283,6 +284,11 @@ def page_comparatif():
         **Format accepté :** Balance CSV/Excel avec colonnes `CompteNum`, `Debit`, `Credit`
         (ou `SoldeDebit` / `SoldeCredit`).
         """)
+        return
+    if not champs_remplis(**{"Exercice N": label_n, "Exercice N-1": label_n1}):
+        return
+    if label_n == label_n1:
+        st.warning("Les exercices N et N-1 doivent être différents.")
         return
 
     # ── Parsing ──

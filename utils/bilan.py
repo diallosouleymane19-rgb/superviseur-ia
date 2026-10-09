@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from utils.sig_pcg import nb_fr, eur_fr, pct_fr
+from utils.page_helpers import champ_exercice, champs_remplis
 from utils.page_helpers import (
     bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
@@ -281,11 +282,12 @@ def page_bilan():
             with col1:
                 nom_entreprise = st.text_input("🏢 Entreprise", value="Entreprise")
             with col2:
-                exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
+                exercice = champ_exercice()
             with col3:
-                date_cloture = st.date_input("📆 Date de clôture")
+                date_cloture = st.date_input("📆 Date de clôture", value=None, format="DD/MM/YYYY")
 
-            if st.button("📊 Générer le Bilan", type="primary", width="stretch"):
+            if st.button("📊 Générer le Bilan", type="primary", width="stretch") and \
+                    champs_remplis(Exercice=exercice, **{"Date de clôture": date_cloture}):
                 with st.spinner("Calcul en cours..."):
                     bilan = calculer_bilan(df, date_cloture.strftime('%d/%m/%Y'))
 

@@ -9,6 +9,7 @@ import pandas as pd
 from utils.sig_pcg import nb_fr, eur_fr, pct_fr
 import numpy as np
 from datetime import datetime
+from utils.page_helpers import champ_exercice, champs_remplis
 from utils.page_helpers import (
     bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
@@ -343,14 +344,15 @@ def page_compte_resultat():
             with col1:
                 nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
             with col2:
-                exercice = st.text_input("📅 Exercice", value=str(datetime.now().year))
+                exercice = champ_exercice()
             with col3:
                 type_entreprise = st.selectbox(
                     "🏭 Type d'entreprise",
                     ["Mixte", "Commerciale", "Industrielle", "Services"]
                 )
 
-            if st.button("📊 Générer le Compte de Résultat", type="primary", width="stretch"):
+            if st.button("📊 Générer le Compte de Résultat", type="primary", width="stretch") and \
+                    champs_remplis(Exercice=exercice):
                 with st.spinner("Calcul des SIG en cours..."):
                     resultat = calculer_compte_resultat(df, type_entreprise)
 
