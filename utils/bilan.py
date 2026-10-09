@@ -219,6 +219,54 @@ def _fmt_ratio(nom, val):
     return eur_fr(val)
 
 
+def visuels_bilan(bilan):
+    """Indicateurs clés et graphique de structure pour l'export Word (mêmes chiffres qu'à l'écran)."""
+    from utils.word_visuels import barres_empilees
+    t, r, a, p = bilan['totaux'], bilan['ratios'], bilan['actif'], bilan['passif']
+    ind = [{"libelle": "Total actif", "valeur": eur_fr(t['total_actif'])},
+           {"libelle": "Capitaux propres", "valeur": eur_fr(t['capitaux_propres']),
+            "ton": "mauvais" if t['capitaux_propres'] < 0 else None,
+            "detail": "négatifs" if t['capitaux_propres'] < 0 else ""}]
+    if bilan.get('balance_desequilibree') or not r:
+        ind.append({"libelle": "Écart actif / passif", "valeur": eur_fr(t['ecart'], 2), "ton": "mauvais",
+                    "detail": "balance déséquilibrée"})
+        return ind, []
+    seuil = lambda cle, mauvais, txt: {"libelle": cle, "valeur": _fmt_ratio(cle, r[cle]),
+                                       "ton": "mauvais" if mauvais else "bon", "detail": txt}
+    ind += [
+        {"libelle": "FRNG", "valeur": eur_fr(r[R_FRNG]), "ton": "mauvais" if r[R_FRNG] < 0 else "bon",
+         "detail": "négatif" if r[R_FRNG] < 0 else "positif"},
+        {"libelle": "BFR", "valeur": eur_fr(r[R_BFR]), "ton": "neutre", "detail": ""},
+        {"libelle": "Trésorerie nette", "valeur": eur_fr(r[R_TN]), "ton": "mauvais" if r[R_TN] < 0 else "bon",
+         "detail": "négative" if r[R_TN] < 0 else "positive"},
+    ]
+    if r[R_AUTONOMIE] is not None:
+        ind.append(seuil(R_AUTONOMIE, r[R_AUTONOMIE] < 20, "seuil d'alerte : 20 %"))
+    if r[R_ENDETTEMENT] is not None:
+        ind.append(seuil(R_ENDETTEMENT, r[R_ENDETTEMENT] > 1, "alerte au-delà de 1"))
+    if r[R_LIQ_GEN] is not None:
+        ind.append(seuil(R_LIQ_GEN, r[R_LIQ_GEN] < 1, "alerte en dessous de 1"))
+    for i in ind:   # libellés courts dans les cases
+        i["libelle"] = {R_AUTONOMIE: "Autonomie financière", R_ENDETTEMENT: "Endettement",
+                        R_LIQ_GEN: "Liquidité générale"}.get(i["libelle"], i["libelle"])
+
+    graphiques = []
+    dettes_fin = p[EMPRUNTS] + p[CONCOURS]
+    autres_dettes = p[TOTAL_DETTES] - dettes_fin
+    morceaux = [a[TOTAL_AI], a[TOTAL_AC], a[TOTAL_TRESO], p[TOTAL_CP], p[PROV_RC], dettes_fin, autres_dettes]
+    if all(v >= 0 for v in morceaux):
+        segments = [("Actif immobilisé", [a[TOTAL_AI], 0], "#1c5cab"),
+                    ("Actif circulant", [a[TOTAL_AC], 0], "#4f8fdc"),
+                    ("Trésorerie", [a[TOTAL_TRESO], 0], "#86b6ef"),
+                    ("Capitaux propres", [0, p[TOTAL_CP]], "#c2410c"),
+                    ("Provisions", [0, p[PROV_RC]], "#eb6834"),
+                    ("Dettes financières", [0, dettes_fin], "#f2a07e"),
+                    ("Dettes d'exploitation et diverses", [0, autres_dettes], "#f7c9b4")]
+        segments = [sg for sg in segments if sum(sg[1]) > 0]
+        graphiques.append(barres_empilees(["Actif", "Passif"], segments, "Structure financière"))
+    return ind, graphiques
+
+
 def generer_rapport_bilan(bilan, nom_entreprise="Entreprise", exercice=""):
     """Rapport du bilan (format français)."""
     L = [f"# BILAN COMPTABLE - {nom_entreprise}", f"## Exercice {exercice}",
@@ -364,7 +412,9 @@ def page_bilan():
                             bouton_sauvegarde(type_analyse="Bilan", resultat=rapport, libelle="💾 Sauvegarder")
                         with col2:
                             try:
-                                generer_bouton_word(f"Bilan_{nom_entreprise}", rapport)
+                                ind_w, graph_w = visuels_bilan(bilan)
+                                generer_bouton_word(f"Bilan_{nom_entreprise}", rapport,
+                                                    indicateurs=ind_w, graphiques=graph_w)
                             except Exception as e:
                                 st.error(f"Erreur : {e}")
 

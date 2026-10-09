@@ -264,6 +264,38 @@ def calculer_compte_resultat(df, type_entreprise='Mixte'):
     return resultat
 
 
+# Soldes intermédiaires (en gras dans le rapport), à distinguer de leurs composantes
+SOLDES = ("Marge commerciale", "Production de l'exercice", "Valeur ajoutée", "Excédent brut",
+          "Résultat")
+
+
+def visuels_compte_resultat(resultat):
+    """Indicateurs clés et graphique des soldes pour l'export Word (mêmes chiffres qu'à l'écran)."""
+    from utils.word_visuels import barres_simples
+    sig, r = resultat['sig'], resultat.get('ratios') or {}
+    rn = sig.get('Résultat net', 0)
+    ind = [{"libelle": "Chiffre d'affaires", "valeur": eur_fr(sig.get("Chiffre d'affaires", 0))},
+           {"libelle": "Valeur ajoutée", "valeur": eur_fr(sig.get('Valeur ajoutée (VA)', 0))},
+           {"libelle": "EBE", "valeur": eur_fr(sig.get("Excédent brut d'exploitation (EBE)", 0)),
+            "ton": "mauvais" if sig.get("Excédent brut d'exploitation (EBE)", 0) < 0 else None,
+            "detail": "négatif" if sig.get("Excédent brut d'exploitation (EBE)", 0) < 0 else ""},
+           {"libelle": "Résultat net", "valeur": eur_fr(rn), "ton": "bon" if rn > 0 else "mauvais",
+            "detail": "bénéfice" if rn > 0 else "perte" if rn < 0 else "nul"}]
+    for lib, cle in (("Taux de valeur ajoutée", "Taux de valeur ajoutée (%)"), ("Taux d'EBE", "Taux d'EBE (%)"),
+                     ("Rentabilité d'exploitation", "Taux de rentabilité d'exploitation (%)"),
+                     ("Rentabilité nette", "Taux de rentabilité nette (%)")):
+        if cle in r:
+            ind.append({"libelle": lib, "valeur": pct_fr(r[cle])})
+    principaux = [("Chiffre d'affaires", "Chiffre d'affaires"), ("Marge commerciale", "Marge commerciale"),
+                  ("Valeur ajoutée (VA)", "Valeur ajoutée"), ("Excédent brut d'exploitation (EBE)", "EBE"),
+                  ("Résultat d'exploitation", "Résultat d'exploitation"),
+                  ("Résultat courant avant impôts", "Résultat courant avant impôts"), ("Résultat net", "Résultat net")]
+    libs = [court for cle, court in principaux if cle in sig and (sig[cle] or cle == "Résultat net")]
+    vals = [sig[cle] for cle, court in principaux if cle in sig and (sig[cle] or cle == "Résultat net")]
+    graphiques = [barres_simples(libs, vals, "Du chiffre d'affaires au résultat net")] if libs else []
+    return ind, graphiques
+
+
 def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exercice=""):
     """Génère un rapport professionnel du compte de résultat"""
     
@@ -279,7 +311,8 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
     rapport.append("| Indicateur | Montant |")
     rapport.append("|------------|---------|")
     for nom, valeur in resultat['sig'].items():
-        rapport.append(f"| **{nom}** | {eur_fr(valeur, 2)} |")
+        g = "**" if nom.startswith(SOLDES) else ""
+        rapport.append(f"| {g}{nom}{g} | {g}{eur_fr(valeur, 2)}{g} |")
     rapport.append("")
     
     # RATIOS
@@ -294,6 +327,16 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
                 rapport.append(f"| {nom} | {pct_fr(valeur)} |")
         rapport.append("")
     
+    # PRODUITS ET CHARGES
+    for titre, cle in (("💰 PRODUITS", "produits"), ("💸 CHARGES", "charges")):
+        lignes = [(k, v) for k, v in resultat.get(cle, {}).items() if v != 0]
+        if lignes:
+            rapport.append(f"## {titre}\n")
+            rapport.append("| Rubrique | Montant |")
+            rapport.append("|----------|--------:|")
+            rapport += [f"| {k} | {eur_fr(v, 2)} |" for k, v in lignes]
+            rapport.append("")
+
     # ANALYSE
     if resultat['analyse']:
         rapport.append("## 💡 ANALYSE QUALITATIVE\n")
@@ -449,7 +492,9 @@ def page_compte_resultat():
                             bouton_sauvegarde(type_analyse="Compte de Résultat", resultat=rapport, libelle="💾 Sauvegarder")
                         with col2:
                             try:
-                                generer_bouton_word(f"Compte_Resultat_{nom_entreprise}", rapport)
+                                ind_w, graph_w = visuels_compte_resultat(resultat)
+                                generer_bouton_word(f"Compte_Resultat_{nom_entreprise}", rapport,
+                                                    indicateurs=ind_w, graphiques=graph_w)
                             except Exception as e:
                                 st.error(f"Erreur : {e}")
 

@@ -155,6 +155,17 @@ def _tableau(doc, lignes):
             par.alignment = {"droite": WD_ALIGN_PARAGRAPH.RIGHT, "centre": WD_ALIGN_PARAGRAPH.CENTER}.get(a, WD_ALIGN_PARAGRAPH.LEFT)
             for run in par.runs:
                 run.font.size = Pt(9.5)
+    from docx.shared import Cm
+    from utils.word_visuels import largeurs, garder_ensemble
+    utile = 16.0   # largeur utile en cm (A4, marges de 2,5 cm)
+    if n == 1:
+        cols = [utile]
+    else:
+        premiere = min(max(utile * 0.40, 5.0), utile - 2.2 * (n - 1))
+        cols = [premiere] + [(utile - premiere) / (n - 1)] * (n - 1)
+    largeurs(t, [Cm(c) for c in cols])
+    if len(t.rows) <= 30:   # un tableau court ne se coupe pas entre deux pages
+        garder_ensemble(t)
     doc.add_paragraph()
 
 
@@ -250,8 +261,43 @@ def _sans_signature(texte):
     return "\n".join(lignes)
 
 
-def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice="", ia=None):
-    """ia : None pour un contenu calculé par règles ; sinon dict {"mention", "modele", "date"} pour un texte rédigé par IA."""
+def _separer_chapeau(texte):
+    """Sépare l'en-tête du rapport (titre « # », un sous-titre « ## », lignes en italique ou vides)
+    du reste, pour placer les indicateurs et graphiques juste après."""
+    lignes = str(texte).split("\n")
+    i, sous_titre = 0, False
+    while i < len(lignes):
+        l = lignes[i].strip()
+        if not l or re.match(r"^#\s", l) or re.fullmatch(r"\*[^*].*\*", l):
+            i += 1
+        elif l.startswith("## ") and not sous_titre:
+            sous_titre = True
+            i += 1
+        elif re.fullmatch(r"(-{3,}|\*{3,}|_{3,})", l):
+            i += 1
+            break
+        else:
+            break
+    return "\n".join(lignes[:i]), "\n".join(lignes[i:])
+
+
+def _retirer_sections(texte, titres):
+    """Retire les sections « ## … » dont le titre contient un des mots donnés (jusqu'au titre suivant)."""
+    sortie, saute = [], False
+    for l in str(texte).split("\n"):
+        if re.match(r"^#{1,2}\s", l.strip()):
+            saute = any(t.lower() in l.lower() for t in titres)
+        if not saute:
+            sortie.append(l)
+    return "\n".join(sortie)
+
+
+def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice="", ia=None,
+                        indicateurs=None, graphiques=None, sans_sections=()):
+    """ia : None pour un contenu calculé par règles ; sinon dict {"mention", "modele", "date"} pour un texte rédigé par IA.
+    indicateurs : liste de dict {libelle, valeur, detail?, ton?} affichés en tête (voir word_visuels.bloc_indicateurs).
+    graphiques : liste d'images PNG (bytes) placées après les indicateurs.
+    sans_sections : titres de sections du texte à ne pas reprendre (déjà présentées par les indicateurs)."""
     doc = document_smd()
 
     contenu_texte = str(contenu_texte) if ia else nombres_fr(contenu_texte)
@@ -270,7 +316,20 @@ def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice=""
         _runs(p, "   ·   ".join(infos))
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    ecrire_markdown(doc, _sans_signature(contenu_texte), sauter_titre=titre if m else None)
+    corps = _sans_signature(contenu_texte)
+    if sans_sections:
+        corps = _retirer_sections(corps, sans_sections)
+    if indicateurs or graphiques:
+        from utils.word_visuels import bloc_indicateurs, inserer_graphique
+        chapeau, corps = _separer_chapeau(corps)
+        ecrire_markdown(doc, chapeau, sauter_titre=titre if m else None)
+        if indicateurs:
+            bloc_indicateurs(doc, indicateurs)
+        for png in graphiques or []:
+            inserer_graphique(doc, png)
+        ecrire_markdown(doc, corps)
+    else:
+        ecrire_markdown(doc, corps, sauter_titre=titre if m else None)
 
     if ia:
         marquer_docx_ia(doc, ia.get("mention", ""), ia.get("modele", ""), ia.get("date", ""))

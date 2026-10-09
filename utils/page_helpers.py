@@ -125,20 +125,25 @@ def bouton_sauvegarde(type_analyse: str, resultat, libelle: str = "💾 Sauvegar
 # EXPORT WORD
 # =============================================================================
 
-def generer_bouton_word(titre: str, contenu, ia=None):
+def generer_bouton_word(titre: str, contenu, ia=None, indicateurs=None, graphiques=None, sans_sections=()):
     """Génère un bouton de téléchargement Word sécurisé.
-    ia : meta_ia(...) si le texte est rédigé par l'IA (le fichier porte alors le marquage IA)."""
+    ia : meta_ia(...) si le texte est rédigé par l'IA (le fichier porte alors le marquage IA).
+    indicateurs / graphiques : bloc d'indicateurs clés et images placés en tête du document."""
     try:
         texte_final = extraire_contenu_mistral(contenu)
-        buf = export_analyse_word(titre, texte_final, ia=ia)
+        buf = export_analyse_word(titre, texte_final, ia=ia, indicateurs=indicateurs, graphiques=graphiques,
+                                  sans_sections=sans_sections)
         st.download_button(
-            f"📄 Télécharger {titre}",
+            "📄 Télécharger le rapport Word",
             buf,
             f"{sanitize_filename(titre)}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             width="stretch",
+            key=f"word_{sanitize_filename(titre)}_{bool(ia)}",
         )
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.getLogger("export_word").error("Export Word %s : %s", titre, e)
         st.warning("⚠ Export Word temporairement indisponible. Copiez le contenu manuellement.")
 
 

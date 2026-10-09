@@ -240,6 +240,36 @@ def afficher_rapport(
 
 # ─── RENDU SPÉCIALISÉ : SYNTHÈSE AVEC SCORE ──────────────────────────────────
 
+def visuels_synthese_score(score, niveau, kpis, controles, anomalies, devise="€"):
+    """Indicateurs et graphique pour l'export Word des modules à score (mêmes chiffres qu'à l'écran)."""
+    from utils.word_visuels import barres_simples
+    ton = "bon" if score >= 80 else "neutre" if score >= 55 else "mauvais"
+    nb = lambda statut: sum(1 for c in (controles or {}).values() if c.get('statut') == statut)
+    ind = [{"libelle": "Score qualité", "valeur": f"{nb_fr(score, 0)} %", "detail": niveau, "ton": ton},
+           {"libelle": "Contrôles OK", "valeur": str(nb('OK')), "detail": ""},
+           {"libelle": "Avertissements", "valeur": str(nb('WARNING')), "ton": "mauvais" if nb('WARNING') else None,
+            "detail": ""},
+           {"libelle": "Anomalies", "valeur": str(len(anomalies or [])),
+            "ton": "mauvais" if anomalies else "bon", "detail": "à examiner" if anomalies else "aucune"}]
+    kpis = kpis or {}
+    for cle, lib, unite in (('total_debit', "Total débit", devise), ('total_credit', "Total crédit", devise),
+                            ('resultat_estime', "Résultat estimé", devise), ('marge_pct', "Marge nette", "%"),
+                            ('nb_comptes', "Comptes", ""), ('charges_totales', "Charges totales", devise),
+                            ('produits_totaux', "Produits totaux", devise)):
+        if cle in kpis:
+            v = kpis[cle]
+            val = f"{nb_fr(v, 1)} %" if unite == "%" else f"{nb_fr(v, 0)} {unite}".strip()
+            ind.append({"libelle": lib, "valeur": val})
+    graphiques = []
+    rep = kpis.get('repartition_classes') or {}
+    if rep:
+        ordre = ["Capitaux", "Immobilisations", "Stocks", "Tiers", "Financiers", "Charges", "Produits", "Speciaux"]
+        cles = sorted(rep, key=lambda k: ordre.index(k) if k in ordre else 99)
+        graphiques.append(barres_simples([k.replace("Speciaux", "Spéciaux") for k in cles], [rep[k] for k in cles],
+                                         "Nombre de lignes par classe de comptes", unite="Nombre de lignes"))
+    return ind, graphiques
+
+
 def afficher_synthese_score(
     score: float,
     niveau: str,

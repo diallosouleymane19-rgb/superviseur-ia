@@ -162,21 +162,26 @@ def auditer_balance(df):
             
             # Comptes 6 (charges) avec solde crediteur = anormal
             if '_classe' in df.columns:
-                charges_creditrices = df[(df['_classe'] == '6') & (df['_solde'] < 0)]
+                cpt = df[cols['compte']].astype(str).str.strip()
+                # Créditeurs par nature : variation des stocks (603), RRR obtenus (609, 619, 629)
+                charges_creditrices = df[(df['_classe'] == '6') & (df['_solde'] < 0)
+                                         & ~cpt.str.startswith(CHARGES_CREDITRICES_NORMALES)]
                 if len(charges_creditrices) > 0:
                     audit['anomalies'].append({
                         'type': 'Charges créditrices',
                         'gravite': 'MOYENNE',
-                        'description': f'{len(charges_creditrices)} comptes de charges (classe 6) avec solde créditeur'
+                        'description': f'{len(charges_creditrices)} compte{"s" if len(charges_creditrices) > 1 else ""} de charges (classe 6) avec solde créditeur'
                     })
                 
                 # Comptes 7 (produits) avec solde debiteur = anormal
-                produits_debiteurs = df[(df['_classe'] == '7') & (df['_solde'] > 0)]
+                # Débiteurs possibles par nature : RRR accordés (709), variation des stocks de production (713)
+                produits_debiteurs = df[(df['_classe'] == '7') & (df['_solde'] > 0)
+                                        & ~cpt.str.startswith(PRODUITS_DEBITEURS_NORMAUX)]
                 if len(produits_debiteurs) > 0:
                     audit['anomalies'].append({
                         'type': 'Produits débiteurs',
                         'gravite': 'MOYENNE',
-                        'description': f'{len(produits_debiteurs)} comptes de produits (classe 7) avec solde débiteur'
+                        'description': f'{len(produits_debiteurs)} compte{"s" if len(produits_debiteurs) > 1 else ""} de produits (classe 7) avec solde débiteur'
                     })
             
             points += 20
@@ -215,8 +220,10 @@ def auditer_balance(df):
         except:
             pass
     
-    # SCORE FINAL
-    audit['score_qualite'] = round((points / points_max) * 100, 1)
+    # SCORE FINAL : -10 points par type d'anomalie de gravité MOYENNE
+    # (le déséquilibre, CRITIQUE, prive déjà des 30 points de l'équilibre)
+    points -= 10 * sum(1 for a in audit['anomalies'] if a.get('gravite') == 'MOYENNE')
+    audit['score_qualite'] = round(max(points, 0) / points_max * 100, 1)
     
     # NIVEAU
     if audit['score_qualite'] >= 90:
@@ -237,6 +244,14 @@ def auditer_balance(df):
             audit['recommandations'].append('Vérifier la cohérence des écritures via le module FEC')
     
     return audit
+
+
+# Sections du rapport reprises par le bloc d'indicateurs de l'export Word
+SECTIONS_DEJA_EN_INDICATEURS = ("SYNTHÈSE EXÉCUTIVE", "INDICATEURS CLÉS")
+
+# Comptes dont le solde « inverse » est normal (exclus du contrôle des soldes anormaux)
+CHARGES_CREDITRICES_NORMALES = ("603", "609", "619", "629")
+PRODUITS_DEBITEURS_NORMAUX = ("709", "713")
 
 
 def generer_rapport_audit(audit, nom_entreprise="Entreprise", exercice=""):
@@ -422,7 +437,12 @@ def page_audit_balance():
                         bouton_sauvegarde(type_analyse="Contrôle de balance", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
                         try:
-                            generer_bouton_word(f"Controle_Balance_{nom_entreprise}", rapport)
+                            from utils.rendu_financier import visuels_synthese_score
+                            ind_w, graph_w = visuels_synthese_score(audit['score_qualite'], audit['niveau'], audit['kpis'],
+                                                                    audit['controles'], audit['anomalies'])
+                            generer_bouton_word(f"Controle_Balance_{nom_entreprise}", rapport,
+                                                indicateurs=ind_w, graphiques=graph_w,
+                                                sans_sections=SECTIONS_DEJA_EN_INDICATEURS)
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 
