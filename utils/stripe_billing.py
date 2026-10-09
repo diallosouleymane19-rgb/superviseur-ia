@@ -2,7 +2,7 @@
 """
 utils/stripe_billing.py — SMD Global Consulting LLC
 Intégration Stripe Billing : checkout, customer portal, webhooks.
-Compatible PCG France & SYSCOHADA (mode test par défaut).
+Superviseur IA PCG France (mode test par défaut).
 """
 
 import os
@@ -61,18 +61,6 @@ STRIPE_PRICES = {
         "starter":    {"monthly": "price_pcg_starter_monthly",    "annual": "price_pcg_starter_annual"},
         "pro":        {"monthly": "price_pcg_pro_monthly",        "annual": "price_pcg_pro_annual"},
         "enterprise": {"monthly": "price_pcg_enterprise_monthly", "annual": "price_pcg_enterprise_annual"},
-    },
-    # SYSCOHADA
-    "syscohada": {
-        "starter":    {"monthly": "price_sysc_starter_monthly",    "annual": "price_sysc_starter_annual"},
-        "pro":        {"monthly": "price_sysc_pro_monthly",        "annual": "price_sysc_pro_annual"},
-        "enterprise": {"monthly": "price_sysc_enterprise_monthly", "annual": "price_sysc_enterprise_annual"},
-    },
-    # Pack multi-agents (les deux apps)
-    "multi": {
-        "starter":    {"monthly": "price_multi_starter_monthly",    "annual": "price_multi_starter_annual"},
-        "pro":        {"monthly": "price_multi_pro_monthly",        "annual": "price_multi_pro_annual"},
-        "enterprise": {"monthly": "price_multi_enterprise_monthly", "annual": "price_multi_enterprise_annual"},
     },
 }
 

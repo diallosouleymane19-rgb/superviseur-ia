@@ -1,5 +1,5 @@
 # Guide de Déploiement — SMD Global Consulting LLC
-## Superviseur IA PCG France + RevisionPro SYSCOHADA
+## Superviseur IA PCG France
 
 ---
 
@@ -12,7 +12,7 @@
 
 ---
 
-## 2. GitHub — Pousser les deux apps
+## 2. GitHub — Pousser l'application
 
 ### 2.1 Superviseur IA PCG France
 
@@ -31,32 +31,18 @@ git branch -M main
 git push -u origin main
 ```
 
-### 2.2 RevisionPro SYSCOHADA
-
-```bash
-cd C:\Users\blois\superviseur-ia-syscohada
-
-git init
-git add .
-git commit -m "feat: RBAC + Stripe + Page tarifs + Inscription SYSCOHADA"
-
-git remote add origin https://github.com/VOTRE_USERNAME/revisiopro-syscohada.git
-git branch -M main
-git push -u origin main
-```
-
 > ⚠️ `.gitignore` exclut automatiquement `.streamlit/secrets.toml` — vos clés API restent locales.
 
 ---
 
 ## 3. Streamlit Cloud — Déploiement
 
-### 3.1 Pour chaque application :
+### 3.1 Créer l'application
 
 1. Aller sur https://share.streamlit.io
 2. Cliquer **"New app"**
 3. Connecter votre compte GitHub
-4. Sélectionner le repo (`superviseur-ia-pcg` ou `revisiopro-syscohada`)
+4. Sélectionner le repo (`superviseur-ia-pcg`)
 5. **Main file path** : `app.py`
 6. Cliquer **"Deploy"**
 
@@ -76,18 +62,6 @@ AUTH_NOM      = "SMD Global Consulting LLC"
 STRIPE_SECRET_KEY     = "sk_live_VOTRE_CLE_LIVE"
 STRIPE_WEBHOOK_SECRET = "whsec_VOTRE_SECRET"
 APP_URL = "https://superviseur-ia-pcg.streamlit.app"
-```
-
-**SYSCOHADA :**
-```toml
-MISTRAL_API_KEY = "votre_cle_mistral_syscohada_ici"
-
-[users]
-smdconsulting = "votre_mot_de_passe"
-
-STRIPE_SECRET_KEY     = "sk_live_VOTRE_CLE_LIVE"
-STRIPE_WEBHOOK_SECRET = "whsec_VOTRE_SECRET"
-APP_URL = "https://revisiopro-syscohada.streamlit.app"
 ```
 
 ---
@@ -150,7 +124,6 @@ STRIPE_WEBHOOK_SECRET=whsec_xxx
 | App | URL Streamlit | Webhook |
 |-----|--------------|---------|
 | PCG France | `https://superviseur-ia-pcg.streamlit.app` | `https://webhook-pcg.railway.app/webhook/stripe` |
-| SYSCOHADA | `https://revisiopro-syscohada.streamlit.app` | `https://webhook-sysc.railway.app/webhook/stripe` |
 
 ---
 

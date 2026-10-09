@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 utils/db_supabase.py - SMD Global Consulting LLC
-Client Supabase partagé (service role) pour PCG France & SYSCOHADA.
+Client Supabase partagé (service role) pour le Superviseur IA PCG France.
 
 Secrets requis dans .streamlit/secrets.toml :
     SUPABASE_URL         = "https://ckfzczuvjbxgrwgpqrdz.supabase.co"

@@ -2,7 +2,7 @@
 """
 utils/permissions.py — SMD Global Consulting LLC
 Helpers Streamlit pour le contrôle d'accès basé sur les rôles (RBAC).
-Compatible PCG France & SYSCOHADA.
+Superviseur IA PCG France.
 """
 
 import streamlit as st

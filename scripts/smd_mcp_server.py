@@ -5,12 +5,11 @@ smd_mcp_server.py
 Serveur MCP (Model Context Protocol) - SMD Global Consulting LLC
 Plugin Claude Cowork | Comptable Augmente
 
-5 Skills :
+4 Skills :
   1. analyse_facture     - OCR + suggestion compte PCG
   2. verification_tva    - Controle taux TVA applicable
   3. export_fec          - Generation fichier FEC DGFiP
   4. veille_fiscale      - Resume alertes fiscales RSS
-  5. syscohada_analyse   - Analyse comptable SYSCOHADA/OHADA
 
 Installation :
   pip install mcp requests feedparser
@@ -85,28 +84,19 @@ COMPTES_PCG_COURANTS = {
     "amortissement": "681", "resultat": "120", "capital": "101"
 }
 
-COMPTES_SYSCOHADA_COURANTS = {
-    "fournisseur": "401", "client": "411", "banque": "521",
-    "caisse": "571", "tva collectee": "4431", "tva deductible": "4451",
-    "salaires": "661", "charges sociales": "664", "loyer": "622",
-    "materiel": "244", "logiciel": "221", "honoraires": "632",
-    "publicite": "627", "frais deplacement": "625", "assurance": "616",
-    "amortissement": "681", "resultat": "131", "capital": "101"
-}
-
 
 # --- SKILL 1 : Analyse de facture --------------------------------------------
 
 @app.call_tool()
 async def analyse_facture(name: str, arguments: dict) -> list[types.TextContent]:
-    """Analyse une facture et suggere le compte PCG ou SYSCOHADA."""
+    """Analyse une facture et suggere le compte PCG."""
     contenu = arguments.get("contenu_facture", "")
-    referentiel = arguments.get("referentiel", "PCG")
+    referentiel = "PCG"
 
     if not contenu:
         return [types.TextContent(type="text", text="ERREUR: Veuillez fournir le contenu de la facture.")]
 
-    comptes = COMPTES_SYSCOHADA_COURANTS if referentiel == "SYSCOHADA" else COMPTES_PCG_COURANTS
+    comptes = COMPTES_PCG_COURANTS
     comptes_str = json.dumps(comptes, ensure_ascii=False, indent=2)
 
     system_prompt = f"Tu es expert-comptable {referentiel}. Comptes disponibles : {comptes_str}"
@@ -316,53 +306,6 @@ Source : [lien]
     return [types.TextContent(type="text", text=resultat)]
 
 
-# --- SKILL 5 : Analyse SYSCOHADA ---------------------------------------------
-
-@app.call_tool()
-async def syscohada_analyse(name: str, arguments: dict) -> list[types.TextContent]:
-    """Analyse comptable selon le referentiel SYSCOHADA/OHADA."""
-    type_analyse = arguments.get("type_analyse", "imputation")
-    contenu = arguments.get("contenu", "")
-    pays = arguments.get("pays", "Senegal")
-
-    if not contenu:
-        return [types.TextContent(type="text", text="ERREUR: Veuillez fournir le contenu a analyser.")]
-
-    comptes_str = json.dumps(COMPTES_SYSCOHADA_COURANTS, ensure_ascii=False, indent=2)
-
-    system_prompt = f"""Tu es expert-comptable certifie SYSCOHADA/OHADA.
-Pays : {pays}
-Comptes SYSCOHADA : {comptes_str}
-Divergences PCG/SYSCOHADA :
-- Banque : 521 (vs 512 PCG)
-- Caisse : 571 (vs 531 PCG)
-- TVA collectee : 4431 (vs 44571 PCG)
-- TVA deductible : 4451 (vs 44566 PCG)
-- Salaires : 661 (vs 641 PCG)
-- Charges sociales : 664 (vs 645 PCG)"""
-
-    user_prompt = f"""Analyse ({type_analyse}) pour {pays} :
-
-{contenu}
-
-Format de reponse :
-
-=== ANALYSE SYSCOHADA - {pays} ===
-Nature : [description]
-Montant : [montant en FCFA ou devise locale]
-
-IMPUTATION SYSCOHADA :
-Debit  -> Compte [N] - [Libelle] : [Montant]
-Credit -> Compte [N] - [Libelle] : [Montant]
-
-Equivalent PCG France : [comptes equivalents]
-Particularites OHADA : [specificites]
-Validation : [Conforme / A verifier]"""
-
-    resultat = appel_mistral(system_prompt, user_prompt, max_tokens=700)
-    return [types.TextContent(type="text", text=resultat)]
-
-
 # --- Declaration des outils --------------------------------------------------
 
 @app.list_tools()
@@ -370,12 +313,11 @@ async def list_tools() -> list[types.Tool]:
     return [
         types.Tool(
             name="analyse_facture",
-            description="Analyse une facture et propose l imputation comptable PCG France ou SYSCOHADA Afrique",
+            description="Analyse une facture et propose l imputation comptable PCG France",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "contenu_facture": {"type": "string", "description": "Texte extrait de la facture"},
-                    "referentiel": {"type": "string", "enum": ["PCG", "SYSCOHADA"], "default": "PCG"}
+                    "contenu_facture": {"type": "string", "description": "Texte extrait de la facture"}
                 },
                 "required": ["contenu_facture"]
             }
@@ -416,19 +358,6 @@ async def list_tools() -> list[types.Tool]:
                     "nb_articles": {"type": "integer", "default": 5},
                     "theme": {"type": "string", "enum": ["tous", "tva", "is", "paie", "bic"], "default": "tous"}
                 }
-            }
-        ),
-        types.Tool(
-            name="syscohada_analyse",
-            description="Analyse comptable SYSCOHADA/OHADA pour l Afrique francophone",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "type_analyse": {"type": "string", "enum": ["imputation", "bilan", "question"], "default": "imputation"},
-                    "contenu": {"type": "string", "description": "Facture, bilan ou question"},
-                    "pays": {"type": "string", "description": "Pays OHADA", "default": "Senegal"}
-                },
-                "required": ["contenu"]
             }
         )
     ]

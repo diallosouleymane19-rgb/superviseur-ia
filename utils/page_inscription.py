@@ -2,7 +2,7 @@
 """
 utils/page_inscription.py — SMD Global Consulting LLC
 Page d'inscription publique avec choix de plan et onboarding Stripe.
-Compatible PCG France & SYSCOHADA.
+Superviseur IA PCG France.
 """
 
 import streamlit as st
@@ -35,7 +35,7 @@ def page_inscription(app_name: str = "pcg") -> None:
     - Choix de plan
     - Redirect Stripe Checkout si plan payant
     """
-    app_label = "Superviseur IA PCG France" if app_name == "pcg" else "RevisionPro SYSCOHADA"
+    app_label = "Superviseur IA PCG France"
 
     # ── En-tête ───────────────────────────────────────────────────────────────
     st.markdown(f"""
@@ -213,7 +213,7 @@ def page_inscription(app_name: str = "pcg") -> None:
             ("🧠", "IA Comptable augmentée",
              "Analyse vos balances, FEC, factures et états financiers en quelques secondes."),
             ("⚖", "PCG France",
-             "Plan comptable général français. Le SYSCOHADA dispose de sa propre application."),
+             "Analyses selon le Plan comptable général français."),
             ("🛡", "Données sécurisées",
              "Fichiers lus en mémoire, non enregistrés. Analyses sauvegardées à votre demande : 30 jours, dans l'UE."),
             ("📊", "Rapports professionnels",

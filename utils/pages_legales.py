@@ -31,7 +31,7 @@ Hébergement de l'application : Streamlit Community Cloud (Snowflake Inc., État
 
 ### Article 4 — Description du Service
 
-Le Service est un outil d'aide à l'analyse et à la supervision comptable selon le Plan comptable général français et le SYSCOHADA. Il comprend notamment : le contrôle de balance, l'analyse de FEC, la loi de Benford, le bilan, le compte de résultat et les soldes intermédiaires de gestion, le tableau de flux de trésorerie, le plan de financement, l'aide à la TVA, la veille fiscale, ainsi que l'analyse et la comptabilisation de factures.
+Le Service est un outil d'aide à l'analyse et à la supervision comptable selon le Plan comptable général français. Il comprend notamment : le contrôle de balance, l'analyse de FEC, la loi de Benford, le bilan, le compte de résultat et les soldes intermédiaires de gestion, le tableau de flux de trésorerie, le plan de financement, l'aide à la TVA, la veille fiscale, ainsi que l'analyse et la comptabilisation de factures.
 
 La comptabilisation des factures est calculée par des règles, sans intelligence artificielle. Les Fonctions IA sont signalées comme telles dans le Service. Un mode démonstration, sans sauvegarde, permet de découvrir le Service avec des données fictives.
 

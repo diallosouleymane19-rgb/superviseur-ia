@@ -15,7 +15,6 @@ Le **Superviseur IA Comptable** est une plateforme d'audit et de supervision com
 
 Les traitements comptables (écritures, bilan, SIG, contrôles) sont calculés **par des règles PCG, sans IA**. L'IA (Mistral) sert uniquement à rédiger des commentaires et des analyses, toujours signalés comme générés par IA.
 
-> Version Afrique francophone (SYSCOHADA, FCFA) : application distincte, dépôt séparé `superviseur-ia-syscohada`.
 
 ---
 

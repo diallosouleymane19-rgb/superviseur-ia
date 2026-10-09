@@ -60,7 +60,6 @@ PLANS_DISPLAY = {
         "features": [
             "Analyses illimitées",
             "Tous les modules",
-            "Multi-agents PCG + SYSCOHADA",
             "Gestion cabinet & clients",
             "Journal des actions complet",
             "Support dédié & onboarding",
@@ -220,26 +219,6 @@ def page_tarifs(app_name="pcg"):
                         except Exception as e:
                             st.error("Erreur Stripe : " + str(e))
 
-    # --- Pack multi-agents ---
-    st.divider()
-    st.subheader("Pack Multi-Agents — PCG France + SYSCOHADA")
-    st.markdown(
-        "Accès aux **deux plateformes** avec un seul abonnement.\n\n"
-        "| Pack | Quota | Mensuel | Annuel |\n"
-        "|------|-------|---------|--------|\n"
-        "| Multi Starter | 100 analyses/mois | EUR 49 | EUR 469 |\n"
-        "| Multi Pro | 400 analyses/mois | EUR 129 | EUR 1 239 |\n"
-        "| Multi Entreprise | Illimité | EUR 299 | EUR 2 869 |\n"
-    )
-
-    col1, col2, _ = st.columns([1, 1, 2])
-    with col1:
-        if st.button("Multi Starter", width="stretch", disabled=collaborateur):
-            _checkout_multi(user_email, "starter", billing_key, app_name)
-    with col2:
-        if st.button("Multi Pro", width="stretch", disabled=collaborateur):
-            _checkout_multi(user_email, "pro", billing_key, app_name)
-
     # --- FAQ ---
     st.divider()
     with st.expander("Questions fréquentes"):
@@ -255,17 +234,3 @@ def page_tarifs(app_name="pcg"):
 **Contact :** contact@smdconsulting.pro
         """)
 
-
-def _checkout_multi(user_email, plan, billing, app_name):
-    if not user_email:
-        st.error("Connectez-vous pour souscrire.")
-        return
-    try:
-        from utils.stripe_billing import creer_checkout_session
-        url = creer_checkout_session(user_email, plan, app="multi", billing=billing)
-        st.markdown(
-            "<meta http-equiv='refresh' content='0;url=" + url + "'>",
-            unsafe_allow_html=True
-        )
-    except Exception as e:
-        st.error("Erreur Stripe : " + str(e))
