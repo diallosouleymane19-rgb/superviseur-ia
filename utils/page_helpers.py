@@ -37,9 +37,9 @@ MENTION_IA = ("Contenu généré par intelligence artificielle (Mistral AI). Il 
               "à vérifier par un professionnel avant toute utilisation.")
 
 
-def champ_exercice(label: str = "📅 Exercice", key: str = None) -> str:
+def champ_exercice(label: str = "📅 Exercice", key: str = None, exemple: str = "2025") -> str:
     """Exercice à saisir : aucune valeur proposée par défaut."""
-    return st.text_input(label, value="", placeholder="ex. 2025", key=key).strip()
+    return st.text_input(label, value="", placeholder=f"ex. {exemple}", key=key).strip()
 
 
 def champs_remplis(**champs) -> bool:

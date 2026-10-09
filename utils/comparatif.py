@@ -251,7 +251,7 @@ def page_comparatif():
     with col2:
         label_n = champ_exercice("📅 Exercice N")
     with col3:
-        label_n1 = champ_exercice("📅 Exercice N-1")
+        label_n1 = champ_exercice("📅 Exercice N-1", exemple="2024")
 
     col_type, _ = st.columns([1, 2])
     with col_type:
@@ -281,7 +281,7 @@ def page_comparatif():
     if not file_n or not file_n1:
         st.info("👆 Déposez les deux balances pour lancer le comparatif.")
         st.markdown("""
-        **Format accepté :** Balance CSV/Excel avec colonnes `CompteNum`, `Debit`, `Credit`
+        **Formats acceptés :** balance CSV, TXT, Excel ou LibreOffice avec colonnes `CompteNum`, `Debit`, `Credit`
         (ou `SoldeDebit` / `SoldeCredit`).
         """)
         return
