@@ -37,7 +37,7 @@ def detecter_alertes(df):
         alertes.append({
             'niveau': 'CRITIQUE',
             'titre': 'Déséquilibre Débit/Crédit',
-            'message': f"Écart de {nb_fr(ecart, 2)} EUR",
+            'message': f"Écart de {nb_fr(ecart, 2)} €",
             'count': 1
         })
     
@@ -109,7 +109,7 @@ def detecter_alertes(df):
         alertes.append({
             'niveau': 'WARNING',
             'titre': 'Montants négatifs',
-            'message': f"{debits_negatifs + credits_negatifs} écritures avec montants négatifs",
+            'message': f"{debits_negatifs + credits_negatifs} ligne{'s' if debits_negatifs + credits_negatifs > 1 else ''} avec montant négatif",
             'count': int(debits_negatifs + credits_negatifs)
         })
     
@@ -148,6 +148,17 @@ def detecter_alertes(df):
             })
     
     return alertes
+
+
+def visuels_alertes(alertes):
+    """Indicateurs pour l'export Word (mêmes chiffres qu'à l'écran)."""
+    n = lambda niv: len([a for a in alertes if a['niveau'] == niv])
+    return [{"libelle": "Critiques", "valeur": str(n('CRITIQUE')), "ton": "mauvais" if n('CRITIQUE') else "bon",
+             "detail": "investigation urgente" if n('CRITIQUE') else "aucune"},
+            {"libelle": "À surveiller", "valeur": str(n('WARNING')), "ton": "mauvais" if n('WARNING') else None,
+             "detail": ""},
+            {"libelle": "Pour information", "valeur": str(n('INFO')), "detail": ""},
+            {"libelle": "Total", "valeur": str(len(alertes)), "detail": ""}], []
 
 
 def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
@@ -287,7 +298,7 @@ def page_alertes():
                         st.metric("🔴 Critiques", nb_critique,
                                  delta_color="inverse" if nb_critique > 0 else "normal")
                     with col2:
-                        st.metric("🟡 Warnings", nb_warning)
+                        st.metric("🟡 À surveiller", nb_warning)
                     with col3:
                         st.metric("🔵 Infos", nb_info)
                     with col4:
@@ -332,7 +343,9 @@ def page_alertes():
                         bouton_sauvegarde(type_analyse="Alertes", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
                         try:
-                            generer_bouton_word(f"Alertes_{nom_entreprise}", rapport)
+                            ind_w, graph_w = visuels_alertes(alertes)
+                            generer_bouton_word(f"Alertes_{nom_entreprise}", rapport, indicateurs=ind_w,
+                                                graphiques=graph_w, sans_sections=("SYNTHÈSE",))
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 

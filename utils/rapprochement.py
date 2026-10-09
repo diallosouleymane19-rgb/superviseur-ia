@@ -68,12 +68,15 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
     col_lib_e = None
     col_debit_e = None
     col_credit_e = None
+    col_montant_e = None
     
     for k in cols_ecr:
         if 'date' in k:
             col_date_e = cols_ecr[k]
         elif any(x in k for x in ['libelle', 'libellé', 'description', 'lib']):
             col_lib_e = cols_ecr[k]
+        elif 'montant' in k:
+            col_montant_e = cols_ecr[k]
         elif 'debit' in k or 'débit' in k:
             col_debit_e = cols_ecr[k]
         elif 'credit' in k or 'crédit' in k:
@@ -109,6 +112,8 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
         df_e['_credit'] = 0
     
     df_e['_montant'] = df_e['_debit'] - df_e['_credit']
+    if col_montant_e and not (col_debit_e or col_credit_e):   # une seule colonne « Montant » signée
+        df_e['_montant'] = normaliser_montant(df_e[col_montant_e])
     
     rapproches = []
     non_rapproches_releve = []
@@ -186,6 +191,44 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
     }
 
 
+def _tableau_operations(df, titre, explication, maxi=200):
+    """Liste des opérations (Date · Libellé · Montant) au format Markdown, avec total."""
+    if df is None or getattr(df, "empty", True):
+        return []
+    lignes = ["---", "", f"## {titre}", "", f"*{explication}*", "",
+              "| Date | Libellé | Montant (€) |", "|------|---------|------------:|"]
+    for _, r in df.head(maxi).iterrows():
+        d = r.get('Date')
+        d = d.strftime('%d/%m/%Y') if hasattr(d, 'strftime') and pd.notna(d) else (str(d) if pd.notna(d) else "")
+        lib = str(r.get('Libellé', '')).replace("|", "/")
+        lignes.append(f"| {d} | {lib} | {nb_fr(r.get('Montant', 0), 2)} |")
+    lignes.append(f"| **Total ({nb_fr(len(df), 0)} opération{'s' if len(df) > 1 else ''})** |  | "
+                  f"**{nb_fr(df['Montant'].sum(), 2)}** |")
+    if len(df) > maxi:
+        lignes.append(f"\n*Seules les {maxi} premières opérations sont listées.*")
+    lignes.append("")
+    return lignes
+
+
+def visuels_rapprochement(resultats):
+    """Indicateurs pour l'export Word (mêmes chiffres qu'à l'écran)."""
+    taux = resultats['taux_rapprochement']
+    verdict = "excellent" if taux >= 90 else "bon" if taux >= 70 else "moyen" if taux >= 50 else "faible"
+    return [{"libelle": "Opérations du relevé", "valeur": nb_fr(resultats['nb_total_releve'])},
+            {"libelle": "Écritures comptables", "valeur": nb_fr(resultats['nb_total_ecritures'])},
+            {"libelle": "Rapprochées", "valeur": nb_fr(resultats['nb_rapproches'])},
+            {"libelle": "Taux de rapprochement", "valeur": f"{nb_fr(taux, 1)} %", "detail": verdict,
+             "ton": "bon" if taux >= 90 else "neutre" if taux >= 70 else "mauvais"},
+            {"libelle": "Relevé non rapproché", "valeur": nb_fr(resultats['nb_non_rapproches_releve']),
+             "ton": "mauvais" if resultats['nb_non_rapproches_releve'] else "bon",
+             "detail": f"{nb_fr(resultats['non_rapproches_releve']['Montant'].sum(), 2)} €"
+             if resultats['nb_non_rapproches_releve'] else "aucune"},
+            {"libelle": "Écritures non rapprochées", "valeur": nb_fr(resultats['nb_non_rapproches_ecritures']),
+             "ton": "mauvais" if resultats['nb_non_rapproches_ecritures'] else "bon",
+             "detail": f"{nb_fr(resultats['non_rapproches_ecritures']['Montant'].sum(), 2)} €"
+             if resultats['nb_non_rapproches_ecritures'] else "aucune"}], []
+
+
 def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
     """Génère un rapport professionnel"""
     rapport = []
@@ -213,6 +256,12 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
         rapport.append("**À vérifier** : investigations nécessaires")
     
     rapport.append("")
+    for titre, cle, explication in (
+            ("OPÉRATIONS BANCAIRES NON RAPPROCHÉES", 'non_rapproches_releve',
+             "Opérations du relevé sans écriture comptable correspondante."),
+            ("ÉCRITURES COMPTABLES NON RAPPROCHÉES", 'non_rapproches_ecritures',
+             "Écritures du compte 512 sans opération correspondante sur le relevé.")):
+        rapport += _tableau_operations(resultats.get(cle), titre, explication)
     rapport.append("---")
     rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
     
@@ -335,7 +384,9 @@ def page_rapprochement():
                         bouton_sauvegarde(type_analyse="Rapprochement Bancaire", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
                         try:
-                            generer_bouton_word(f"Rapprochement_{nom_compte}", rapport)
+                            ind_w, graph_w = visuels_rapprochement(resultats)
+                            generer_bouton_word(f"Rapprochement_{nom_compte}", rapport, indicateurs=ind_w,
+                                                graphiques=graph_w, sans_sections=("SYNTHÈSE",))
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 

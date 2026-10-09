@@ -12,6 +12,10 @@ from utils.page_helpers import (
     afficher_rapport, afficher_synthese_score,
 )
 
+# Colonnes du FEC renseignées seulement si elles servent (article A47 A-1 du LPF)
+COLONNES_FEC_FACULTATIVES = ("CompAuxNum", "CompAuxLib", "EcritureLet", "DateLet", "Montantdevise", "Idevise")
+
+
 def verifier_coherence(df):
     resultat = {
         'score_qualite': 0,
@@ -29,12 +33,16 @@ def verifier_coherence(df):
         }
         return resultat
     
-    points_total = 100
+    # Le score ne porte que sur les contrôles applicables au fichier (une balance n'a ni dates ni libellés d'écriture)
+    points_total = 20 + 15   # complétude et doublons : toujours applicables
     points_obtenus = 0
     
     # 1. COMPLETUDE GLOBALE (20 points)
-    nb_cellules_total = len(df) * len(df.columns)
-    nb_cellules_remplies = df.notna().sum().sum()
+    # Colonnes facultatives du FEC (vides quand elles ne servent pas) : exclues de la complétude
+    cols_utiles = [c for c in df.columns if c not in COLONNES_FEC_FACULTATIVES]
+    vide = df[cols_utiles].astype(str).apply(lambda c: c.str.strip().isin(["", "nan", "None", "NaT"]))
+    nb_cellules_total = len(df) * len(cols_utiles)
+    nb_cellules_remplies = int((~vide & df[cols_utiles].notna()).sum().sum())
     completude = (nb_cellules_remplies / nb_cellules_total * 100) if nb_cellules_total > 0 else 0
     
     if completude >= 95:
@@ -88,6 +96,7 @@ def verifier_coherence(df):
     
     # 4. EQUILIBRE COMPTABLE (25 points)
     if '_debit' in df.columns and '_credit' in df.columns:
+        points_total += 25
         total_debit = df['_debit'].sum()
         total_credit = df['_credit'].sum()
         ecart = abs(total_debit - total_credit)
@@ -95,25 +104,26 @@ def verifier_coherence(df):
         if ecart < 0.01:
             resultat['verifications']['Équilibre Débit/Crédit'] = {
                 'status': 'OK',
-                'message': f'Balance équilibrée ({nb_fr(total_debit, 2)} EUR)'
+                'message': f'Balance équilibrée ({nb_fr(total_debit, 2)} €)'
             }
             points_obtenus += 25
         elif ecart < total_debit * 0.001:
             resultat['verifications']['Équilibre Débit/Crédit'] = {
                 'status': 'WARNING',
-                'message': f'Léger écart de {nb_fr(ecart, 2)} EUR'
+                'message': f'Léger écart de {nb_fr(ecart, 2)} €'
             }
             points_obtenus += 15
         else:
             resultat['verifications']['Équilibre Débit/Crédit'] = {
                 'status': 'KO',
-                'message': f'Déséquilibre de {nb_fr(ecart, 2)} EUR'
+                'message': f'Déséquilibre de {nb_fr(ecart, 2)} €'
             }
             points_obtenus += 5
             resultat['recommandations'].append("Vérifier l'intégrité des écritures")
     
     # 5. COHERENCE DES COMPTES (15 points)
     if 'CompteNum' in df.columns:
+        points_total += 15
         compte_str = df['CompteNum'].astype(str).str.strip()
         comptes_valides = compte_str.str.match(r'^\d{2,8}$').sum()
         taux_valide = (comptes_valides / len(df) * 100) if len(df) > 0 else 0
@@ -140,6 +150,7 @@ def verifier_coherence(df):
     
     # 6. COHERENCE DATES (15 points)
     if 'EcritureDate' in df.columns:
+        points_total += 15
         try:
             dates = pd.to_datetime(df['EcritureDate'], format='%Y%m%d', errors='coerce')
             dates_valides = dates.notna().sum()
@@ -163,6 +174,7 @@ def verifier_coherence(df):
     
     # 7. LIBELLES (10 points)
     if 'EcritureLib' in df.columns:
+        points_total += 10
         libelles_remplis = df['EcritureLib'].notna().sum()
         taux_libelles = (libelles_remplis / len(df) * 100) if len(df) > 0 else 0
         
@@ -209,6 +221,18 @@ def verifier_coherence(df):
             resultat['recommandations'].append("Maintenir la rigueur sur la saisie comptable")
     
     return resultat
+
+
+def visuels_coherence(resultat):
+    """Indicateurs pour l'export Word (mêmes chiffres qu'à l'écran)."""
+    score, k = resultat['score_qualite'], resultat.get('kpis', {})
+    return [{"libelle": "Score qualité", "valeur": f"{nb_fr(score, 1)} %", "detail": resultat.get('niveau', ''),
+             "ton": "bon" if score >= 90 else "neutre" if score >= 75 else "mauvais"},
+            {"libelle": "Complétude", "valeur": f"{nb_fr(k.get('completude', 0), 1)} %", "detail": ""},
+            {"libelle": "Doublons", "valeur": nb_fr(k.get('doublons', 0)),
+             "ton": "mauvais" if k.get('doublons', 0) else "bon", "detail": "à examiner" if k.get('doublons', 0) else "aucun"},
+            {"libelle": "Lignes / colonnes", "valeur": f"{nb_fr(k.get('nb_lignes', 0))} / {k.get('nb_colonnes', 0)}",
+             "detail": ""}], []
 
 
 def generer_rapport_coherence(resultat, nom_entreprise="Entreprise"):
@@ -369,7 +393,9 @@ def page_coherence():
                         bouton_sauvegarde(type_analyse="Cohérence", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
                         try:
-                            generer_bouton_word(f"Coherence_{nom_entreprise}", rapport)
+                            ind_w, graph_w = visuels_coherence(resultat)
+                            generer_bouton_word(f"Coherence_{nom_entreprise}", rapport, indicateurs=ind_w,
+                                                graphiques=graph_w, sans_sections=("SCORE DE QUALITÉ",))
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 
