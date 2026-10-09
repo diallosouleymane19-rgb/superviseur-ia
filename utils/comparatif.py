@@ -113,8 +113,11 @@ def _style_comparatif(df: pd.DataFrame, col_n: str, col_n1: str):
 # GRAPHIQUES
 # ─────────────────────────────────────────────
 
-def _chart_cdr_comparatif(sig_n: dict, sig_n1: dict, label_n: str, label_n1: str):
-    """Bar chart groupé SIG N vs N-1."""
+from utils.export_comparatif import COULEUR_N, COULEUR_N1
+
+
+def _donnees_sig(sig_n: dict, sig_n1: dict):
+    """(libellés, valeurs N-1, valeurs N) des principaux SIG."""
     indicateurs = [
         "Chiffre d'affaires",
         "Marge commerciale",
@@ -128,13 +131,19 @@ def _chart_cdr_comparatif(sig_n: dict, sig_n1: dict, label_n: str, label_n1: str
         vn = sig_n.get(ind, 0) or 0
         vn1 = sig_n1.get(ind, 0) or 0
         if vn != 0 or vn1 != 0:
-            labels.append(ind.replace("Excédent brut d'exploitation", "EBE"))
+            labels.append(ind.replace("Excédent brut d'exploitation (EBE)", "EBE")
+                          .replace("Valeur ajoutée (VA)", "Valeur ajoutée"))
             vals_n1.append(vn1)
             vals_n.append(vn)
+    return labels, vals_n1, vals_n
 
+
+def _chart_cdr_comparatif(sig_n: dict, sig_n1: dict, label_n: str, label_n1: str):
+    """Bar chart groupé SIG N vs N-1."""
+    labels, vals_n1, vals_n = _donnees_sig(sig_n, sig_n1)
     fig = go.Figure(data=[
-        go.Bar(name=label_n1, x=labels, y=vals_n1, marker_color='#aab7d4'),
-        go.Bar(name=label_n, x=labels, y=vals_n, marker_color='#1f77b4'),
+        go.Bar(name=label_n1, x=labels, y=vals_n1, marker_color=COULEUR_N1),
+        go.Bar(name=label_n, x=labels, y=vals_n, marker_color=COULEUR_N),
     ])
     fig.update_layout(
         barmode='group',
@@ -146,8 +155,8 @@ def _chart_cdr_comparatif(sig_n: dict, sig_n1: dict, label_n: str, label_n1: str
     return fig
 
 
-def _chart_bilan_comparatif(bilan_n: dict, bilan_n1: dict, label_n: str, label_n1: str):
-    """Bar chart structure bilan N vs N-1."""
+def _donnees_bilan(bilan_n: dict, bilan_n1: dict):
+    """(libellés, valeurs N-1, valeurs N) des grandes masses du bilan."""
     postes = [
         ('actif', B.TOTAL_AI),
         ('actif', B.TOTAL_AC),
@@ -161,13 +170,19 @@ def _chart_bilan_comparatif(bilan_n: dict, bilan_n1: dict, label_n: str, label_n
         vn = bilan_n.get(section, {}).get(cle, 0) or 0
         vn1 = bilan_n1.get(section, {}).get(cle, 0) or 0
         if vn != 0 or vn1 != 0:
-            labels.append(cle.replace('TOTAL ', '').title())
+            lib = cle.replace('TOTAL ', '')
+            labels.append(lib[:1].upper() + lib[1:].lower())
             vals_n1.append(abs(vn1))
             vals_n.append(abs(vn))
+    return labels, vals_n1, vals_n
 
+
+def _chart_bilan_comparatif(bilan_n: dict, bilan_n1: dict, label_n: str, label_n1: str):
+    """Bar chart structure bilan N vs N-1."""
+    labels, vals_n1, vals_n = _donnees_bilan(bilan_n, bilan_n1)
     fig = go.Figure(data=[
-        go.Bar(name=label_n1, x=labels, y=vals_n1, marker_color='#aab7d4'),
-        go.Bar(name=label_n, x=labels, y=vals_n, marker_color='#2ca02c'),
+        go.Bar(name=label_n1, x=labels, y=vals_n1, marker_color=COULEUR_N1),
+        go.Bar(name=label_n, x=labels, y=vals_n, marker_color=COULEUR_N),
     ])
     fig.update_layout(
         barmode='group',
@@ -342,17 +357,19 @@ def page_comparatif():
         ("📈 EBE", "Excédent brut d'exploitation (EBE)"),
         ("🎯 Résultat Net", "Résultat net"),
     ]
+    kpis_cdr = []
     cols = st.columns(4)
     for i, (label_m, cle) in enumerate(indicateurs_cles):
         vn = sig_n.get(cle, 0) or 0
         vn1 = sig_n1.get(cle, 0) or 0
         ea, ep = _ecart(vn, vn1)
+        kpis_cdr.append((label_m.split(" ", 1)[1], vn, ea, ep, True))
         with cols[i]:
             st.metric(
                 label=label_m,
                 value=_fmt(vn),
                 delta=f"{_fmt_ecart(ea)} ({_fmt_pct(ep)})",
-                delta_color="normal" if ea >= 0 else "inverse"
+                delta_color="normal"   # hausse en vert, baisse en rouge
             )
 
     st.divider()
@@ -404,17 +421,20 @@ def page_comparatif():
         ("🏦 FRNG", 'ratios', B.R_FRNG),
         ("⚡ BFR", 'ratios', B.R_BFR),
     ]
+    kpis_bilan = []
     cols2 = st.columns(4)
     for i, (label_m, section, cle) in enumerate(bilan_cles):
         vn = (bilan_n.get(section) or {}).get(cle, 0) or 0
         vn1 = (bilan_n1.get(section) or {}).get(cle, 0) or 0
         ea, ep = _ecart(vn, vn1)
+        hausse_ok = cle != B.R_BFR   # une hausse du BFR est défavorable
+        kpis_bilan.append((label_m.split(" ", 1)[1], vn, ea, ep, hausse_ok))
         with cols2[i]:
             st.metric(
                 label=label_m,
                 value=_fmt(vn),
                 delta=f"{_fmt_ecart(ea)} ({_fmt_pct(ep)})",
-                delta_color="normal" if ea >= 0 else "inverse"
+                delta_color="normal" if hausse_ok else "inverse"
             )
 
     st.divider()
@@ -503,24 +523,41 @@ def page_comparatif():
         st.info("ℹ Aucune alerte significative détectée.")
 
     # ═══════════════════════════════════════════
-    # EXPORT EXCEL
+    # EXPORTS WORD ET EXCEL
     # ═══════════════════════════════════════════
     st.divider()
     df_actif_exp = _build_comparatif_df(bilan_n['actif'], bilan_n1['actif'], label_n, label_n1)
     df_passif_exp = _build_comparatif_df(bilan_n['passif'], bilan_n1['passif'], label_n, label_n1)
 
-    try:
-        excel_bytes = _export_excel_comparatif(
-            df_sig, df_actif_exp, df_passif_exp,
-            entreprise, label_n, label_n1
-        )
-        st.download_button(
-            label="📥 Télécharger Excel Comparatif",
-            data=excel_bytes,
-            file_name=f"Comparatif_{entreprise}_{label_n}_vs_{label_n1}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            width="stretch",
-            type="primary"
-        )
-    except Exception as e:
-        st.warning(f"Export Excel non disponible : {e}")
+    col_w, col_x = st.columns(2)
+    with col_w:
+        try:
+            from utils.export_comparatif import export_word_comparatif
+            word = export_word_comparatif(
+                entreprise, label_n, label_n1, kpis_cdr, kpis_bilan, df_sig, df_prod, df_chg,
+                df_actif, df_passif, _donnees_sig(sig_n, sig_n1), _donnees_bilan(bilan_n, bilan_n1), alertes)
+            st.download_button(
+                label="📄 Télécharger le rapport Word (graphiques et indicateurs)",
+                data=word.getvalue(),
+                file_name=f"Comparatif_{entreprise}_{label_n}_vs_{label_n1}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                width="stretch",
+                type="primary"
+            )
+        except Exception as e:
+            st.warning(f"Export Word non disponible : {e}")
+    with col_x:
+        try:
+            excel_bytes = _export_excel_comparatif(
+                df_sig, df_actif_exp, df_passif_exp,
+                entreprise, label_n, label_n1
+            )
+            st.download_button(
+                label="📥 Télécharger les tableaux Excel",
+                data=excel_bytes,
+                file_name=f"Comparatif_{entreprise}_{label_n}_vs_{label_n1}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                width="stretch"
+            )
+        except Exception as e:
+            st.warning(f"Export Excel non disponible : {e}")

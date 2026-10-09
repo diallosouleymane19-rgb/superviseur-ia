@@ -211,6 +211,30 @@ def ecrire_markdown(doc, texte, sauter_titre=None):
         _runs(p, ligne)
 
 
+def document_smd():
+    """Document Word aux couleurs SMD : A4, police Segoe UI 11, en-tête et pied de page."""
+    from datetime import datetime
+    from docx.shared import Cm
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Segoe UI"
+    style.font.size = Pt(11)
+    section = doc.sections[0]
+    # Format A4 (le modèle par défaut est au format Letter américain)
+    section.page_width, section.page_height = Cm(21), Cm(29.7)
+    section.left_margin = section.right_margin = Cm(2.5)
+    section.top_margin = section.bottom_margin = Cm(2.5)
+    p = section.header.paragraphs[0]
+    run_header = p.add_run("SMD Global Consulting LLC | Superviseur IA Comptable")
+    run_header.font.color.rgb = RGBColor(31, 119, 180)
+    run_header.font.bold = True
+    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    f_p = section.footer.paragraphs[0]
+    f_p.text = typo_fr(f"Document confidentiel généré par SMD Global Consulting LLC – © {datetime.now().year}")
+    f_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    return doc
+
+
 _SIGNATURE = re.compile(r"^\*?\s*((Rapport|Analyse)\s+généré(e)?\s+par\s+)?SMD Global Consulting LLC\s*[-–—]\s*"
                         r"Superviseur IA Comptable\s*\*?$", re.I)
 
@@ -228,24 +252,7 @@ def _sans_signature(texte):
 
 def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice="", ia=None):
     """ia : None pour un contenu calculé par règles ; sinon dict {"mention", "modele", "date"} pour un texte rédigé par IA."""
-    from datetime import datetime
-    doc = Document()
-
-    style = doc.styles["Normal"]
-    style.font.name = "Segoe UI"
-    style.font.size = Pt(11)
-
-    section = doc.sections[0]
-    # Format A4 (le modèle par défaut est au format Letter américain)
-    from docx.shared import Cm
-    section.page_width, section.page_height = Cm(21), Cm(29.7)
-    section.left_margin = section.right_margin = Cm(2.5)
-    section.top_margin = section.bottom_margin = Cm(2.5)
-    p = section.header.paragraphs[0]
-    run_header = p.add_run("SMD Global Consulting LLC | Superviseur IA Comptable")
-    run_header.font.color.rgb = RGBColor(31, 119, 180)
-    run_header.font.bold = True
-    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    doc = document_smd()
 
     contenu_texte = str(contenu_texte) if ia else nombres_fr(contenu_texte)
     # Titre : le premier titre « # … » du rapport s'il existe, sinon le titre lisible du bouton
@@ -264,10 +271,6 @@ def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice=""
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     ecrire_markdown(doc, _sans_signature(contenu_texte), sauter_titre=titre if m else None)
-
-    f_p = section.footer.paragraphs[0]
-    f_p.text = typo_fr(f"Document confidentiel généré par SMD Global Consulting LLC – © {datetime.now().year}")
-    f_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     if ia:
         marquer_docx_ia(doc, ia.get("mention", ""), ia.get("modele", ""), ia.get("date", ""))
