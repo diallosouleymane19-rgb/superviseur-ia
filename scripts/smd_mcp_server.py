@@ -12,7 +12,8 @@ Plugin Claude Cowork | Comptable Augmente
   4. veille_fiscale      - Resume alertes fiscales RSS
 
 Installation :
-  pip install mcp requests feedparser
+  pip install "mcp>=1.2,<2" requests feedparser
+  (la version 2 de la bibliotheque mcp a change d'interface : ce serveur ne demarre pas avec)
 
 Lancement :
   py smd_mcp_server.py
@@ -87,7 +88,6 @@ COMPTES_PCG_COURANTS = {
 
 # --- SKILL 1 : Analyse de facture --------------------------------------------
 
-@app.call_tool()
 async def analyse_facture(name: str, arguments: dict) -> list[types.TextContent]:
     """Analyse une facture et suggere le compte PCG."""
     contenu = arguments.get("contenu_facture", "")
@@ -129,7 +129,6 @@ Statut : [Valide / A verifier / Anomalie]"""
 
 # --- SKILL 2 : Verification TVA ----------------------------------------------
 
-@app.call_tool()
 async def verification_tva(name: str, arguments: dict) -> list[types.TextContent]:
     """Verifie le taux de TVA applicable pour un produit ou service."""
     description = arguments.get("description", "")
@@ -171,7 +170,6 @@ Action recommandee : [correction si necessaire]"""
 
 # --- SKILL 3 : Export FEC DGFiP ----------------------------------------------
 
-@app.call_tool()
 async def export_fec(name: str, arguments: dict) -> list[types.TextContent]:
     """Genere un fichier FEC conforme a l article A47 A-1 LPF."""
     ecritures_json = arguments.get("ecritures", "[]")
@@ -246,7 +244,6 @@ Encodage : UTF-8 | Separateur : pipe (|)"""
 
 # --- SKILL 4 : Veille fiscale ------------------------------------------------
 
-@app.call_tool()
 async def veille_fiscale(name: str, arguments: dict) -> list[types.TextContent]:
     """Recupere et resume les dernieres actualites fiscales francaises."""
     nb_articles = arguments.get("nb_articles", 5)
@@ -304,6 +301,25 @@ Source : [lien]
 
     resultat = appel_mistral(system_prompt, user_prompt, max_tokens=800)
     return [types.TextContent(type="text", text=resultat)]
+
+
+# --- Aiguillage des appels d'outils ------------------------------------------
+# Un seul gestionnaire call_tool par serveur : il appelle l'outil demande par son nom.
+
+OUTILS = {
+    "analyse_facture": analyse_facture,
+    "verification_tva": verification_tva,
+    "export_fec": export_fec,
+    "veille_fiscale": veille_fiscale,
+}
+
+
+@app.call_tool()
+async def appeler_outil(name: str, arguments: dict) -> list[types.TextContent]:
+    outil = OUTILS.get(name)
+    if outil is None:
+        return [types.TextContent(type="text", text=f"ERREUR: outil inconnu : {name}")]
+    return await outil(name, arguments or {})
 
 
 # --- Declaration des outils --------------------------------------------------
