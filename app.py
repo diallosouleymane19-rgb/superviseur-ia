@@ -185,6 +185,7 @@ page = st.sidebar.selectbox(
         "─── Connecteurs ───",
         "🔌 Connecteurs ERP",
         "─── Paramètres ───",
+        "👥 Mon cabinet",
         "💳 Tarifs & Abonnement",
         "🔒 Confidentialité & Sécurité",
     ],
@@ -419,6 +420,10 @@ elif page == "🔌 Connecteurs ERP":
 
 # 13b. TARIFS & ABONNEMENT
 # -----------------------------------------------------------------------------
+
+elif page == "👥 Mon cabinet":
+    from utils.page_cabinet import page_cabinet
+    page_cabinet()
 
 elif page == "💳 Tarifs & Abonnement":
     from utils.page_tarifs import page_tarifs

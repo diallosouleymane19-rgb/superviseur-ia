@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 # ─── Helpers internes ─────────────────────────────────────────────────────────
 
 def _set_session(email: str, role: str, nom: str, plan: str = "free",
-                 cabinet: str = "", pays: str = "FR") -> None:
+                 cabinet: str = "", pays: str = "FR", tenant_id=None) -> None:
     """Hydrate st.session_state après connexion réussie."""
     st.session_state["authenticated"] = True
     st.session_state["user_email"]    = email
@@ -21,6 +21,7 @@ def _set_session(email: str, role: str, nom: str, plan: str = "free",
     st.session_state["plan"]          = plan
     st.session_state["cabinet"]       = cabinet
     st.session_state["pays_user"]     = pays
+    st.session_state["tenant_id"]     = str(tenant_id) if tenant_id else None
     st.session_state["login_time"]    = datetime.now().isoformat()
 
 
@@ -57,6 +58,7 @@ def login(email: str, password: str) -> bool:
                 plan    = user.get("plan", "free"),
                 cabinet = user.get("cabinet", ""),
                 pays    = user.get("pays", "FR"),
+                tenant_id = user.get("tenant_id"),
             )
             # Audit log
             try:
@@ -121,7 +123,7 @@ def is_connecte() -> bool:
 def logout() -> None:
     """Déconnexion complète."""
     keys = ["authenticated", "user_email", "role", "nom", "plan",
-            "cabinet", "pays_user", "login_time"]
+            "cabinet", "pays_user", "login_time", "tenant_id"]
     for key in keys:
         st.session_state.pop(key, None)
     st.rerun()

@@ -73,6 +73,8 @@ def page_inscription(app_name: str = "pcg") -> None:
             cabinet = st.text_input(
                 "🏢 Cabinet / Entreprise",
                 placeholder="Cabinet Comptable XYZ",
+                help="Invité par un cabinet ? Utilisez l'e-mail de l'invitation : vous rejoindrez ce cabinet "
+                     "automatiquement, ce champ et le plan seront ignorés.",
             )
 
             pays_options = {
@@ -154,12 +156,18 @@ def page_inscription(app_name: str = "pcg") -> None:
                     nom     = nom_complet,
                     cabinet = cabinet.strip(),
                     pays    = pays_code,
-                    role    = "cabinet" if cabinet.strip() else "client",
+                    role    = "cabinet",   # responsable de son cabinet (ou collaborateur s'il a été invité)
                     plan    = "free",  # plan free d'abord, Stripe activera le plan payant
                 )
 
                 if "error" in result:
                     st.error(f"❌ {result['error']}")
+                elif result.get("invite"):
+                    # Invité par un cabinet : il le rejoint, l'abonnement est celui du cabinet
+                    st.success(f"✅ Compte créé : vous avez rejoint « **{result.get('cabinet', '')}** » "
+                               "en tant que collaborateur. Connectez-vous maintenant.")
+                    st.session_state["inscription_ok"] = True
+                    st.session_state["prefill_email"]  = email.strip().lower()
                 else:
                     # Compte créé avec succès
                     if plan_choisi == "free":

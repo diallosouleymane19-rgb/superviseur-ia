@@ -25,6 +25,21 @@ def init_db():
     pass
 
 
+def _get_current_tenant():
+    """Cabinet de l'utilisateur connecté (None : compte sans cabinet, ex. mode démonstration)."""
+    try:
+        import streamlit as st
+        return st.session_state.get("tenant_id") or None
+    except Exception:
+        return None
+
+
+def _portee(q):
+    """Limite une requête aux données du cabinet connecté (à défaut : de l'utilisateur connecté)."""
+    tid = _get_current_tenant()
+    return q.eq("tenant_id", str(tid)) if tid else q.eq("user_email", _get_current_user_email())
+
+
 # =============================================================================
 # CLIENTS
 # =============================================================================
@@ -40,6 +55,7 @@ def creer_client(nom: str, siret: str = "", secteur: str = "",
             "contact":    contact,
             "email":      email,
             "user_email": user_email,
+            "tenant_id":  _get_current_tenant(),
         }).execute()
         _log_action("CREATION_CLIENT", user_email, f"Client : {nom}")
         return True
@@ -51,14 +67,11 @@ def creer_client(nom: str, siret: str = "", secteur: str = "",
 def lister_clients() -> list:
     try:
         user_email = _get_current_user_email()
-        res = (
+        res = _portee(
             get_supabase()
             .table("clients")
             .select("id, nom, siret, secteur, contact, email, user_email, created_at")
-            .eq("user_email", user_email)
-            .order("nom")
-            .execute()
-        )
+        ).order("nom").execute()
         # Convertit en tuples pour compatibilite ascendante
         rows = []
         for r in (res.data or []):
@@ -76,14 +89,12 @@ def lister_clients() -> list:
 
 def get_client(client_id) -> tuple | None:
     try:
-        res = (
+        res = _portee(
             get_supabase()
             .table("clients")
             .select("*")
             .eq("id", int(client_id))
-            .limit(1)
-            .execute()
-        )
+        ).limit(1).execute()
         if res.data:
             r = res.data[0]
             return (
@@ -101,8 +112,10 @@ def get_client(client_id) -> tuple | None:
 def supprimer_client(client_id) -> bool:
     try:
         sb = get_supabase()
-        sb.table("analyses").update({"client_id": None}).eq("client_id", int(client_id)).execute()
-        sb.table("clients").delete().eq("id", int(client_id)).execute()
+        if not get_client(client_id):   # dossier d'un autre cabinet ou inexistant
+            return False
+        _portee(sb.table("analyses").update({"client_id": None}).eq("client_id", int(client_id))).execute()
+        _portee(sb.table("clients").delete().eq("id", int(client_id))).execute()
         _log_action("SUPPRESSION_CLIENT", _get_current_user_email(), f"ID : {client_id}")
         return True
     except Exception as e:
@@ -136,6 +149,7 @@ def sauvegarder_analyse(type_analyse=None, resultat=None, client_id=0,
             "contenu":      str(contenu),
             "exercice":     exercice,
             "user_email":   user_email,
+            "tenant_id":    _get_current_tenant(),
             "expires_at":   expires_at,
         }).execute()
         _log_action("SAUVEGARDE_ANALYSE", user_email, f"Type : {type_analyse}")
@@ -149,10 +163,9 @@ def lister_analyses(client_id=None) -> list:
     try:
         user_email = _get_current_user_email()
         sb = get_supabase()
-        q = (
+        q = _portee(
             sb.table("analyses")
-            .select("id, type_analyse, titre, created_at, exercice")
-            .eq("user_email", user_email)
+            .select("id, type_analyse, titre, created_at, exercice, user_email")
         )
         if client_id is not None:
             q = q.eq("client_id", int(client_id))
@@ -174,14 +187,12 @@ def lister_analyses(client_id=None) -> list:
 
 def get_analyse(analyse_id) -> tuple | None:
     try:
-        res = (
+        res = _portee(
             get_supabase()
             .table("analyses")
             .select("*")
             .eq("id", int(analyse_id))
-            .limit(1)
-            .execute()
-        )
+        ).limit(1).execute()
         if res.data:
             r = res.data[0]
             return (
@@ -203,7 +214,9 @@ def get_analyse(analyse_id) -> tuple | None:
 
 def supprimer_analyse(analyse_id) -> bool:
     try:
-        get_supabase().table("analyses").delete().eq("id", int(analyse_id)).execute()
+        if not get_analyse(analyse_id):   # analyse d'un autre cabinet ou inexistante
+            return False
+        _portee(get_supabase().table("analyses").delete().eq("id", int(analyse_id))).execute()
         _log_action("SUPPRESSION_ANALYSE", _get_current_user_email(), f"ID : {analyse_id}")
         return True
     except Exception as e:
@@ -242,25 +255,38 @@ def purger_journaux():
 
 
 def purger_comptes_inactifs() -> int:
-    """Supprime les comptes du plan gratuit sans connexion depuis 3 ans (jamais connectés : depuis la création),
-    avec leurs données liées. Les abonnements payants (relation en cours) et les administrateurs ne sont
+    """Supprime les comptes sans connexion depuis 3 ans (jamais connectés : depuis la création) dont le cabinet
+    est au plan gratuit, avec leurs données liées. Un cabinet qui n'a plus aucun membre est supprimé avec ses
+    dossiers, analyses et invitations. Les abonnements payants (relation en cours) et les administrateurs ne sont
     jamais supprimés. Retourne le nombre de comptes supprimés."""
     limite = (datetime.utcnow() - timedelta(days=RETENTION_COMPTE_JOURS)).isoformat()
     try:
         sb = get_supabase()
-        res = (sb.table("users").select("id, email")
-               .eq("plan", "free").neq("role", "admin")
+        res = (sb.table("users").select("id, email, plan, tenant_id")
+               .neq("role", "admin")
                .or_(f"last_login.lt.{limite},and(last_login.is.null,created_at.lt.{limite})")
                .execute())
-        comptes = res.data or []
-        for c in comptes:
+        supprimes = 0
+        for c in res.data or []:
+            cab = None
+            if c.get("tenant_id"):
+                r = sb.table("smd_cabinets").select("id, plan").eq("id", str(c["tenant_id"])).limit(1).execute()
+                cab = r.data[0] if r.data else None
+            if (cab.get("plan") if cab else c.get("plan")) not in (None, "", "free"):
+                continue   # abonnement payant en cours : jamais supprimé
             sb.table("audit_logs").delete().eq("user_id", c["id"]).execute()
-            for table in ("analyses", "clients", "smd_quota_usage"):
-                sb.table(table).delete().eq("user_email", c["email"]).execute()
+            sb.table("smd_quota_usage").delete().eq("user_email", c["email"]).execute()
+            for table in ("analyses", "clients"):   # données hors cabinet
+                sb.table(table).delete().eq("user_email", c["email"]).is_("tenant_id", "null").execute()
             sb.table("users").delete().eq("id", c["id"]).execute()   # chat_sessions : suppression en cascade
-        if comptes:
-            _log_action("PURGE_COMPTES_INACTIFS", "system", f"{len(comptes)} compte(s) gratuit(s) inactif(s) depuis 3 ans")
-        return len(comptes)
+            supprimes += 1
+            if cab:
+                reste = sb.table("users").select("id", count="exact").eq("tenant_id", str(cab["id"])).execute().count
+                if not reste:   # cabinet vide : supprimé avec ses dossiers, analyses et invitations (cascade)
+                    sb.table("smd_cabinets").delete().eq("id", str(cab["id"])).execute()
+        if supprimes:
+            _log_action("PURGE_COMPTES_INACTIFS", "system", f"{supprimes} compte(s) gratuit(s) inactif(s) depuis 3 ans")
+        return supprimes
     except Exception as e:
         logger.error("purger_comptes_inactifs : " + str(e))
         return 0

@@ -137,6 +137,11 @@ def page_tarifs(app_name="pcg"):
 
     st.title("Tarifs & Abonnement")
     st.markdown("Choisissez le plan adapté à votre activité. Sans engagement, résiliable à tout moment.")
+    # L'abonnement et le quota sont ceux du cabinet : seul son responsable les modifie
+    collaborateur = st.session_state.get("role") == "collaborateur"
+    if collaborateur:
+        st.info(f"L'abonnement est commun à tous les membres de « **{st.session_state.get('cabinet', '')}** » "
+                "et géré par son responsable. Adressez-vous à lui pour changer de plan.")
 
     # --- Abonnement actuel ---
     if plan_actuel != "free":
@@ -146,9 +151,9 @@ def page_tarifs(app_name="pcg"):
         limit_str = "illimite" if limit == -1 else str(limit)
         st.success(
             "Plan actuel : **" + info.get("label", "") + "**  —  "
-            + str(used) + " / " + limit_str + " analyses utilisées ce mois"
+            + str(used) + " / " + limit_str + " analyses utilisées ce mois par le cabinet"
         )
-        if st.button("Gérer mon abonnement Stripe"):
+        if st.button("Gérer mon abonnement Stripe", disabled=collaborateur):
             try:
                 from utils.stripe_billing import creer_portal_session
                 url = creer_portal_session(user_email, app_name)
@@ -194,7 +199,7 @@ def page_tarifs(app_name="pcg"):
                           help="Résiliez via le portail Stripe.")
             else:
                 label = "Commencer" if plan_actuel == "free" else "Upgrader"
-                if st.button(label, key="pay_" + plan_key,
+                if st.button(label, key="pay_" + plan_key, disabled=collaborateur,
                              width="stretch", type="primary"):
                     if not user_email:
                         st.error("Connectez-vous pour souscrire.")
@@ -229,10 +234,10 @@ def page_tarifs(app_name="pcg"):
 
     col1, col2, _ = st.columns([1, 1, 2])
     with col1:
-        if st.button("Multi Starter", width="stretch"):
+        if st.button("Multi Starter", width="stretch", disabled=collaborateur):
             _checkout_multi(user_email, "starter", billing_key, app_name)
     with col2:
-        if st.button("Multi Pro", width="stretch"):
+        if st.button("Multi Pro", width="stretch", disabled=collaborateur):
             _checkout_multi(user_email, "pro", billing_key, app_name)
 
     # --- FAQ ---

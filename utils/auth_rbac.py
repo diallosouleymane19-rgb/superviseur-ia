@@ -14,7 +14,7 @@ from utils.db_supabase import get_supabase
 # --- Roles ---
 ROLES = {
     "admin":         {"label": "Administrateur SMD",  "level": 4, "color": "#dc2626"},
-    "cabinet":       {"label": "Cabinet Comptable",   "level": 3, "color": "#2563eb"},
+    "cabinet":       {"label": "Responsable du cabinet", "level": 3, "color": "#2563eb"},
     "collaborateur": {"label": "Collaborateur",       "level": 2, "color": "#7c3aed"},
     "client":        {"label": "Client Final",        "level": 1, "color": "#059669"},
     "demo":          {"label": "Démonstration",       "level": 0, "color": "#d97706"},
@@ -62,7 +62,7 @@ def init_rbac_db():
 # =============================================================================
 
 def get_user(email: str):
-    """Retourne le user dict ou None."""
+    """Retourne le user dict (avec le plan, l'abonnement et le quota de son cabinet) ou None."""
     try:
         email = email.lower().strip()
         sb = get_supabase()
@@ -74,7 +74,8 @@ def get_user(email: str):
             .limit(1)
             .execute()
         )
-        return res.data[0] if res.data else None
+        from utils.cabinets import enrichir_user
+        return enrichir_user(res.data[0]) if res.data else None
     except Exception as e:
         _log_error("get_user", str(e))
         return None
@@ -83,10 +84,25 @@ def get_user(email: str):
 def creer_user_rbac(email: str, password: str, nom: str = "",
                     cabinet: str = "", pays: str = "FR",
                     role: str = "client", plan: str = "free") -> dict:
-    """Crée un utilisateur. Retourne {'ok': True} ou {'error': '...'}."""
+    """Crée un utilisateur. Retourne {'ok': True, ...} ou {'error': '...'}.
+    Invitation en attente pour cet e-mail : le compte rejoint le cabinet qui l'a invité (collaborateur).
+    Sinon : un nouveau cabinet est créé et l'utilisateur en est le responsable."""
     email = email.lower().strip()
     if get_user(email):
         return {"error": "Cet email est déjà enregistre."}
+    from utils.cabinets import invitation_pour, creer_cabinet, marquer_acceptee, get_cabinet, ROLE_COLLABORATEUR
+    invitation = invitation_pour(email)
+    try:
+        if invitation:
+            tenant_id = invitation["tenant_id"]
+            role = ROLE_COLLABORATEUR
+            cab = get_cabinet(tenant_id) or {}
+            cabinet, plan = cab.get("nom", cabinet), cab.get("plan", "free")
+        else:
+            tenant_id = creer_cabinet(cabinet, email, pays, plan)
+    except Exception as e:
+        _log_error("creer_user_rbac/cabinet", str(e))
+        return {"error": "Erreur création du cabinet : " + str(e)[:80]}
 
     pw_hash = bcrypt.hashpw(
         password.encode("utf-8"), bcrypt.gensalt()
@@ -108,10 +124,19 @@ def creer_user_rbac(email: str, password: str, nom: str = "",
             "quota_month":            "",
             "stripe_customer_id":     "",
             "stripe_subscription_id": "",
+            "tenant_id":              tenant_id,
         }).execute()
-        return {"ok": True}
+        if invitation:
+            marquer_acceptee(invitation["id"])
+        return {"ok": True, "tenant_id": tenant_id, "invite": bool(invitation),
+                "cabinet": cabinet}
     except Exception as e:
         msg = str(e)
+        if not invitation and tenant_id:   # cabinet créé pour rien : supprimé
+            try:
+                get_supabase().table("smd_cabinets").delete().eq("id", str(tenant_id)).execute()
+            except Exception:
+                pass
         if "unique" in msg.lower() or "duplicate" in msg.lower():
             return {"error": "Cet email est déjà enregistre."}
         _log_error("creer_user_rbac", msg)
@@ -147,9 +172,14 @@ def _update_last_login(email: str):
 
 
 def mettre_a_jour_plan(email: str, plan: str) -> bool:
+    """Plan de l'abonnement : porté par le cabinet de l'utilisateur (et recopié sur le compte)."""
     if plan not in PLANS:
         return False
     try:
+        user = get_user(email)
+        if user and user.get("tenant_id"):
+            from utils.cabinets import mettre_a_jour_cabinet
+            mettre_a_jour_cabinet(user["tenant_id"], {"plan": plan})
         get_supabase().table("users").update({
             "plan":       plan,
             "updated_at": datetime.utcnow().isoformat(),
@@ -162,7 +192,13 @@ def mettre_a_jour_plan(email: str, plan: str) -> bool:
 
 def mettre_a_jour_stripe(email: str, customer_id: str,
                           subscription_id: str) -> bool:
+    """Client et abonnement Stripe : portés par le cabinet de l'utilisateur."""
     try:
+        user = get_user(email)
+        if user and user.get("tenant_id"):
+            from utils.cabinets import mettre_a_jour_cabinet
+            mettre_a_jour_cabinet(user["tenant_id"], {"stripe_customer_id": customer_id,
+                                                      "stripe_subscription_id": subscription_id})
         get_supabase().table("users").update({
             "stripe_customer_id":     customer_id,
             "stripe_subscription_id": subscription_id,
@@ -199,7 +235,11 @@ def get_quota_limit(user: dict) -> int:
 
 
 def get_quota_used(user_email: str) -> int:
+    """Analyses consommées ce mois : par le cabinet entier (quota partagé)."""
     month = datetime.now().strftime("%Y-%m")
+    user = get_user(user_email)
+    if user and user.get("tenant_id"):
+        return (user.get("quota_used_month") or 0) if user.get("quota_month") == month else 0
     try:
         res = (
             get_supabase()
@@ -241,11 +281,15 @@ def incrementer_quota(user_email: str, action_type: str = "analyse",
         else:
             new_used = (user.get("quota_used_month") or 0) + 1
 
-        sb.table("users").update({
-            "quota_used_month": new_used,
-            "quota_month":      month,
-            "updated_at":       datetime.utcnow().isoformat(),
-        }).eq("email", email).execute()
+        if user.get("tenant_id"):   # quota partagé par le cabinet
+            from utils.cabinets import mettre_a_jour_cabinet
+            mettre_a_jour_cabinet(user["tenant_id"], {"quota_used_month": new_used, "quota_month": month})
+        else:
+            sb.table("users").update({
+                "quota_used_month": new_used,
+                "quota_month":      month,
+                "updated_at":       datetime.utcnow().isoformat(),
+            }).eq("email", email).execute()
 
         sb.table("smd_quota_usage").insert({
             "user_email":  email,

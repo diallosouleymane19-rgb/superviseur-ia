@@ -151,7 +151,7 @@ def afficher_quota_sidebar() -> None:
 
     st.sidebar.markdown(f"""
         <div style='font-size:0.78em;color:#555;margin:4px 0 2px'>
-            {icon} Analyses ce mois :
+            {icon} Analyses du cabinet ce mois :
             <b style='color:{bar_color}'>{used} / {limit}</b>
             <span style='color:#aaa'> ({remaining} restantes)</span>
         </div>

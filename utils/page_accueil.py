@@ -47,8 +47,13 @@ def _kpis(user_email, plan):
         res["sb_ok"] = True
         sb = get_supabase()
         mois = datetime.now().strftime("%Y-%m")
-        res["users"] = sb.table("users").select("id", count="exact").eq("is_active", True).execute().count or 0
-        res["analyses"] = sb.table("analyses").select("id", count="exact").gte("created_at", mois + "-01").execute().count or 0
+        if st.session_state.get("role") == "admin":
+            res["users"] = sb.table("users").select("id", count="exact").eq("is_active", True).execute().count or 0
+            res["analyses"] = sb.table("analyses").select("id", count="exact").gte("created_at", mois + "-01").execute().count or 0
+        else:   # un cabinet ne voit que ses propres chiffres
+            from utils.cabinets import compter
+            c = compter(st.session_state.get("tenant_id"))
+            res["users"], res["analyses"] = c["membres"], c["analyses"]
         u = get_user(user_email) if user_email else None
         used = get_quota_used(user_email) if user_email else 0
         limit = get_quota_limit(u) if u else PLANS.get(plan, {}).get("quota", 10)
@@ -79,7 +84,7 @@ MAIL_DEMO = ("mailto:contact@smdconsulting.pro?subject=Demande%20de%20d%C3%A9mo%
 
 def _vers_inscription():
     """Quitte la démonstration et ouvre l'onglet « Créer un compte » (plan gratuit)."""
-    for k in ["authenticated", "user_email", "role", "nom", "plan", "cabinet", "pays_user", "login_time", "nav_page"]:
+    for k in ["authenticated", "user_email", "role", "nom", "plan", "cabinet", "pays_user", "login_time", "nav_page", "tenant_id"]:
         st.session_state.pop(k, None)
     st.session_state["ouvrir_inscription"] = True
 
@@ -133,7 +138,7 @@ def page_accueil(aller_a):
         k["users"], k["analyses"] = 0, 0
     st.markdown(
         "<div class='smd-ligne'>"
-        f"<div><div class='lib'>Utilisateurs actifs</div><div class='val'>{escape(str(k['users']))}</div></div>"
+        f"<div><div class='lib'>{'Membres du cabinet' if role not in ('admin', 'demo') else 'Utilisateurs actifs'}</div><div class='val'>{escape(str(k['users']))}</div></div>"
         f"<div><div class='lib'>Analyses ce mois</div><div class='val'>{escape(str(k['analyses']))}</div></div>"
         f"<div><div class='lib'>Quota utilisé</div><div class='val'>{escape(str(k['quota']))}</div></div>"
         f"<div><div class='lib'>Dernière connexion</div><div class='val'>{escape(str(k['last']))}</div></div>"
