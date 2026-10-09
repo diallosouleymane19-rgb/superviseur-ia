@@ -31,6 +31,11 @@ except ImportError:
     SCIPY_OK = False
 
 
+
+# Seuils de MAD (écart absolu moyen, en points de %) selon Nigrini, test du premier chiffre
+MAD_PARFAIT, MAD_ACCEPTABLE, MAD_MARGINAL = 0.6, 1.2, 1.5
+
+
 def loi_benford_theorique(digit):
     """Distribution théorique de Benford pour le 1er chiffre (1-9)"""
     return math.log10(1 + 1/digit)
@@ -170,13 +175,14 @@ def analyse_benford_complete(df, col_montant, deb_cre=(None, None)):
     mad = abs(freq_observee - freq_theorique).mean()
     
     # Interpretation MAD (selon Mark Nigrini)
-    if mad < 0.0006 * 100:
+    # Seuils de Nigrini (premier chiffre) : 0,006 / 0,012 / 0,015 en proportion, soit 0,6 / 1,2 / 1,5 en %
+    if mad < MAD_PARFAIT:
         interpretation_mad = "Conformité parfaite"
         risque_mad = "Faible"
-    elif mad < 0.0012 * 100:
+    elif mad < MAD_ACCEPTABLE:
         interpretation_mad = "Conformité acceptable"
         risque_mad = "Faible"
-    elif mad < 0.0015 * 100:
+    elif mad < MAD_MARGINAL:
         interpretation_mad = "Conformité marginale"
         risque_mad = "Modéré"
     else:
@@ -195,9 +201,9 @@ def analyse_benford_complete(df, col_montant, deb_cre=(None, None)):
     
     # ===== 3. SCORE DE RISQUE GLOBAL =====
     # Combinaison MAD + chi2 + chiffres anormaux
-    if mad > 0.0015 * 100 and len(chiffres_anormaux) > 2:
+    if mad > MAD_MARGINAL and len(chiffres_anormaux) > 2:
         score_risque = "Élevé"
-    elif mad > 0.0012 * 100 or len(chiffres_anormaux) > 1:
+    elif mad > MAD_ACCEPTABLE or len(chiffres_anormaux) > 1:
         score_risque = "Modéré"
     else:
         score_risque = "Faible"
@@ -340,6 +346,30 @@ def analyse_benford_complete(df, col_montant, deb_cre=(None, None)):
 
 
 
+def visuels_benford(fig, rapport, score_risque):
+    """Indicateurs et graphique pour l'export Word, à partir des mêmes données que l'écran
+    (fréquences observées et théoriques du graphique, indicateurs du rapport)."""
+    import re
+    from utils.word_visuels import benford as graphique_benford
+    ton = {"Faible": "bon", "Modéré": "neutre"}.get(score_risque, "mauvais")
+    lire = lambda motif: (re.search(motif, rapport) or [None, ""])[1]
+    ind = [{"libelle": "Risque", "valeur": score_risque, "ton": ton,
+            "detail": {"Faible": "conforme à Benford", "Modéré": "écarts à examiner"}.get(score_risque,
+                                                                                         "revue approfondie")},
+           {"libelle": "Valeurs analysées", "valeur": lire(r"\*\*Échantillon\*\* : ([\d\s\u202f\u00a0]+)").strip()},
+           {"libelle": "MAD", "valeur": lire(r"\*\*MAD \(écart absolu moyen\)\*\* : ([^\n]+)"),
+            "detail": lire(r"\*\*Interprétation MAD\*\* : ([^\n]+)")},
+           {"libelle": "Chiffres anormaux", "valeur": lire(r"Chiffres anormaux \(Z>2.58\)\*\* : (\d+)"),
+            "detail": "Z-score > 2,58"}]
+    graphiques = []
+    try:
+        obs, theo = list(fig.data[0].y), list(fig.data[1].y)
+        graphiques.append(graphique_benford(list(range(1, 10)), obs, theo))
+    except Exception:
+        pass
+    return ind, graphiques
+
+
 def page_benford():
     import streamlit as st
     import pandas as pd
@@ -438,7 +468,8 @@ def page_benford():
                         bouton_sauvegarde(type_analyse="Loi de Benford", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
                         try:
-                            generer_bouton_word("Analyse_Benford", rapport)
+                            ind_w, graph_w = visuels_benford(fig, rapport, score_risque)
+                            generer_bouton_word("Analyse_Benford", rapport, indicateurs=ind_w, graphiques=graph_w)
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 

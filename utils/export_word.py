@@ -158,8 +158,11 @@ def _tableau(doc, lignes):
     from docx.shared import Cm
     from utils.word_visuels import largeurs, garder_ensemble
     utile = 16.0   # largeur utile en cm (A4, marges de 2,5 cm)
+    longueur_1 = max((len(r[0]) for r in rangs if r), default=0)
     if n == 1:
         cols = [utile]
+    elif longueur_1 <= 10:   # première colonne courte (chiffre, code) : colonnes égales
+        cols = [utile / n] * n
     else:
         premiere = min(max(utile * 0.40, 5.0), utile - 2.2 * (n - 1))
         cols = [premiere] + [(utile - premiere) / (n - 1)] * (n - 1)
@@ -254,10 +257,15 @@ def _sans_signature(texte):
     """Retire la signature de fin de rapport (et le filet qui la précède) : l'en-tête et le pied de page
     du document Word portent déjà le nom de SMD Global Consulting LLC."""
     lignes = str(texte).rstrip().split("\n")
-    if lignes and _SIGNATURE.match(lignes[-1].strip()):
-        lignes.pop()
-        while lignes and (not lignes[-1].strip() or re.fullmatch(r"(-{3,}|\*{3,}|_{3,})", lignes[-1].strip())):
-            lignes.pop()
+    for k in range(len(lignes) - 1, max(len(lignes) - 4, -1), -1):   # parmi les 3 dernières lignes
+        if _SIGNATURE.match(lignes[k].strip()):
+            fin = lignes[k + 1:]
+            lignes = lignes[:k]
+            while lignes and (not lignes[-1].strip() or re.fullmatch(r"(-{3,}|\*{3,}|_{3,})", lignes[-1].strip())):
+                lignes.pop()
+            if fin:
+                lignes += [""] + fin
+            break
     return "\n".join(lignes)
 
 
@@ -272,6 +280,8 @@ def _separer_chapeau(texte):
             i += 1
         elif l.startswith("## ") and not sous_titre:
             sous_titre = True
+            i += 1
+        elif re.match(r"^\*\*[^*]{1,40}\*\*\s*:", l):   # « **Date d'analyse** : … »
             i += 1
         elif re.fullmatch(r"(-{3,}|\*{3,}|_{3,})", l):
             i += 1

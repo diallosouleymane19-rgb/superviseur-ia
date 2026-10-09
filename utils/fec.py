@@ -206,6 +206,57 @@ def valider_fec(df):
     return resultats
 
 
+def rapport_controle_fec(score, niveau, resultats, analyse, anomalies):
+    """Rapport complet du contrôle FEC (Markdown) : score, contrôles DGFiP, analyse, anomalies."""
+    lignes_analyse = str(analyse).split("\n")
+    date = next((l for l in lignes_analyse if l.startswith("*Date d'analyse")), "")
+    corps = [l for l in lignes_analyse if l != date and not l.startswith("## RAPPORT D'ANALYSE FEC")]
+    r = ["# RAPPORT DE CONTRÔLE FEC",
+         f"## Score de conformité DGFiP : {nb_fr(score, 1)} % ({niveau})",
+         date, "",
+         "## Détail des contrôles DGFiP", ""]
+    r += [f"- {'✅' if v_['valide'] else '❌'} **{k}** : {v_.get('message', '')}" for k, v_ in resultats.items()]
+    r += ["", "## Analyse du fichier", ""]
+    r += corps
+    r += ["", "## Anomalies détectées", ""]
+    r += ([f"- {a['type']} ({a['gravite']}) : {a['description']}" for a in anomalies] or ["Aucune anomalie majeure"])
+    r += ["", "---", "*Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*"]
+    return "\n".join(r)
+
+
+def visuels_fec(df, score, niveau, anomalies):
+    """Indicateurs et graphiques pour l'export Word du contrôle FEC (mêmes chiffres qu'à l'écran)."""
+    import pandas as pd
+    from utils.word_visuels import barres_simples
+    ton = "bon" if score >= 90 else "neutre" if score >= 75 else "mauvais"
+    compte = lambda g: len([a for a in anomalies if a['gravite'] == g])
+    ind = [{"libelle": "Conformité DGFiP", "valeur": f"{nb_fr(score, 1)} %", "detail": niveau, "ton": ton},
+           {"libelle": "Écritures (lignes)", "valeur": nb_fr(len(df))}]
+    for col, lib in (('EcritureNum', "Pièces"), ('CompteNum', "Comptes"), ('JournalCode', "Journaux")):
+        if col in df.columns:
+            ind.append({"libelle": lib, "valeur": nb_fr(df[col].nunique())})
+    ind += [{"libelle": "Anomalies élevées", "valeur": str(compte('Élevée')), "ton": "mauvais" if compte('Élevée') else "bon",
+             "detail": "à corriger" if compte('Élevée') else "aucune"},
+            {"libelle": "Anomalies moyennes", "valeur": str(compte('Moyenne')),
+             "ton": "mauvais" if compte('Moyenne') else "bon", "detail": ""},
+            {"libelle": "Anomalies faibles", "valeur": str(compte('Faible')), "detail": ""}]
+    graphiques = []
+    if 'JournalCode' in df.columns:
+        par_j = df['JournalCode'].astype(str).value_counts()
+        graphiques.append(barres_simples(list(par_j.index), [int(v) for v in par_j.values],
+                                         "Nombre de lignes par journal", unite="Nombre de lignes"))
+    if {'EcritureDate', 'Debit'} <= set(df.columns):
+        dates = pd.to_datetime(df['EcritureDate'].astype(str).str[:8], format="%Y%m%d", errors="coerce")
+        debit = pd.to_numeric(df['Debit'].astype(str).str.replace(" ", "").str.replace(",", "."), errors="coerce")
+        par_mois = debit.groupby(dates.dt.to_period("M")).sum()
+        if len(par_mois) >= 2:
+            mois = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+            libs = [f"{mois[p.month - 1]} {str(p.year)[2:]}" for p in par_mois.index]
+            graphiques.append(barres_simples(libs, [float(v) for v in par_mois.values],
+                                             "Montants débités par mois"))
+    return ind, graphiques
+
+
 def analyser_fec(df):
     """
     Analyse approfondie du FEC - Rendu cabinet professionnel
@@ -456,20 +507,11 @@ def page_fec():
                     with col1:
                         bouton_sauvegarde(type_analyse="Contrôle FEC", resultat=f"Score : {nb_fr(score, 1)} % – {analyse}", libelle="💾 Sauvegarder le rapport")
                     with col2:
-                        rapport_complet = f"""# RAPPORT DE CONTRÔLE FEC
-
-    ## Score de Conformité DGFiP : {nb_fr(score, 1)} % ({niveau})
-
-    {analyse}
-
-    ## Anomalies Détectées
-    {chr(10).join([f"- {a['type']} ({a['gravite']}) : {a['description']}" for a in anomalies]) if anomalies else "Aucune anomalie majeure"}
-
-    ---
-    *Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*
-    """
+                        rapport_complet = rapport_controle_fec(score, niveau, resultats, analyse, anomalies)
                         try:
-                            generer_bouton_word("Rapport_Controle_FEC", rapport_complet)
+                            ind_w, graph_w = visuels_fec(df, score, niveau, anomalies)
+                            generer_bouton_word("Rapport_Controle_FEC", rapport_complet,
+                                                indicateurs=ind_w, graphiques=graph_w)
                         except Exception as e:
                             st.error(f"Erreur export : {e}")
 
