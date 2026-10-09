@@ -177,13 +177,17 @@ def page_plan_financement():
     with col1:
         entreprise = st.text_input("Entreprise", value="Mon Entreprise")
     with col2:
-        annee_debut = st.number_input("Année de départ", value=datetime.now().year,
+        annee_debut = st.number_input("Année de départ", value=None, placeholder="ex. 2027",
                                        min_value=2000, max_value=2050, step=1)
     with col3:
         nb_annees = st.slider("Nombre d'années", 1, 5, 3)
 
+    if annee_debut is None:
+        st.info("Saisissez l'année de départ pour construire le plan de financement.")
+        return
+    annee_debut = int(annee_debut)
     annees = [str(annee_debut + i) for i in range(nb_annees)]
-    st.caption(f"Période : **{annees[0]}** -> **{annees[-1]}**")
+    st.caption(f"Période : **{annees[0]}** → **{annees[-1]}**")
     st.divider()
 
     prefill_r: dict = {}
