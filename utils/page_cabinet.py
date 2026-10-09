@@ -64,7 +64,8 @@ def page_cabinet():
         st.info("Votre compte n'est rattaché à aucun cabinet.")
         return
 
-    responsable = role == C.ROLE_RESPONSABLE
+    # Le responsable du cabinet et l'administrateur SMD (dans son propre cabinet) gèrent les membres
+    responsable = role in (C.ROLE_RESPONSABLE, "admin")
     msg = st.session_state.pop("cab_message", None)
     if msg:
         (st.success if msg[0] == "success" else st.error)(msg[1])
