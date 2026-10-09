@@ -211,6 +211,21 @@ def ecrire_markdown(doc, texte, sauter_titre=None):
         _runs(p, ligne)
 
 
+_SIGNATURE = re.compile(r"^\*?\s*((Rapport|Analyse)\s+généré(e)?\s+par\s+)?SMD Global Consulting LLC\s*[-–—]\s*"
+                        r"Superviseur IA Comptable\s*\*?$", re.I)
+
+
+def _sans_signature(texte):
+    """Retire la signature de fin de rapport (et le filet qui la précède) : l'en-tête et le pied de page
+    du document Word portent déjà le nom de SMD Global Consulting LLC."""
+    lignes = str(texte).rstrip().split("\n")
+    if lignes and _SIGNATURE.match(lignes[-1].strip()):
+        lignes.pop()
+        while lignes and (not lignes[-1].strip() or re.fullmatch(r"(-{3,}|\*{3,}|_{3,})", lignes[-1].strip())):
+            lignes.pop()
+    return "\n".join(lignes)
+
+
 def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice="", ia=None):
     """ia : None pour un contenu calculé par règles ; sinon dict {"mention", "modele", "date"} pour un texte rédigé par IA."""
     from datetime import datetime
@@ -221,6 +236,11 @@ def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice=""
     style.font.size = Pt(11)
 
     section = doc.sections[0]
+    # Format A4 (le modèle par défaut est au format Letter américain)
+    from docx.shared import Cm
+    section.page_width, section.page_height = Cm(21), Cm(29.7)
+    section.left_margin = section.right_margin = Cm(2.5)
+    section.top_margin = section.bottom_margin = Cm(2.5)
     p = section.header.paragraphs[0]
     run_header = p.add_run("SMD Global Consulting LLC | Superviseur IA Comptable")
     run_header.font.color.rgb = RGBColor(31, 119, 180)
@@ -243,7 +263,7 @@ def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice=""
         _runs(p, "   ·   ".join(infos))
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    ecrire_markdown(doc, contenu_texte, sauter_titre=titre if m else None)
+    ecrire_markdown(doc, _sans_signature(contenu_texte), sauter_titre=titre if m else None)
 
     f_p = section.footer.paragraphs[0]
     f_p.text = typo_fr(f"Document confidentiel généré par SMD Global Consulting LLC – © {datetime.now().year}")
