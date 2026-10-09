@@ -212,14 +212,14 @@ def page_inscription(app_name: str = "pcg") -> None:
         avantages = [
             ("🧠", "IA Comptable augmentée",
              "Analyse vos balances, FEC, factures et états financiers en quelques secondes."),
-            ("⚖", "PCG France & SYSCOHADA",
-             "Deux référentiels couverts : France et Zone OHADA (8 pays UEMOA)."),
+            ("⚖", "PCG France",
+             "Plan comptable général français. Le SYSCOHADA dispose de sa propre application."),
             ("🛡", "Données sécurisées",
              "Fichiers lus en mémoire, non enregistrés. Analyses sauvegardées à votre demande : 30 jours, dans l'UE."),
             ("📊", "Rapports professionnels",
              "KPIs, alertes colorées, tableaux structurés prêts pour vos clients."),
             ("🔔", "Veille fiscale automatique",
-             "Actualités DGFiP, URSSAF, UEMOA en temps réel."),
+             "Actualités Bercy et BOFiP, échéances fiscales et barèmes URSSAF vérifiés."),
             ("🏆", "Plans adaptés",
              "Du cabinet solo à la structure multi-collaborateurs."),
         ]
