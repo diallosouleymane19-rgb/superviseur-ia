@@ -503,13 +503,19 @@ def page_inventaire():
                 bouton_sauvegarde(type_analyse="Check-list clôture", resultat=df_checklist.to_string(), libelle="💾 Sauvegarder", key="save_checklist")
             with col2:
                 try:
-                    rapport = [f"# CHECK-LIST DE CLÔTURE {exercice}", ""]
+                    sans_icone = lambda t: str(t).split(" ", 1)[-1] if str(t)[:1] in "🔴🟡🔵🟢" else str(t)
+                    rapport = [f"# CHECK-LIST DE CLÔTURE {exercice}",
+                               "*Délais exprimés en jours avant la date de clôture (J = jour de clôture). "
+                               "Cochez la colonne « Fait » au fur et à mesure.*", ""]
                     for categorie in df_checklist['Catégorie'].unique():
-                        rapport += ["", f"## {categorie}", "", "| Tâche | Priorité | Délai |", "|---|---|---|"]
+                        rapport += ["", f"## {categorie}", "", "| Tâche | Priorité | Délai | Fait |", "|---|---|:---:|:---:|"]
                         for _, l in df_checklist[df_checklist['Catégorie'] == categorie].iterrows():
-                            rapport.append(f"| {l['Tâche']} | {l['Priorité']} | {l['Délai']} |")
+                            rapport.append(f"| {l['Tâche']} | {sans_icone(l['Priorité'])} | {l['Délai']} | ☐ |")
                     rapport = "\n".join(rapport)
-                    generer_bouton_word(f"Checklist_Cloture_{exercice}", rapport)
+                    ind_w = [{"libelle": "Tâches", "valeur": str(len(df_checklist))},
+                             {"libelle": "Critiques", "valeur": str(nb_critique), "ton": "mauvais", "detail": "à faire en priorité"},
+                             {"libelle": "Importantes", "valeur": str(nb_important), "detail": ""}]
+                    generer_bouton_word(f"Checklist_Cloture_{exercice}", rapport, indicateurs=ind_w)
                 except Exception as e:
                     st.error(f"Erreur : {e}")
 

@@ -35,6 +35,30 @@ def analyser_donnees_client(df):
     return calculer_sig(df)
 
 
+def visuels_rapport_client(kpis):
+    """Indicateurs et graphique pour l'export Word (mêmes chiffres qu'à l'écran)."""
+    from utils.word_visuels import barres_simples
+    if not kpis or kpis.get('chiffre_affaires', 0) <= 0:
+        return [], []
+    rn, tn = kpis['resultat_net'], kpis['tresorerie']
+    ind = [{"libelle": "Chiffre d'affaires", "valeur": _eur(kpis['chiffre_affaires'])},
+           {"libelle": "Résultat net", "valeur": _eur(rn), "ton": "bon" if rn > 0 else "mauvais",
+            "detail": "bénéfice" if rn > 0 else "perte" if rn < 0 else "nul"},
+           {"libelle": "EBE", "valeur": _eur(kpis['ebe']), "ton": "mauvais" if kpis['ebe'] < 0 else None, "detail": ""},
+           {"libelle": "Trésorerie nette", "valeur": _eur(tn), "ton": "bon" if tn >= 0 else "mauvais",
+            "detail": "positive" if tn >= 0 else "négative"},
+           {"libelle": "Marge nette", "valeur": _pct(kpis['taux_rentabilite'])},
+           {"libelle": "Taux d'EBE", "valeur": _pct(kpis['taux_ebe'])},
+           {"libelle": "Taux de valeur ajoutée", "valeur": _pct(kpis['taux_va'])},
+           {"libelle": "Personnel / CA", "valeur": _pct(kpis['poids_charges_personnel'])}]
+    etapes = [("Chiffre d'affaires", 'chiffre_affaires'), ("Marge commerciale", 'marge_commerciale'),
+              ("Valeur ajoutée", 'valeur_ajoutee'), ("EBE", 'ebe'),
+              ("Résultat d'exploitation", 'resultat_exploitation'), ("Résultat net", 'resultat_net')]
+    etapes = [(lib, kpis[c]) for lib, c in etapes if c in kpis and (kpis[c] or c == 'resultat_net')]
+    g = barres_simples([e[0] for e in etapes], [e[1] for e in etapes], "Du chiffre d'affaires au résultat net")
+    return ind, [g]
+
+
 def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observations="", objectifs=""):
     """Génère un rapport client professionnel"""
     
@@ -370,7 +394,9 @@ def page_rapport_client():
                 with col2:
                     try:
                         nom_fichier = f"Rapport_{nom_client.replace(' ', '_')}_{periode}_{exercice}"
-                        generer_bouton_word(nom_fichier, rapport)
+                        kpis_w = analyser_donnees_client(df) if df is not None and 'CompteNum' in df.columns else None
+                        ind_w, graph_w = visuels_rapport_client(kpis_w)
+                        generer_bouton_word(nom_fichier, rapport, indicateurs=ind_w, graphiques=graph_w)
                     except Exception as e:
                         st.error(f"Erreur : {e}")
 

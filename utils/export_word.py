@@ -259,7 +259,7 @@ def _sans_signature(texte):
     lignes = str(texte).rstrip().split("\n")
     for k in range(len(lignes) - 1, max(len(lignes) - 4, -1), -1):   # parmi les 3 dernières lignes
         if _SIGNATURE.match(lignes[k].strip()):
-            fin = lignes[k + 1:]
+            fin = [l for l in lignes[k + 1:] if not re.match(r"^\*?\s*©", l.strip())]   # © : déjà en pied de page
             lignes = lignes[:k]
             while lignes and (not lignes[-1].strip() or re.fullmatch(r"(-{3,}|\*{3,}|_{3,})", lignes[-1].strip())):
                 lignes.pop()
@@ -270,36 +270,27 @@ def _sans_signature(texte):
 
 
 def _separer_chapeau(texte):
-    """Sépare l'en-tête du rapport (titre « # », un sous-titre « ## », lignes en italique ou vides)
-    du reste, pour placer les indicateurs et graphiques juste après."""
+    """Sépare l'en-tête du rapport du reste, pour placer les indicateurs et graphiques juste après.
+    En-tête : titre « # » ; juste après, un sous-titre « ## » éventuellement suivi d'une ligne « ### » ;
+    puis lignes en italique, lignes « **Libellé** : valeur » et lignes vides ; un filet « --- » le clôt."""
     lignes = str(texte).split("\n")
-    i, sous_titre = 0, False
+    i, etape = 0, "titre"          # titre → sous_titre → precision → corps de l'en-tête
     while i < len(lignes):
         l = lignes[i].strip()
-        if not l or re.match(r"^#\s", l) or re.fullmatch(r"\*[^*].*\*", l):
+        if not l or re.match(r"^#\s", l):
             i += 1
-        elif l.startswith("## ") and not sous_titre:
-            sous_titre = True
-            i += 1
-        elif re.match(r"^\*\*[^*]{1,40}\*\*\s*:", l):   # « **Date d'analyse** : … »
-            i += 1
+        elif l.startswith("## ") and etape == "titre":
+            etape, i = "sous_titre", i + 1
+        elif l.startswith("### ") and etape == "sous_titre":
+            etape, i = "precision", i + 1
+        elif re.fullmatch(r"\*[^*].*\*", l) or re.match(r"^\*\*[^*]{1,40}\*\*\s*:", l):
+            etape, i = "corps", i + 1
         elif re.fullmatch(r"(-{3,}|\*{3,}|_{3,})", l):
             i += 1
             break
         else:
             break
     return "\n".join(lignes[:i]), "\n".join(lignes[i:])
-
-
-def _retirer_sections(texte, titres):
-    """Retire les sections « ## … » dont le titre contient un des mots donnés (jusqu'au titre suivant)."""
-    sortie, saute = [], False
-    for l in str(texte).split("\n"):
-        if re.match(r"^#{1,2}\s", l.strip()):
-            saute = any(t.lower() in l.lower() for t in titres)
-        if not saute:
-            sortie.append(l)
-    return "\n".join(sortie)
 
 
 def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice="", ia=None,

@@ -20,12 +20,13 @@ from utils.page_helpers import (
 )
 
 def calculer_amortissement_lineaire(valeur_origine, duree_ans, date_acquisition):
-    """Calcule le tableau d'amortissement linéaire au prorata mensuel"""
+    """Tableau d'amortissement linéaire, prorata temporis en jours la première année
+    (année de 360 jours, mois de 30 jours) à compter de la date d'acquisition / mise en service."""
     taux = 100 / duree_ans
     
-    # 1. Calcul du prorata de la première année (mois d'achat inclus)
-    mois_restants = 12 - date_acquisition.month + 1
-    annuite_an1 = (valeur_origine * (taux / 100)) * (mois_restants / 12)
+    # 1. Prorata de la première année : jours restants jusqu'au 31/12, convention 30/360
+    jours_restants = (30 - min(date_acquisition.day, 30) + 1) + 30 * (12 - date_acquisition.month)
+    annuite_an1 = (valeur_origine * (taux / 100)) * (jours_restants / 360)
     
     # 2. Préparation du tableau
     annees = []
@@ -92,13 +93,16 @@ def calculer_amortissement_degressif(valeur_origine, duree_ans, date_acquisition
         else:
             dotation = vnc_debut * taux_degressif / 100
         
-        # Prorata première année
+        # Prorata première année : mois entiers depuis le 1er jour du mois d'acquisition (CGI, art. 39 A)
         if annee == 1:
-            jours_restants = (datetime(date_acquisition.year + 1, 1, 1) - date_acquisition).days
-            dotation = dotation * jours_restants / 365
+            mois_restants = 12 - date_acquisition.month + 1
+            dotation = dotation * mois_restants / 12
         
-        cumul += dotation
-        vnc_fin = max(vnc_debut - dotation, 0)
+        dotation = round(dotation, 2)
+        if annee == duree_ans:   # dernière annuité : solde exact (pas d'écart d'arrondi)
+            dotation = round(valeur_origine - cumul, 2)
+        cumul = round(cumul + dotation, 2)
+        vnc_fin = max(round(vnc_debut - dotation, 2), 0)
         
         statut = "✅ Passé"
         if date_calcul.year == date_acquisition.year + annee - 1:
@@ -185,21 +189,55 @@ def calculer_cession(valeur_origine, amort_cumule, prix_cession, date_cession, t
     }
 
 
-def generer_rapport_immobilisation(bien, tableau, mode):
-    """Génère un rapport professionnel"""
-    rapport = [f"# TABLEAU D'AMORTISSEMENT — {bien}"]
-    rapport.append(f"Mode : {mode}")
-    rapport.append(f"*Généré le {datetime.now().strftime('%d/%m/%Y')}*\n---\n")
-    
+def _col_vnc(tableau):
+    return 'VNC (€)' if 'VNC (€)' in tableau.columns else 'VNC Fin (€)'
+
+
+def generer_rapport_immobilisation(bien, tableau, mode, valeur_origine=None, duree_ans=None, date_acquisition=None):
+    """Rapport du plan d'amortissement : paramètres puis tableau annuel."""
+    vo = valeur_origine if valeur_origine is not None else float(tableau['Dotation (€)'].sum())
+    rapport = [f"# TABLEAU D'AMORTISSEMENT — {bien}",
+               f"## Amortissement {mode.lower()}",
+               f"*Généré le {datetime.now().strftime('%d/%m/%Y')}*", "", "---", ""]
+    rapport.append(f"- **Valeur d'origine** : {nb_fr(vo, 2)} €")
+    if duree_ans:
+        rapport.append(f"- **Durée** : {duree_ans} ans")
+    if date_acquisition is not None:
+        rapport.append(f"- **Date d'acquisition / mise en service** : {date_acquisition.strftime('%d/%m/%Y')}")
+    rapport.append("- **Prorata de la 1re année** : " + (
+        "mois entiers depuis le 1er jour du mois d'acquisition (CGI, art. 39 A)" if mode == "Dégressif"
+        else "jours restants sur une année de 360 jours"))
+    rapport += ["", "## PLAN D'AMORTISSEMENT", "",
+                "| Année | Dotation (€) | Amort. cumulé (€) | VNC fin (€) | Statut |",
+                "|------:|-------------:|------------------:|------------:|--------|"]
     for _, row in tableau.iterrows():
-        rapport.append(
-            f"- {int(row['Année'])} : Dotation {nb_fr(row.get('Dotation (€)', 0), 2)} € | "
-            f"VNC {nb_fr(row.get('VNC (€)', row.get('VNC Fin (€)', 0)), 2)} € | {row['Statut']}"
-        )
-    
-    rapport.append("\n---")
-    rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
+        statut = str(row['Statut']).replace("✅ ", "").replace("📍 ", "").replace("🔮 ", "").replace("Futur", "À venir")
+        rapport.append(f"| {int(row['Année'])} | {nb_fr(row['Dotation (€)'], 2)} | {nb_fr(row['Amort. Cumulé (€)'], 2)} | "
+                       f"{nb_fr(row[_col_vnc(tableau)], 2)} | {statut} |")
+    rapport.append(f"| **Total** | **{nb_fr(tableau['Dotation (€)'].sum(), 2)}** |  |  |  |")
+    rapport += ["", "Écriture annuelle : débit 6811 (dotations aux amortissements), crédit 28xx (amortissements).",
+                "", "---", "*SMD Global Consulting LLC - Superviseur IA Comptable*"]
     return "\n".join(rapport)
+
+
+def visuels_immobilisation(tableau, valeur_origine, duree_ans, mode):
+    """Indicateurs et graphique pour l'export Word (mêmes chiffres qu'à l'écran)."""
+    from utils.word_visuels import barres_et_courbe, COULEUR_N
+    taux = tableau['Taux Dégressif (%)'].iloc[0] if 'Taux Dégressif (%)' in tableau.columns else 100 / duree_ans
+    annee = datetime.now().year
+    vnc = tableau[tableau['Année'] == annee][_col_vnc(tableau)]
+    ind = [{"libelle": "Valeur d'origine", "valeur": f"{nb_fr(valeur_origine)} €"},
+           {"libelle": "Durée / mode", "valeur": f"{duree_ans} ans", "detail": mode.lower()},
+           {"libelle": "Taux", "valeur": f"{nb_fr(taux, 2)} %", "detail": ""},
+           {"libelle": "Dotation 1re année", "valeur": f"{nb_fr(tableau['Dotation (€)'].iloc[0])} €", "detail": ""}]
+    if len(vnc):
+        ind.append({"libelle": f"VNC fin {annee}", "valeur": f"{nb_fr(vnc.values[0])} €"})
+    libs = [str(int(a)) for a in tableau['Année']]
+    g = barres_et_courbe(libs, [("Dotation", list(tableau['Dotation (€)']), COULEUR_N)],
+                         ("VNC fin d'année", list(tableau[_col_vnc(tableau)])), "Dotations et valeur nette comptable")
+    return ind, [g]
+
+
 def generer_ecritures_amortissement(nom_bien, tableau, exercice_courant=None):
     """Génère les écritures comptables d'amortissement"""
     if exercice_courant is None:
@@ -298,7 +336,8 @@ def page_immobilisations():
                     with col2:
                         st.metric("⏱ Durée", f"{duree_ans} ans")
                     with col3:
-                        taux = 100 / duree_ans
+                        taux = tableau['Taux Dégressif (%)'].iloc[0] if 'Taux Dégressif (%)' in tableau.columns \
+                            else 100 / duree_ans
                         st.metric("📊 Taux", f"{nb_fr(taux, 2)} %")
                     with col4:
                         dotation = tableau['Dotation (€)'].iloc[0]
@@ -344,12 +383,14 @@ def page_immobilisations():
                     st.divider()
                     col1, col2 = st.columns(2)
                     with col1:
-                        rapport = generer_rapport_immobilisation(nom_bien, tableau, mode)
+                        rapport = generer_rapport_immobilisation(nom_bien, tableau, mode, valeur_origine, duree_ans,
+                                                                 date_acquisition)
                         bouton_sauvegarde(type_analyse="Immobilisation", resultat=rapport, libelle="💾 Sauvegarder")
                     with col2:
-                        rapport = generer_rapport_immobilisation(nom_bien, tableau, mode)
                         try:
-                            generer_bouton_word(f"Amortissement_{nom_bien}", rapport)
+                            ind_w, graph_w = visuels_immobilisation(tableau, valeur_origine, duree_ans, mode)
+                            generer_bouton_word(f"Amortissement_{nom_bien}", rapport, indicateurs=ind_w,
+                                                graphiques=graph_w)
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 

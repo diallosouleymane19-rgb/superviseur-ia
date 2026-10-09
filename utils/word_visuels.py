@@ -74,10 +74,15 @@ def garder_ensemble(t):
 
 # ─── Indicateurs clés ────────────────────────────────────────────────────────
 
-def bloc_indicateurs(doc, indicateurs, par_ligne=4):
+def bloc_indicateurs(doc, indicateurs, par_ligne=None):
     """indicateurs : liste de dict {libelle, valeur (texte), detail (texte, facultatif),
-    ton ('bon' | 'mauvais' | 'neutre', facultatif)}. Affichés par lignes de `par_ligne` cases."""
-    for k in range(0, len(indicateurs), par_ligne):
+    ton ('bon' | 'mauvais' | 'neutre', facultatif)}. Lignes équilibrées : 5 cases au plus sur une ligne,
+    sinon 4 au plus par ligne réparties à parts égales (6 → 3 + 3, 7 → 4 + 3, 9 → 3 + 3 + 3)."""
+    import math
+    n = len(indicateurs)
+    if par_ligne is None:
+        par_ligne = n if n <= 5 else math.ceil(n / math.ceil(n / 4))
+    for k in range(0, n, par_ligne):
         groupe = indicateurs[k:k + par_ligne]
         avec_detail = any(i.get("detail") for i in groupe)
         t = doc.add_table(rows=3 if avec_detail else 2, cols=len(groupe))
