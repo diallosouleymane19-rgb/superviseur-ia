@@ -20,68 +20,66 @@ from utils.page_helpers import (
 # PROVISIONS
 # =============================================================================
 
-def calculer_provision_creances(df_clients, taux_douteux=50, taux_irrecouvrables=100):
-    """
-    Calcule les provisions pour créances douteuses
-    df_clients : DataFrame avec colonnes Client, Montant, Ancienneté (jours)
-    """
+TRANCHES_ANCIENNETE = ((90, "✅ Saine"), (180, "🟠 À surveiller"), (365, "🟡 Douteuse"),
+                       (None, "🔴 Très ancienne – perte (654) à confirmer"))
+
+
+def calculer_provision_creances(df_clients, taux_91_180=25, taux_181_365=50, taux_plus_365=100):
+    """Dépréciation des créances clients (PCG : compte 491, dotation 6817), calculée sur le montant HT.
+    df_clients : colonnes Client, Montant TTC, TVA (%), Ancienneté (jours).
+    Le taux par ancienneté est indicatif : il se justifie créance par créance. Au-delà de 365 jours, la créance est
+    signalée ; la perte définitive (654) ne se constate que si l'irrécouvrabilité est certaine."""
     resultats = []
-    total_provision = 0
-
+    total_provision = 0.0
     for _, row in df_clients.iterrows():
-        montant = float(str(row.get('Montant', 0)).replace(',', '.').replace(' ', ''))
-        anciennete = int(row.get('Ancienneté', 0))
-        client = str(row.get('Client', 'Inconnu'))
-
-        if anciennete > 365:
-            taux = taux_irrecouvrables
-            statut = "🔴 Irrécouvrable"
-            compte = "654"
-        elif anciennete > 180:
-            taux = taux_douteux
-            statut = "🟡 Douteux"
-            compte = "491"
-        elif anciennete > 90:
-            taux = taux_douteux / 2
-            statut = "🟠 À surveiller"
-            compte = "491"
+        ttc = float(str(row.get('Montant TTC', row.get('Montant', 0)) or 0).replace(',', '.').replace(' ', ''))
+        tva = float(row.get('TVA (%)', 0) or 0)
+        ht = ttc / (1 + tva / 100)
+        anciennete = int(row.get('Ancienneté', 0) or 0)
+        if anciennete <= 90:
+            taux, statut = 0, TRANCHES_ANCIENNETE[0][1]
+        elif anciennete <= 180:
+            taux, statut = taux_91_180, TRANCHES_ANCIENNETE[1][1]
+        elif anciennete <= 365:
+            taux, statut = taux_181_365, TRANCHES_ANCIENNETE[2][1]
         else:
-            taux = 0
-            statut = "✅ Sain"
-            compte = "-"
-
-        provision = montant * taux / 100
+            taux, statut = taux_plus_365, TRANCHES_ANCIENNETE[3][1]
+        provision = ht * taux / 100
         total_provision += provision
-
         resultats.append({
-            'Client': client,
-            'Montant (€)': round(montant, 2),
+            'Client': str(row.get('Client', '') or 'Non renseigné'),
+            'Créance TTC (€)': round(ttc, 2),
+            'Base HT (€)': round(ht, 2),
             'Ancienneté (jours)': anciennete,
             'Statut': statut,
             'Taux (%)': taux,
-            'Provision (€)': round(provision, 2),
-            'Compte': compte
+            'Dépréciation (€)': round(provision, 2),
         })
-
     return pd.DataFrame(resultats), round(total_provision, 2)
 
 
-def calculer_provision_risque(libelle, montant, probabilite, compte="15"):
-    """Calcule une provision pour risque et charge"""
-    provision = montant * probabilite / 100
-    
-    ecriture = pd.DataFrame([
-        {'Compte': '6815', 'Libellé': f'Dotation aux provisions — {libelle}', 'Débit': round(provision, 2), 'Crédit': 0},
-        {'Compte': compte, 'Libellé': f'Provision — {libelle}', 'Débit': 0, 'Crédit': round(provision, 2)}
-    ])
-    
-    return {
-        'libelle': libelle,
-        'montant_risque': montant,
-        'probabilite': probabilite,
-        'provision': round(provision, 2),
-        'ecriture': ecriture
-    }
+NATURES_PROVISION = {"Exploitation": "6815", "Financière": "6865", "Exceptionnelle": "6875"}
+PROBABILITES = ("Probable", "Possible, mais non probable", "Éloignée")
+
+
+def calculer_provision_risque(libelle, estimation, probabilite, compte="151", nature="Exploitation"):
+    """Provision pour risques et charges selon le PCG (art. 321-1 et s.) : si la sortie de ressources est probable,
+    provision = meilleure estimation ; sinon, aucune provision (passif éventuel : mention en annexe s'il est possible)."""
+    compte_dotation = NATURES_PROVISION.get(nature, "6815")
+    provision = float(estimation) if probabilite == "Probable" else 0.0
+    if provision:
+        ecriture = pd.DataFrame([
+            {'Compte': compte_dotation, 'Libellé': f'Dotation aux provisions — {libelle}', 'Débit': round(provision, 2), 'Crédit': 0},
+            {'Compte': compte, 'Libellé': f'Provision — {libelle}', 'Débit': 0, 'Crédit': round(provision, 2)}])
+        conclusion = "Sortie de ressources probable : provision de la meilleure estimation."
+    else:
+        ecriture = pd.DataFrame(columns=['Compte', 'Libellé', 'Débit', 'Crédit'])
+        conclusion = ("Sortie de ressources possible mais non probable : pas de provision ; passif éventuel à mentionner "
+                      "en annexe." if probabilite == PROBABILITES[1] else
+                      "Sortie de ressources éloignée : ni provision ni mention en annexe.")
+    return {'libelle': libelle, 'estimation': float(estimation), 'probabilite': probabilite,
+            'provision': round(provision, 2), 'compte': compte, 'compte_dotation': compte_dotation,
+            'conclusion': conclusion, 'ecriture': ecriture}
 
 
 # =============================================================================
@@ -288,99 +286,129 @@ def page_inventaire():
         ])
 
         with sous_onglet1:
-            st.markdown("#### 📉 Provisions pour créances douteuses")
-            st.caption("Compte 491 — Article L123-20 du Code de Commerce")
+            st.markdown("#### 📉 Dépréciation des créances clients")
+            st.caption("Compte 491, dotation 6817 — calculée sur le montant hors taxes (la TVA n'est pas une perte tant que "
+                       "la créance n'est pas définitivement irrécouvrable).")
 
-            col1, col2 = st.columns(2)
+            st.markdown("**Taux de dépréciation indicatifs selon l'ancienneté** — à ajuster créance par créance selon "
+                        "la situation réelle du client.")
+            col1, col2, col3 = st.columns(3)
             with col1:
-                taux_douteux = st.slider("Taux créances douteuses (%)", 0, 100, 50)
+                taux_91_180 = st.slider("91 à 180 jours (%)", 0, 100, 25)
             with col2:
-                taux_irrecouvrables = st.slider("Taux créances irrécouvrables (%)", 0, 100, 100)
+                taux_181_365 = st.slider("181 à 365 jours (%)", 0, 100, 50)
+            with col3:
+                taux_plus_365 = st.slider("Plus de 365 jours (%)", 0, 100, 100)
 
             st.markdown("#### 📋 Saisie des créances clients")
-
             nb_clients = st.number_input("Nombre de clients à analyser", min_value=1, max_value=20, value=3)
 
             clients_data = []
             for i in range(int(nb_clients)):
                 st.markdown(f"**Client {i+1}**")
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
                 with col1:
-                    nom = st.text_input(f"Nom", key=f"client_nom_{i}", placeholder="SARL X")
+                    nom = st.text_input("Nom", key=f"client_nom_{i}", placeholder="SARL X")
                 with col2:
-                    montant = st.number_input("Montant HT (€)", min_value=0.0, key=f"client_montant_{i}", value=None,
-                                              placeholder="ex. 1 000")
+                    montant = st.number_input("Créance TTC (€)", min_value=0.0, key=f"client_montant_{i}", value=None,
+                                              placeholder="ex. 1 200")
                 with col3:
+                    tva = st.selectbox("TVA", [20.0, 10.0, 5.5, 2.1, 0.0], key=f"client_tva_{i}",
+                                       format_func=lambda t: f"{nb_fr(t, 1 if t % 1 else 0)} %")
+                with col4:
                     anciennete = st.number_input("Ancienneté (jours)", min_value=0, key=f"client_anc_{i}", value=None,
                                                  placeholder="ex. 120")
-                clients_data.append({'Client': nom, 'Montant': montant, 'Ancienneté': anciennete})
+                clients_data.append({'Client': nom, 'Montant TTC': montant, 'TVA (%)': tva, 'Ancienneté': anciennete})
             manquants_cr = [f"{c} (client {i + 1})" for i, d in enumerate(clients_data)
-                            for c, v in (("Montant", d['Montant']), ("Ancienneté", d['Ancienneté'])) if v is None]
+                            for c, v in (("Créance TTC", d['Montant TTC']), ("Ancienneté", d['Ancienneté'])) if v is None]
 
-            if st.button("⚠ Calculer les provisions", type="primary", width="stretch", key="btn_prov_creances") and \
+            if st.button("⚠ Calculer les dépréciations", type="primary", width="stretch", key="btn_prov_creances") and \
                     champs_remplis(**{m: None for m in manquants_cr}):
-                df_clients = pd.DataFrame(clients_data)
-                df_resultats, total = calculer_provision_creances(df_clients, taux_douteux, taux_irrecouvrables)
-
+                df_resultats, total = calculer_provision_creances(pd.DataFrame(clients_data), taux_91_180, taux_181_365,
+                                                                  taux_plus_365)
                 st.markdown("## 📊 Résultats")
                 st.dataframe(df_resultats, width="stretch", hide_index=True)
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("💰 Total provisions", f"{nb_fr(total, 2)} €")
+                    st.metric("💰 Total des dépréciations", f"{nb_fr(total, 2)} €")
                 with col2:
-                    nb_douteux = len(df_resultats[df_resultats['Taux (%)'] > 0])
-                    st.metric("⚠ Créances à risque", nb_douteux)
+                    st.metric("⚠ Créances dépréciées", len(df_resultats[df_resultats['Taux (%)'] > 0]))
+                anciennes = df_resultats[df_resultats['Ancienneté (jours)'] > 365]
+                if len(anciennes):
+                    st.warning(f"{len(anciennes)} créance(s) de plus de 365 jours. La perte définitive (Débit 654 et 44571 "
+                               "/ Crédit 411) ne se constate que si l'irrécouvrabilité est certaine (liquidation judiciaire "
+                               "clôturée, jugement, accord de remise) ; la dépréciation est alors reprise (Débit 491 / Crédit 7817).")
 
                 st.divider()
                 st.markdown("### 📚 Écriture comptable")
                 st.info(f"""
-    **Dotation aux provisions :**
-    - Débit **6817** (Dotation provisions créances) : {nb_fr(total, 2)} €
-    - Crédit **491** (Provision créances douteuses) : {nb_fr(total, 2)} €
+    **Dotation aux dépréciations :**
+    - Débit **6817** (Dotations aux dépréciations des actifs circulants) : {nb_fr(total, 2)} €
+    - Crédit **491** (Dépréciations des comptes clients) : {nb_fr(total, 2)} €
                 """)
 
-                bouton_sauvegarde(type_analyse="Provisions créances", libelle="💾 Sauvegarder", key="save_prov_creances",
-                                  resultat="\n".join(["# PROVISIONS POUR CRÉANCES DOUTEUSES", "", tableau_markdown(df_resultats), "",
-                                                      f"**Total à provisionner** : {nb_fr(total, 2)} €", "",
-                                                      f"- Débit 6817 (Dotation aux provisions pour créances) : {nb_fr(total, 2)} €",
-                                                      f"- Crédit 491 (Provision pour créances douteuses) : {nb_fr(total, 2)} €"]))
+                bouton_sauvegarde(type_analyse="Dépréciation des créances", libelle="💾 Sauvegarder", key="save_prov_creances",
+                                  resultat="\n".join(["# DÉPRÉCIATION DES CRÉANCES CLIENTS",
+                                                      "*Calculée sur le montant HT ; taux indicatifs selon l'ancienneté.*", "",
+                                                      tableau_markdown(df_resultats), "",
+                                                      f"**Total des dépréciations** : {nb_fr(total, 2)} €", "",
+                                                      f"- Débit 6817 (Dotations aux dépréciations des actifs circulants) : {nb_fr(total, 2)} €",
+                                                      f"- Crédit 491 (Dépréciations des comptes clients) : {nb_fr(total, 2)} €"]
+                                                     + ([f"", f"*{len(anciennes)} créance(s) de plus de 365 jours : perte "
+                                                         "(654) à constater seulement si l'irrécouvrabilité est certaine.*"]
+                                                        if len(anciennes) else [])))
         with sous_onglet2:
             st.markdown("#### 🛡 Provisions pour risques et charges")
-            st.caption("Compte 15x — Risques identifiés fin d'exercice")
+            st.caption("Comptes 15x — PCG : une provision est constituée si une sortie de ressources est probable à la "
+                       "clôture ; son montant est la meilleure estimation de cette sortie.")
 
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             with col1:
                 libelle_risque = st.text_input("📝 Nature du risque", placeholder="Ex: Litige fournisseur")
+                montant_risque = st.number_input("💰 Meilleure estimation de la sortie de ressources (€)", min_value=0.0,
+                                                 value=None, placeholder="ex. 5 000")
+                probabilite = st.radio("📊 La sortie de ressources est-elle probable ?", PROBABILITES, index=None,
+                                       horizontal=False)
             with col2:
-                montant_risque = st.number_input("💰 Montant estimé (€)", min_value=0.0, value=None, placeholder="ex. 5 000")
-            with col3:
-                probabilite = st.slider("📊 Probabilité (%)", 0, 100, 70)
-
-            compte_prov = st.selectbox("📚 Compte de provision", [
-                "151 — Provisions pour risques",
-                "152 — Provisions pour impôts",
-                "153 — Provisions pour pensions",
-                "155 — Provisions pour garanties",
-                "158 — Autres provisions pour charges"
-            ])
+                compte_prov = st.selectbox("📚 Compte de provision", [
+                    "1511 — Provisions pour litiges",
+                    "1512 — Provisions pour garanties données aux clients",
+                    "1514 — Provisions pour amendes et pénalités",
+                    "1518 — Autres provisions pour risques",
+                    "153 — Provisions pour pensions et obligations similaires",
+                    "154 — Provisions pour restructurations",
+                    "155 — Provisions pour impôts",
+                    "158 — Autres provisions pour charges"
+                ])
+                nature = st.selectbox("🏷 Nature de la charge", list(NATURES_PROVISION),
+                                      format_func=lambda n: f"{n} ({NATURES_PROVISION[n]})")
 
             if st.button("🛡 Calculer la provision", type="primary", width="stretch", key="btn_prov_risque") and \
-                    champs_remplis(**{"Nature du risque": libelle_risque, "Montant estimé": montant_risque}):
+                    champs_remplis(**{"Nature du risque": libelle_risque, "Meilleure estimation": montant_risque,
+                                      "Probabilité de la sortie de ressources": probabilite}):
                 compte = compte_prov.split(" — ")[0]
-                result = calculer_provision_risque(libelle_risque, montant_risque, probabilite, compte)
+                result = calculer_provision_risque(libelle_risque, montant_risque, probabilite, compte, nature)
 
-                col1, col2, col3 = st.columns(3)
+                col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("💰 Montant risque", f"{nb_fr(montant_risque, 2)} €")
+                    st.metric("💰 Meilleure estimation", f"{nb_fr(montant_risque, 2)} €")
                 with col2:
-                    st.metric("📊 Probabilité", f"{nb_fr(probabilite, 0)} %")
-                with col3:
-                    st.metric("⚠ Provision", f"{nb_fr(result['provision'], 2)} €")
+                    st.metric("⚠ Provision à constituer", f"{nb_fr(result['provision'], 2)} €")
+                (st.success if result['provision'] else st.info)(result['conclusion'])
+                if result['provision']:
+                    st.markdown("### 📚 Écriture comptable")
+                    st.dataframe(result['ecriture'], width="stretch", hide_index=True)
 
-                st.divider()
-                st.markdown("### 📚 Écriture comptable")
-                st.dataframe(result['ecriture'], width="stretch", hide_index=True)
+                rapport_risque = [f"# PROVISION POUR RISQUES ET CHARGES – {libelle_risque}", "",
+                                  f"- **Meilleure estimation** : {nb_fr(montant_risque, 2)} €",
+                                  f"- **Sortie de ressources** : {probabilite.lower()}",
+                                  f"- **Provision à constituer** : {nb_fr(result['provision'], 2)} €", "",
+                                  result['conclusion']]
+                if result['provision']:
+                    rapport_risque += ["", "## Écriture comptable", "", tableau_markdown(result['ecriture'])]
+                bouton_sauvegarde(type_analyse="Provision pour risques", resultat="\n".join(rapport_risque),
+                                  libelle="💾 Sauvegarder", key="save_prov_risque")
 
     # ── ONGLET 2 : RÉGULARISATIONS ──
     with onglet2:
