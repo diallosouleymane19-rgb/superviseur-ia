@@ -73,6 +73,12 @@ def _supprimer_dossier(cid, nom):
     _dire(ok, f"Dossier « {nom} » supprimé. Ses analyses sont conservées, sans dossier.", "Suppression impossible.")
 
 
+def _modifier_dossier(cid):
+    g = lambda k: st.session_state.get(f"{k}_{cid}", "").strip()
+    ok = D.modifier_client(cid, g("mod_nom"), g("mod_siret"), g("mod_secteur"), g("mod_contact"), g("mod_email"))
+    _dire(ok, "Dossier mis à jour.", "Mise à jour impossible : le nom est obligatoire.")
+
+
 def _choisir_dossier_en_cours(cid):
     st.session_state["dossier_id"] = cid
 
@@ -224,6 +230,13 @@ def _onglet_dossiers(clients, analyses):
                 if cid != en_cours:
                     st.button("Travailler sur ce client", key=f"cur_{cid}", on_click=_choisir_dossier_en_cours,
                               args=(cid,), width="stretch")
+                with st.popover("✏ Modifier", width="stretch"):
+                    st.text_input("Nom du client *", value=nom, key=f"mod_nom_{cid}")
+                    st.text_input("SIRET", value=siret or "", key=f"mod_siret_{cid}")
+                    st.text_input("Secteur d'activité", value=secteur or "", key=f"mod_secteur_{cid}")
+                    st.text_input("Contact", value=contact or "", key=f"mod_contact_{cid}")
+                    st.text_input("E-mail", value=email or "", key=f"mod_email_{cid}")
+                    st.button("Enregistrer", key=f"modb_{cid}", on_click=_modifier_dossier, args=(cid,), type="primary")
                 with st.popover("🗑 Supprimer", width="stretch"):
                     st.write(f"Supprimer le dossier « {nom} » ? Ses {nb.get(cid, 0)} analyse(s) sont conservées, sans dossier.")
                     st.button("Confirmer la suppression", key=f"supd_{cid}", on_click=_supprimer_dossier, args=(cid, nom),

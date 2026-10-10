@@ -217,8 +217,30 @@ if st.session_state.get("role") != "demo":
     st.session_state["dossier_nom"] = _clients.get(st.session_state.get("dossier_id"))
     if not st.session_state["dossier_nom"]:
         st.sidebar.caption("Vos sauvegardes ne seront rangées dans aucun dossier client. "
-                           + ("Choisissez un client ci-dessus." if _clients else
-                              "Créez vos dossiers clients dans 🗂 Mes dossiers."))
+                           + ("Choisissez un client ci-dessus ou créez-en un." if _clients else "Créez votre premier client :"))
+
+    def _nouveau_client_menu():
+        nom = st.session_state.get("menu_nouveau_client", "").strip()
+        if not nom:
+            st.session_state["menu_client_msg"] = "Saisissez le nom du client."
+            return
+        from utils.database import creer_client
+        cid = creer_client(nom)
+        if cid and not isinstance(cid, bool):
+            st.session_state["dossier_id"] = cid
+            st.session_state["menu_nouveau_client"] = ""
+            st.session_state["menu_client_msg"] = None
+            st.toast(f"✅ Dossier « {nom} » créé : vos sauvegardes y seront rangées.")
+        else:
+            st.session_state["menu_client_msg"] = "Création impossible (base de données indisponible). Réessayez."
+
+    with st.sidebar.popover("➕ Nouveau client", width="stretch"):
+        st.text_input("Nom du client", key="menu_nouveau_client", placeholder="ex. SARL Martin")
+        st.button("Créer le dossier", type="primary", width="stretch", on_click=_nouveau_client_menu,
+                  key="menu_btn_client")
+        if st.session_state.get("menu_client_msg"):
+            st.warning(st.session_state["menu_client_msg"])
+        st.caption("SIRET, secteur et contact se complètent dans 🗂 Mes dossiers.")
 
 st.sidebar.divider()
 

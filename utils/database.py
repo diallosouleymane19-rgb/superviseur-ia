@@ -111,6 +111,21 @@ def get_client(client_id) -> tuple | None:
         return None
 
 
+def modifier_client(client_id, nom: str, siret: str = "", secteur: str = "", contact: str = "", email: str = "") -> bool:
+    """Met à jour un dossier client du cabinet connecté."""
+    try:
+        if not (nom or "").strip() or not get_client(client_id):
+            return False
+        _portee(get_supabase().table("clients").update({
+            "nom": nom.strip(), "siret": siret, "secteur": secteur, "contact": contact, "email": email,
+        }).eq("id", int(client_id))).execute()
+        _log_action("MODIFICATION_CLIENT", _get_current_user_email(), f"ID : {client_id}")
+        return True
+    except Exception as e:
+        logger.error("modifier_client : " + str(e))
+        return False
+
+
 def supprimer_client(client_id) -> bool:
     try:
         sb = get_supabase()
