@@ -162,6 +162,7 @@ page = st.sidebar.selectbox(
     "Navigation",
     [
         "🏠 Accueil",
+        "🗂 Mes dossiers",
         "─── Analyse & Contrôle ───",
         "🧾 Analyse et comptabilisation de factures",
         "📊 Contrôle de balance",
@@ -200,83 +201,24 @@ separateurs = ["─── Analyse & Contrôle ───", "─── États Fina
 if page in separateurs:
     page = "🏠 Accueil"
 
+# Dossier client en cours : les sauvegardes y sont rangées (hors mode démonstration)
+if st.session_state.get("role") != "demo":
+    try:
+        from utils.database import lister_clients
+        _clients = {c[0]: c[1] for c in lister_clients()}
+    except Exception:
+        _clients = {}
+    if st.session_state.get("dossier_id") not in _clients:
+        st.session_state["dossier_id"] = 0          # 0 = aucun dossier
+    st.sidebar.selectbox("📁 Dossier en cours", [0] + list(_clients), key="dossier_id",
+                         format_func=lambda i: _clients.get(i, "Aucun dossier"),
+                         help="Les analyses sauvegardées sont rangées dans ce dossier. Gérez vos dossiers dans 🗂 Mes dossiers.")
+    st.session_state["dossier_nom"] = _clients.get(st.session_state.get("dossier_id"))
+
 st.sidebar.divider()
 
 if st.sidebar.button("Se déconnecter", width="stretch"):
     logout()
-# =============================================================================
-# FONCTIONS UTILITAIRES
-# =============================================================================
-
-def is_demo():
-    """Vérifie si l'utilisateur est en mode démonstration"""
-    return st.session_state.get("role") == "demo"
-
-def banniere_demo():
-    """Affiche une bannière demo si applicable"""
-    if is_demo():
-        st.warning("👀 **Mode Démonstration** — Données fictives uniquement. Sauvegarde désactivée.")
-
-def sauvegarder_si_autorise(type_analyse, resultat):
-    """Sauvegarde uniquement si pas en mode démo"""
-    if is_demo():
-        st.info("💡 Sauvegarde désactivée en mode démonstration.")
-    else:
-        sauvegarder_analyse(type_analyse=type_analyse, resultat=resultat)
-
-def generer_bouton_word(titre, contenu):
-    """Génère un bouton de téléchargement Word sécurisé"""
-    try:
-        texte_final = extraire_contenu_mistral(contenu)
-        buf = export_analyse_word(titre, texte_final)
-        st.download_button(
-            f"📄 Télécharger {titre}", 
-            buf, 
-            f"{sanitize_filename(titre)}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            width="stretch"
-        )
-    except Exception as e:
-        st.warning("⚠ Export Word temporairement indisponible. Copiez le contenu manuellement.")
-
-def appel_mistral_securise(prompt, temperature=0.3, label="analyse"):
-    """Appel Mistral avec fallback et message utilisateur clair"""
-    try:
-        result = appel_mistral(prompt, temperature=temperature)
-        if result["success"]:
-            return result
-        else:
-            st.warning(f"⚠ L'IA est momentanément indisponible pour {label}. Réessayez dans quelques instants.")
-            return {"success": False, "content": "", "error": result.get("error", "")}
-    except Exception as e:
-        st.warning(f"⚠ Connexion IA interrompue pour {label}. Vérifiez votre connexion.")
-        return {"success": False, "content": "", "error": str(e)}
-@st.cache_data(show_spinner=False)
-def _charger_fichier_bytes(file_bytes: bytes, file_name: str, header: int = 0):
-    """Charge un fichier depuis ses bytes (hashable par st.cache_data)."""
-    import io
-    buf = io.BytesIO(file_bytes)
-    try:
-        if est_tableur(file_name):
-            return pd.read_excel(buf, header=header), None
-        elif file_name.endswith('txt'):
-            buf.seek(0)
-            return pd.read_csv(buf, sep='|', encoding='utf-8', header=header), None
-        else:
-            buf.seek(0)
-            return pd.read_csv(buf, sep=None, engine='python', header=header), None
-    except Exception as e:
-        return None, str(e)
-
-
-def charger_fichier(uploaded_file, header=0):
-    """Charge un fichier CSV ou XLSX en DataFrame (cache sur bytes, pas sur UploadedFile)."""
-    try:
-        file_bytes = uploaded_file.getvalue()
-        return _charger_fichier_bytes(file_bytes, uploaded_file.name, header)
-    except Exception as e:
-        return None, str(e)
-
 # =============================================================================
 # PAGES / MODULES
 # =============================================================================
@@ -288,6 +230,10 @@ def charger_fichier(uploaded_file, header=0):
 if page == "\U0001f3e0 Accueil":
     from utils.page_accueil import page_accueil
     page_accueil(_aller_a)
+
+elif page == "🗂 Mes dossiers":
+    from utils.page_dossiers import page_dossiers
+    page_dossiers()
 
 # 2. ANALYSE FACTURE (OCR) - VERSION PROFESSIONNELLE
 # -----------------------------------------------------------------------------

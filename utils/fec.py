@@ -503,11 +503,11 @@ def page_fec():
 
                     st.divider()
 
+                    rapport_complet = rapport_controle_fec(score, niveau, resultats, analyse, anomalies)
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Contrôle FEC", resultat=f"Score : {nb_fr(score, 1)} % – {analyse}", libelle="💾 Sauvegarder le rapport")
+                        bouton_sauvegarde(type_analyse="Contrôle FEC", resultat=rapport_complet, libelle="💾 Sauvegarder le rapport")
                     with col2:
-                        rapport_complet = rapport_controle_fec(score, niveau, resultats, analyse, anomalies)
                         try:
                             ind_w, graph_w = visuels_fec(df, score, niveau, anomalies)
                             generer_bouton_word("Rapport_Controle_FEC", rapport_complet,

@@ -339,11 +339,12 @@ def page_plan_financement():
             afficher_contenu_ia(analyse, "plan_financement")
 
     with col_w:
-        from utils.page_helpers import generer_bouton_word
+        from utils.page_helpers import generer_bouton_word, bouton_sauvegarde
         ind_w, graph_w = visuels_plan_financement(df_r, df_e, annees)
-        generer_bouton_word(f"Plan_de_financement_{entreprise}_{annees[0]}",
-                            rapport_plan_financement(df_r, df_e, annees, entreprise),
+        rapport_w = rapport_plan_financement(df_r, df_e, annees, entreprise)
+        generer_bouton_word(f"Plan_de_financement_{entreprise}_{annees[0]}", rapport_w,
                             indicateurs=ind_w, graphiques=graph_w)
+        bouton_sauvegarde(type_analyse="Plan de financement", resultat=rapport_w, key="save_plan")
 
     with col_xl:
         excel_bytes = _export_excel(df_r, df_e, annees, entreprise)

@@ -123,7 +123,7 @@ def is_connecte() -> bool:
 def logout() -> None:
     """Déconnexion complète."""
     keys = ["authenticated", "user_email", "role", "nom", "plan",
-            "cabinet", "pays_user", "login_time", "tenant_id"]
+            "cabinet", "pays_user", "login_time", "tenant_id", "dossier_id", "dossier_nom", "analyse_ouverte"]
     for key in keys:
         st.session_state.pop(key, None)
     st.rerun()

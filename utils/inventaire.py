@@ -7,6 +7,7 @@ from utils.sig_pcg import nb_fr
 import pandas as pd
 from datetime import datetime
 from utils.page_helpers import champ_exercice, champs_remplis
+from utils.page_helpers import tableau_markdown
 from utils.page_helpers import (
     bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
@@ -70,8 +71,8 @@ def calculer_provision_risque(libelle, montant, probabilite, compte="15"):
     provision = montant * probabilite / 100
     
     ecriture = pd.DataFrame([
-        {'Compte': compte, 'Libellé': f'Provision — {libelle}', 'Débit': round(provision, 2), 'Crédit': 0},
-        {'Compte': '6815', 'Libellé': f'Dotation provision — {libelle}', 'Débit': 0, 'Crédit': round(provision, 2)}
+        {'Compte': '6815', 'Libellé': f'Dotation aux provisions — {libelle}', 'Débit': round(provision, 2), 'Crédit': 0},
+        {'Compte': compte, 'Libellé': f'Provision — {libelle}', 'Débit': 0, 'Crédit': round(provision, 2)}
     ])
     
     return {
@@ -241,6 +242,7 @@ def generer_rapport_inventaire(resultats, exercice):
 
 def _dates_dans_l_ordre(elements_inverses) -> bool:
     """Vrai si aucun élément n'a une date de fin antérieure à sa date de début ; sinon affiche lesquels."""
+    import streamlit as st
     if elements_inverses:
         st.error("La date de fin précède la date de début : élément(s) " + ", ".join(map(str, elements_inverses)) + ".")
         return False
@@ -306,12 +308,17 @@ def page_inventaire():
                 with col1:
                     nom = st.text_input(f"Nom", key=f"client_nom_{i}", placeholder="SARL X")
                 with col2:
-                    montant = st.number_input(f"Montant (€)", min_value=0.0, key=f"client_montant_{i}", value=1000.0)
+                    montant = st.number_input("Montant HT (€)", min_value=0.0, key=f"client_montant_{i}", value=None,
+                                              placeholder="ex. 1 000")
                 with col3:
-                    anciennete = st.number_input(f"Ancienneté (jours)", min_value=0, key=f"client_anc_{i}", value=90)
+                    anciennete = st.number_input("Ancienneté (jours)", min_value=0, key=f"client_anc_{i}", value=None,
+                                                 placeholder="ex. 120")
                 clients_data.append({'Client': nom, 'Montant': montant, 'Ancienneté': anciennete})
+            manquants_cr = [f"{c} (client {i + 1})" for i, d in enumerate(clients_data)
+                            for c, v in (("Montant", d['Montant']), ("Ancienneté", d['Ancienneté'])) if v is None]
 
-            if st.button("⚠ Calculer les provisions", type="primary", width="stretch", key="btn_prov_creances"):
+            if st.button("⚠ Calculer les provisions", type="primary", width="stretch", key="btn_prov_creances") and \
+                    champs_remplis(**{m: None for m in manquants_cr}):
                 df_clients = pd.DataFrame(clients_data)
                 df_resultats, total = calculer_provision_creances(df_clients, taux_douteux, taux_irrecouvrables)
 
@@ -333,7 +340,11 @@ def page_inventaire():
     - Crédit **491** (Provision créances douteuses) : {nb_fr(total, 2)} €
                 """)
 
-                bouton_sauvegarde(type_analyse="Provisions créances", resultat=df_resultats.to_string(), libelle="💾 Sauvegarder", key="save_prov_creances")
+                bouton_sauvegarde(type_analyse="Provisions créances", libelle="💾 Sauvegarder", key="save_prov_creances",
+                                  resultat="\n".join(["# PROVISIONS POUR CRÉANCES DOUTEUSES", "", tableau_markdown(df_resultats), "",
+                                                      f"**Total à provisionner** : {nb_fr(total, 2)} €", "",
+                                                      f"- Débit 6817 (Dotation aux provisions pour créances) : {nb_fr(total, 2)} €",
+                                                      f"- Crédit 491 (Provision pour créances douteuses) : {nb_fr(total, 2)} €"]))
         with sous_onglet2:
             st.markdown("#### 🛡 Provisions pour risques et charges")
             st.caption("Compte 15x — Risques identifiés fin d'exercice")
@@ -342,7 +353,7 @@ def page_inventaire():
             with col1:
                 libelle_risque = st.text_input("📝 Nature du risque", placeholder="Ex: Litige fournisseur")
             with col2:
-                montant_risque = st.number_input("💰 Montant estimé (€)", min_value=0.0, value=5000.0)
+                montant_risque = st.number_input("💰 Montant estimé (€)", min_value=0.0, value=None, placeholder="ex. 5 000")
             with col3:
                 probabilite = st.slider("📊 Probabilité (%)", 0, 100, 70)
 
@@ -354,7 +365,8 @@ def page_inventaire():
                 "158 — Autres provisions pour charges"
             ])
 
-            if st.button("🛡 Calculer la provision", type="primary", width="stretch", key="btn_prov_risque"):
+            if st.button("🛡 Calculer la provision", type="primary", width="stretch", key="btn_prov_risque") and \
+                    champs_remplis(**{"Nature du risque": libelle_risque, "Montant estimé": montant_risque}):
                 compte = compte_prov.split(" — ")[0]
                 result = calculer_provision_risque(libelle_risque, montant_risque, probabilite, compte)
 
@@ -430,7 +442,11 @@ def page_inventaire():
             total_reg = df_reg['Montant régularisé (€)'].sum()
             st.metric("💰 Total à régulariser", f"{nb_fr(total_reg, 2)} €")
 
-            bouton_sauvegarde(type_analyse="Régularisations", resultat=df_reg.to_string(), libelle="💾 Sauvegarder", key="save_reg")
+            bouton_sauvegarde(type_analyse="Régularisations", libelle="💾 Sauvegarder", key="save_reg",
+                              resultat="\n".join([f"# RÉGULARISATIONS DE FIN D'EXERCICE",
+                                                  f"## Clôture au {date_cloture.strftime('%d/%m/%Y')}", "",
+                                                  tableau_markdown(df_reg), "",
+                                                  f"**Total à régulariser** : {nb_fr(total_reg, 2)} €"]))
     # ── ONGLET 3 : STOCKS ──
     with onglet3:
         st.markdown("### 📦 Ajustement des stocks")
@@ -445,11 +461,12 @@ def page_inventaire():
                 "en_cours"
             ])
         with col2:
-            stock_debut = st.number_input("📊 Stock début exercice (€)", min_value=0.0, value=50000.0)
+            stock_debut = st.number_input("📊 Stock début exercice (€)", min_value=0.0, value=None, placeholder="ex. 50 000")
         with col3:
-            stock_fin = st.number_input("📊 Stock fin exercice (€)", min_value=0.0, value=45000.0)
+            stock_fin = st.number_input("📊 Stock fin exercice (€)", min_value=0.0, value=None, placeholder="ex. 45 000")
 
-        if st.button("📦 Calculer la variation", type="primary", width="stretch"):
+        if st.button("📦 Calculer la variation", type="primary", width="stretch") and \
+                champs_remplis(**{"Stock début exercice": stock_debut, "Stock fin exercice": stock_fin}):
             result = calculer_variation_stock(stock_debut, stock_fin, type_stock)
 
             col1, col2, col3 = st.columns(3)
@@ -470,7 +487,10 @@ def page_inventaire():
             st.markdown("### 📚 Écriture comptable")
             st.dataframe(result['ecriture'], width="stretch", hide_index=True)
 
-            bouton_sauvegarde(type_analyse="Variation stock", resultat=f"Stock {type_stock} : variation {nb_fr(result['variation'], 2)} €", libelle="💾 Sauvegarder", key="save_stock")
+            bouton_sauvegarde(type_analyse="Variation stock", libelle="💾 Sauvegarder", key="save_stock",
+                              resultat="\n".join([f"# VARIATION DE STOCK – {type_stock.replace('_', ' ')}", "",
+                                                  f"- **Variation** : {nb_fr(result['variation'], 2)} € ({result['sens']})", "",
+                                                  "## Écriture comptable", "", tableau_markdown(result['ecriture'])]))
     # ── ONGLET 4 : CHECK-LIST CLÔTURE ──
     with onglet4:
         st.markdown("### ✅ Check-list de clôture d'exercice")
@@ -503,20 +523,21 @@ def page_inventaire():
 
             st.divider()
 
+            sans_icone = lambda t: str(t).split(" ", 1)[-1] if str(t)[:1] in "🔴🟡🔵🟢" else str(t)
+            rapport = [f"# CHECK-LIST DE CLÔTURE {exercice}",
+                       "*Délais exprimés en jours avant la date de clôture (J = jour de clôture). "
+                       "Cochez la colonne « Fait » au fur et à mesure.*", ""]
+            for categorie in df_checklist['Catégorie'].unique():
+                rapport += ["", f"## {categorie}", "", "| Tâche | Priorité | Délai | Fait |", "|---|---|:---:|:---:|"]
+                for _, l in df_checklist[df_checklist['Catégorie'] == categorie].iterrows():
+                    rapport.append(f"| {l['Tâche']} | {sans_icone(l['Priorité'])} | {l['Délai']} | ☐ |")
+            rapport = "\n".join(rapport)
+
             col1, col2 = st.columns(2)
             with col1:
-                bouton_sauvegarde(type_analyse="Check-list clôture", resultat=df_checklist.to_string(), libelle="💾 Sauvegarder", key="save_checklist")
+                bouton_sauvegarde(type_analyse="Check-list clôture", resultat=rapport, libelle="💾 Sauvegarder", key="save_checklist")
             with col2:
                 try:
-                    sans_icone = lambda t: str(t).split(" ", 1)[-1] if str(t)[:1] in "🔴🟡🔵🟢" else str(t)
-                    rapport = [f"# CHECK-LIST DE CLÔTURE {exercice}",
-                               "*Délais exprimés en jours avant la date de clôture (J = jour de clôture). "
-                               "Cochez la colonne « Fait » au fur et à mesure.*", ""]
-                    for categorie in df_checklist['Catégorie'].unique():
-                        rapport += ["", f"## {categorie}", "", "| Tâche | Priorité | Délai | Fait |", "|---|---|:---:|:---:|"]
-                        for _, l in df_checklist[df_checklist['Catégorie'] == categorie].iterrows():
-                            rapport.append(f"| {l['Tâche']} | {sans_icone(l['Priorité'])} | {l['Délai']} | ☐ |")
-                    rapport = "\n".join(rapport)
                     ind_w = [{"libelle": "Tâches", "valeur": str(len(df_checklist))},
                              {"libelle": "Critiques", "valeur": str(nb_critique), "ton": "mauvais", "detail": "à faire en priorité"},
                              {"libelle": "Importantes", "valeur": str(nb_important), "detail": ""}]

@@ -339,7 +339,10 @@ def page_veille_fiscale():
                         elif result:
                             st.error(f"❌ {result.get('error') or 'Analyse IA indisponible.'}")
 
-                bouton_sauvegarde(type_analyse="Veille Fiscale France", resultat=str(actualites),
+                bouton_sauvegarde(type_analyse="Veille Fiscale France", resultat="\n".join(
+                                      [f"# VEILLE FISCALE – {datetime.now().strftime('%d/%m/%Y')}", ""] +
+                                      [f"- **{a.get('titre', '')}** ({a.get('source', '')}, {a.get('date', '')})"
+                                       + (f" : {a['lien']}" if a.get('lien') else "") for a in actualites]),
                                   libelle="💾 Sauvegarder la veille")
             else:
                 st.info("ℹ Aucune actualité récente. Consultez directement les sources officielles.")

@@ -761,10 +761,15 @@ Débit  44567 — Crédit de TVA        {nb_fr(res['credit_genere'], 2):>14} €
 
     # ── Export Word ──
     st.divider()
-    from utils.page_helpers import generer_bouton_word
+    from utils.page_helpers import generer_bouton_word, bouton_sauvegarde
     ind_w, graph_w = visuels_tva(res)
-    generer_bouton_word(f"TVA_{entreprise}_{periode.replace('/', '-')}", rapport_tva(res, periode, entreprise, regime),
-                        indicateurs=ind_w, graphiques=graph_w)
+    rapport_w = rapport_tva(res, periode, entreprise, regime)
+    col_s, col_w = st.columns(2)
+    with col_s:
+        bouton_sauvegarde(type_analyse="Déclaration de TVA", resultat=rapport_w, key="save_tva")
+    with col_w:
+        generer_bouton_word(f"TVA_{entreprise}_{periode.replace('/', '-')}", rapport_w,
+                            indicateurs=ind_w, graphiques=graph_w)
 
     # ── Export Excel ──
     try:

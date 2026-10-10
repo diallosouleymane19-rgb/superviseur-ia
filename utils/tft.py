@@ -461,10 +461,11 @@ def page_tft():
 
     col_ia, col_w, col_xl = st.columns(3)
     with col_w:
-        from utils.page_helpers import generer_bouton_word
+        from utils.page_helpers import generer_bouton_word, bouton_sauvegarde
         ind_w, graph_w = visuels_tft(resultats, exercices)
-        generer_bouton_word(f"TFT_{entreprise}_{exercices[-1]}", rapport_tft(data, resultats, exercices, entreprise),
-                            indicateurs=ind_w, graphiques=graph_w)
+        rapport_w = rapport_tft(data, resultats, exercices, entreprise)
+        generer_bouton_word(f"TFT_{entreprise}_{exercices[-1]}", rapport_w, indicateurs=ind_w, graphiques=graph_w)
+        bouton_sauvegarde(type_analyse="Tableau des flux de trésorerie", resultat=rapport_w, key="save_tft")
     with col_ia:
         if st.button("🤖 Analyse IA", type="primary", width="stretch"):
             with st.spinner("Analyse en cours..."):

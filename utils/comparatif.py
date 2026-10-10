@@ -277,6 +277,22 @@ def _style_excel_sheet(ws):
 # PAGE PRINCIPALE
 # ─────────────────────────────────────────────
 
+def rapport_comparatif(entreprise, label_n, label_n1, kpis, alertes, tableaux) -> str:
+    """Rapport texte du comparatif (pour la sauvegarde) : indicateurs, analyse des écarts, tableaux.
+    kpis : (libellé, valeur N, écart €, écart %, hausse_favorable) ; tableaux : [(titre, DataFrame)]."""
+    r = [f"# COMPARATIF {label_n} / {label_n1} – {entreprise}",
+         f"## Exercice {label_n} comparé à l'exercice {label_n1}", "",
+         "## INDICATEURS CLÉS", "", f"| Indicateur | {label_n} | Écart (€) | Écart (%) |", "|---|---:|---:|---:|"]
+    r += [f"| {lib} | {nb_fr(vn)} | {nb_fr_signe(ea)} | {nb_fr_signe(ep, 1)} |" for lib, vn, ea, ep, _ in kpis]
+    r += ["", "## ANALYSE DES ÉCARTS", ""]
+    r += [f"- {msg}" for _, msg in alertes] or ["- Aucune alerte significative détectée."]
+    for titre, df in tableaux:
+        r += ["", f"## {titre}", "", f"| Rubrique | {label_n1} | {label_n} | Écart (€) | Écart (%) |", "|---|---:|---:|---:|---:|"]
+        r += [f"| {x['Rubrique']} | {nb_fr(x[label_n1])} | {nb_fr(x[label_n])} | {nb_fr_signe(x['Écart (€)'])} | "
+              f"{nb_fr_signe(x['Écart (%)'], 1)} |" for _, x in df.iterrows()]
+    return "\n".join(r)
+
+
 def page_comparatif():
     st.title("📊 Comparatif N vs N-1")
     st.markdown("**Comparaison Bilan + Compte de Résultat** entre deux exercices avec analyse des écarts")
@@ -534,6 +550,11 @@ def page_comparatif():
     df_actif_exp = _build_comparatif_df(bilan_n['actif'], bilan_n1['actif'], label_n, label_n1)
     df_passif_exp = _build_comparatif_df(bilan_n['passif'], bilan_n1['passif'], label_n, label_n1)
 
+    from utils.page_helpers import bouton_sauvegarde
+    bouton_sauvegarde(type_analyse="Comparatif N/N-1", key="save_comparatif",
+                      resultat=rapport_comparatif(entreprise, label_n, label_n1, kpis_cdr + kpis_bilan, alertes,
+                                                  [("SOLDES INTERMÉDIAIRES DE GESTION", df_sig),
+                                                   ("ACTIF", df_actif), ("PASSIF", df_passif)]))
     col_w, col_x = st.columns(2)
     with col_w:
         try:

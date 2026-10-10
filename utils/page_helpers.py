@@ -94,13 +94,42 @@ def afficher_contenu_ia(texte: str, cle: str, modele: str = "", masques: int = 0
 # SAUVEGARDE
 # =============================================================================
 
+def tableau_markdown(df, colonnes=None) -> str:
+    """Tableau pandas → tableau Markdown, montants au format français (pour les rapports sauvegardés)."""
+    from utils.sig_pcg import nb_fr
+    df = df[colonnes] if colonnes else df
+    def cel(v):
+        if isinstance(v, bool) or v is None:
+            return "" if v is None else str(v)
+        if isinstance(v, (int, float)):
+            return nb_fr(v, 0 if float(v).is_integer() else 2)
+        return str(v).replace("|", "/").replace("\n", " ")
+    lignes = ["| " + " | ".join(map(str, df.columns)) + " |",
+              "|" + "|".join("---:" if str(t).startswith(("int", "float")) else "---" for t in df.dtypes) + "|"]
+    lignes += ["| " + " | ".join(cel(v) for v in r) + " |" for r in df.itertuples(index=False)]
+    return "\n".join(lignes)
+
+
+def titre_du_rapport(contenu, defaut: str) -> str:
+    """Titre lisible d'un rapport sauvegardé : son premier titre Markdown, complété du sous-titre
+    (« BILAN COMPTABLE – Entreprise · Exercice 2025 ») ; à défaut, le type d'analyse."""
+    import re
+    lignes = [l.strip() for l in str(contenu or "").split("\n") if l.strip()]
+    t1 = next((re.sub(r"^#+\s*", "", l) for l in lignes if re.match(r"^#\s", l)), "")
+    t2 = next((re.sub(r"^#+\s*", "", l) for l in lignes if re.match(r"^##\s", l)), "")
+    nettoie = lambda x: re.sub(r"[*_`]", "", x).strip()
+    titre = " · ".join(x for x in (nettoie(t1), nettoie(t2)) if x)
+    return (titre or defaut)[:150]
+
+
 def sauvegarder_si_autorise(type_analyse: str, resultat) -> bool:
     """Sauvegarde uniquement si pas en mode démo. Retourne True si sauvegardé."""
     if is_demo():
         st.info("💡 Sauvegarde désactivée en mode démonstration.")
         return False
     try:
-        if sauvegarder_analyse(type_analyse=type_analyse, resultat=resultat):
+        if sauvegarder_analyse(type_analyse=type_analyse, resultat=resultat, titre=titre_du_rapport(resultat, type_analyse),
+                               client_id=st.session_state.get("dossier_id") or 0):
             return True
         st.warning("⚠ Sauvegarde impossible : base de données indisponible. Réessayez plus tard.")
         return False
@@ -117,7 +146,9 @@ def bouton_sauvegarde(type_analyse: str, resultat, libelle: str = "💾 Sauvegar
         if is_demo():
             st.toast("💡 Sauvegarde désactivée en mode démonstration.")
         elif sauvegarder_si_autorise(type_analyse=type_analyse, resultat=resultat):
-            st.toast(f"✅ {type_analyse} sauvegardé(e) pour 30 jours.")
+            dossier = st.session_state.get("dossier_nom")
+            st.toast(f"✅ {type_analyse} sauvegardé(e) pour 30 jours"
+                     + (f" dans le dossier « {dossier} »." if dossier else ". Retrouvez-le dans 🗂 Mes dossiers."))
     st.button(libelle, width="stretch", key=key or f"save_{type_analyse}", on_click=_sauver)
 
 

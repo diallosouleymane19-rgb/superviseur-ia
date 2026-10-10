@@ -46,10 +46,11 @@ def _portee(q):
 # =============================================================================
 
 def creer_client(nom: str, siret: str = "", secteur: str = "",
-                 contact: str = "", email: str = "") -> bool:
+                 contact: str = "", email: str = ""):
+    """Crée un dossier client dans le cabinet connecté. Retourne son identifiant, ou False en cas d'échec."""
     try:
         user_email = _get_current_user_email()
-        get_supabase().table("clients").insert({
+        res = get_supabase().table("clients").insert({
             "nom":        nom,
             "siret":      siret,
             "secteur":    secteur,
@@ -59,7 +60,7 @@ def creer_client(nom: str, siret: str = "", secteur: str = "",
             "tenant_id":  _get_current_tenant(),
         }).execute()
         _log_action("CREATION_CLIENT", user_email, f"Client : {nom}")
-        return True
+        return (res.data[0]["id"] if res.data else True)
     except Exception as e:
         logger.error("creer_client : " + str(e))
         return False
@@ -211,6 +212,37 @@ def get_analyse(analyse_id) -> tuple | None:
     except Exception as e:
         logger.error("get_analyse : " + str(e))
         return None
+
+
+def analyses_du_cabinet() -> list:
+    """Analyses sauvegardées du cabinet (ou de l'utilisateur), les plus récentes d'abord :
+    liste de dict {id, client_id, type_analyse, titre, exercice, user_email, created_at, expires_at}."""
+    try:
+        res = _portee(
+            get_supabase().table("analyses")
+            .select("id, client_id, type_analyse, titre, exercice, user_email, created_at, expires_at")
+        ).order("created_at", desc=True).execute()
+        return res.data or []
+    except Exception as e:
+        logger.error("analyses_du_cabinet : " + str(e))
+        return []
+
+
+def rattacher_analyse(analyse_id, client_id) -> bool:
+    """Range une analyse dans un dossier client (client_id None : la sort de tout dossier).
+    Analyse et dossier doivent appartenir au cabinet connecté."""
+    try:
+        if not get_analyse(analyse_id):
+            return False
+        if client_id is not None and not get_client(client_id):
+            return False
+        _portee(get_supabase().table("analyses")
+                .update({"client_id": int(client_id) if client_id is not None else None})
+                .eq("id", int(analyse_id))).execute()
+        return True
+    except Exception as e:
+        logger.error("rattacher_analyse : " + str(e))
+        return False
 
 
 def supprimer_analyse(analyse_id) -> bool:
