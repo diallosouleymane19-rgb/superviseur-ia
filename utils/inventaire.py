@@ -103,34 +103,23 @@ def calculer_regularisations(charges_produits):
         date_fin = item.get('date_fin')
         date_cloture = item.get('date_cloture')
 
-        # Calcul prorata
-        duree_totale = (date_fin - date_debut).days
-        duree_avant_cloture = (date_cloture - date_debut).days
-        duree_apres_cloture = (date_fin - date_cloture).days
-
+        # Prorata en jours, bornes incluses : du 01/07 au 30/06 = 365 jours ; part de l'exercice = du début à la clôture incluse
+        duree_totale = (date_fin - date_debut).days + 1
+        avant = min(max((date_cloture - date_debut).days + 1, 0), duree_totale)
         if duree_totale > 0:
-            montant_exercice = montant * duree_avant_cloture / duree_totale
-            montant_regularise = montant * duree_apres_cloture / duree_totale
+            montant_exercice = montant * avant / duree_totale
         else:
             montant_exercice = montant
-            montant_regularise = 0
+        montant_suivant = montant - montant_exercice
 
-        if type_reg == "CCA":
-            compte_regularisation = "486"
-            libelle_compte = "Charges constatées d'avance"
-            compte_contrepartie = "6xx"
-        elif type_reg == "PCA":
-            compte_regularisation = "487"
-            libelle_compte = "Produits constatés d'avance"
-            compte_contrepartie = "7xx"
-        elif type_reg == "CAP":
-            compte_regularisation = "408"
-            libelle_compte = "Charges à payer"
-            compte_contrepartie = "6xx"
-        else:  # PAR
-            compte_regularisation = "418"
-            libelle_compte = "Produits à recevoir"
-            compte_contrepartie = "7xx"
+        # CCA / PCA : on retire la part de l'exercice suivant ; CAP / PAR : on rattache la part de l'exercice
+        comptes = {
+            "CCA": ("486", "Charges constatées d'avance", montant_suivant, "Débit 486 / Crédit 6xx"),
+            "PCA": ("487", "Produits constatés d'avance", montant_suivant, "Débit 7xx / Crédit 487"),
+            "CAP": ("408", "Charges à payer", montant_exercice, "Débit 6xx / Crédit 408 (ou 428, 438…)"),
+            "PAR": ("418", "Produits à recevoir", montant_exercice, "Débit 418 / Crédit 7xx"),
+        }
+        compte_regularisation, libelle_compte, montant_regularise, ecriture = comptes.get(type_reg, comptes["PAR"])
 
         resultats.append({
             'Type': type_reg,
@@ -139,7 +128,8 @@ def calculer_regularisations(charges_produits):
             'Part exercice (€)': round(montant_exercice, 2),
             'Montant régularisé (€)': round(montant_regularise, 2),
             'Compte': compte_regularisation,
-            'Libellé compte': libelle_compte
+            'Libellé compte': libelle_compte,
+            'Écriture': ecriture,
         })
 
     return pd.DataFrame(resultats)
@@ -247,6 +237,14 @@ def generer_rapport_inventaire(resultats, exercice):
     rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
     return "\n".join(rapport)
 
+
+
+def _dates_dans_l_ordre(elements_inverses) -> bool:
+    """Vrai si aucun élément n'a une date de fin antérieure à sa date de début ; sinon affiche lesquels."""
+    if elements_inverses:
+        st.error("La date de fin précède la date de début : élément(s) " + ", ".join(map(str, elements_inverses)) + ".")
+        return False
+    return True
 
 
 def page_inventaire():
@@ -391,7 +389,7 @@ def page_inventaire():
 
         nb_elements = st.number_input("Nombre d'éléments à régulariser", min_value=1, max_value=10, value=2)
 
-        elements = []
+        elements, manquants_reg, dates_inversees = [], [], []
         for i in range(int(nb_elements)):
             st.markdown(f"**Élément {i+1}**")
             col1, col2, col3, col4, col5 = st.columns(5)
@@ -400,23 +398,30 @@ def page_inventaire():
             with col2:
                 lib = st.text_input("Libellé", key=f"lib_{i}", placeholder="Ex: Assurance")
             with col3:
-                montant = st.number_input("Montant (€)", min_value=0.0, key=f"mont_{i}", value=1200.0)
+                montant = st.number_input("Montant (€)", min_value=0.0, key=f"mont_{i}", value=None, placeholder="ex. 1 200")
             with col4:
-                date_debut = st.date_input("Début", key=f"deb_{i}")
+                date_debut = st.date_input("Début", key=f"deb_{i}", value=None, format="DD/MM/YYYY")
             with col5:
-                date_fin = st.date_input("Fin", key=f"fin_{i}")
+                date_fin = st.date_input("Fin", key=f"fin_{i}", value=None, format="DD/MM/YYYY")
 
-            elements.append({
-                'type': type_reg,
-                'libelle': lib,
-                'montant_total': montant,
-                'date_debut': datetime.combine(date_debut, datetime.min.time()),
-                'date_fin': datetime.combine(date_fin, datetime.min.time()),
-                'date_cloture': datetime.combine(date_cloture, datetime.min.time()) if date_cloture else None
-            })
+            manquants_reg += [f"{nom} (élément {i + 1})" for nom, v in
+                              (("Montant", montant), ("Début", date_debut), ("Fin", date_fin)) if v is None]
+            if date_debut and date_fin and date_fin < date_debut:
+                dates_inversees.append(i + 1)
+            if montant is not None and date_debut and date_fin:
+                elements.append({
+                    'type': type_reg,
+                    'libelle': lib,
+                    'montant_total': montant,
+                    'date_debut': datetime.combine(date_debut, datetime.min.time()),
+                    'date_fin': datetime.combine(date_fin, datetime.min.time()),
+                    'date_cloture': datetime.combine(date_cloture, datetime.min.time()) if date_cloture else None
+                })
 
         if st.button("🔄 Calculer les régularisations", type="primary", width="stretch") and \
-                champs_remplis(**{"Date de clôture de l'exercice": date_cloture}):
+                champs_remplis(**{"Date de clôture de l'exercice": date_cloture},
+                               **{m: None for m in manquants_reg}) and \
+                _dates_dans_l_ordre(dates_inversees):
             df_reg = calculer_regularisations(elements)
 
             st.markdown("## 📊 Résultats des régularisations")

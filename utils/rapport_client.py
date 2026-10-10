@@ -3,6 +3,7 @@
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import pandas as pd
 from datetime import datetime
+from utils.page_helpers import champ_exercice, champs_remplis
 from utils.page_helpers import (
     bouton_sauvegarde,
     sauvegarder_si_autorise, generer_bouton_word, charger_fichier,
@@ -59,7 +60,8 @@ def visuels_rapport_client(kpis):
     return ind, [g]
 
 
-def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observations="", objectifs=""):
+def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observations="", objectifs="",
+                           secteur="", date_rapport=None):
     """Génère un rapport client professionnel"""
     
     # Analyse
@@ -74,8 +76,10 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     rapport.append(f"## {nom_client}")
     rapport.append(f"### Période : {periode} · Exercice {exercice}")
     rapport.append(f"")
-    rapport.append(f"**Date d'édition** : {datetime.now().strftime('%d/%m/%Y')}")
+    rapport.append(f"**Date du rapport** : {(date_rapport or datetime.now()).strftime('%d/%m/%Y')}")
     rapport.append(f"**SIRET** : {siret if siret else 'Non renseigné'}")
+    if secteur:
+        rapport.append(f"**Secteur d'activité** : {secteur}")
     rapport.append("")
     rapport.append("---")
     rapport.append("")
@@ -235,8 +239,8 @@ def page_rapport_client():
 
     with col2:
         periode = st.selectbox("📆 Période", ["Mensuel", "Trimestriel", "Semestriel", "Annuel"])
-        exercice = st.number_input("📅 Exercice", min_value=2020, max_value=2030, value=2026)
-        date_rapport = st.date_input("📋 Date du rapport")
+        exercice = champ_exercice(key="rc_exercice")
+        date_rapport = st.date_input("📋 Date du rapport", format="DD/MM/YYYY")
 
     st.divider()
 
@@ -332,73 +336,73 @@ def page_rapport_client():
 
     st.divider()
 
-    if st.button("📋 Générer le Rapport Client", type="primary", width="stretch"):
-        if not nom_client:
-            st.error("⚠ Veuillez renseigner le nom du client")
-        else:
-            from utils.rapport_client import generer_rapport_client, analyser_donnees_client
+    if st.button("📋 Générer le Rapport Client", type="primary", width="stretch") and \
+            champs_remplis(**{"Nom du client": nom_client, "Exercice": exercice}):
+        from utils.rapport_client import generer_rapport_client, analyser_donnees_client
 
-            df_analyse = df if df is not None else pd.DataFrame()
+        df_analyse = df if df is not None else pd.DataFrame()
 
-            with st.spinner("Génération du rapport..."):
-                rapport = generer_rapport_client(
-                    nom_client=nom_client,
-                    siret=siret,
-                    periode=periode,
-                    exercice=exercice,
-                    donnees=df_analyse,
-                    observations=observations,
-                    objectifs=objectifs
-                )
+        with st.spinner("Génération du rapport..."):
+            rapport = generer_rapport_client(
+                nom_client=nom_client,
+                siret=siret,
+                periode=periode,
+                exercice=exercice,
+                donnees=df_analyse,
+                observations=observations,
+                objectifs=objectifs,
+                secteur=secteur,
+                date_rapport=date_rapport,
+            )
 
-                if df is not None and 'CompteNum' in df.columns:
-                    kpis = analyser_donnees_client(df)
+            if df is not None and 'CompteNum' in df.columns:
+                kpis = analyser_donnees_client(df)
 
-                    if kpis.get('chiffre_affaires', 0) > 0:
-                        st.markdown("## 📊 Aperçu KPIs Client")
+                if kpis.get('chiffre_affaires', 0) > 0:
+                    st.markdown("## 📊 Aperçu KPIs Client")
 
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            st.metric("CA", f"{_eur(kpis['chiffre_affaires'])}")
-                        with col2:
-                            rn = kpis['resultat_net']
-                            st.metric("Résultat Net", f"{_eur(rn)}",
-                                     delta="Bénéfice" if rn > 0 else "Déficit",
-                                     delta_color="normal" if rn > 0 else "inverse")
-                        with col3:
-                            st.metric("EBE", f"{_eur(kpis['ebe'])}")
-                        with col4:
-                            st.metric("Trésorerie nette", f"{_eur(kpis['tresorerie'])}")
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("CA", f"{_eur(kpis['chiffre_affaires'])}")
+                    with col2:
+                        rn = kpis['resultat_net']
+                        st.metric("Résultat Net", f"{_eur(rn)}",
+                                 delta="Bénéfice" if rn > 0 else "Déficit",
+                                 delta_color="normal" if rn > 0 else "inverse")
+                    with col3:
+                        st.metric("EBE", f"{_eur(kpis['ebe'])}")
+                    with col4:
+                        st.metric("Trésorerie nette", f"{_eur(kpis['tresorerie'])}")
 
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            st.metric("Marge nette", f"{_pct(kpis['taux_rentabilite'])}")
-                        with col2:
-                            st.metric("Taux d'EBE", f"{_pct(kpis['taux_ebe'])}")
-                        with col3:
-                            st.metric("Taux de VA", f"{_pct(kpis['taux_va'])}")
-                        with col4:
-                            st.metric("Charges de personnel / CA", f"{_pct(kpis['poids_charges_personnel'])}")
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Marge nette", f"{_pct(kpis['taux_rentabilite'])}")
+                    with col2:
+                        st.metric("Taux d'EBE", f"{_pct(kpis['taux_ebe'])}")
+                    with col3:
+                        st.metric("Taux de VA", f"{_pct(kpis['taux_va'])}")
+                    with col4:
+                        st.metric("Charges de personnel / CA", f"{_pct(kpis['poids_charges_personnel'])}")
 
-                        st.divider()
+                    st.divider()
 
-                st.markdown("## 📄 Rapport Généré")
-                with st.container():
-                    afficher_rapport(rapport, afficher_kpis_auto=True, afficher_alertes_auto=True, afficher_tables_auto=True, compact=True)
+            st.markdown("## 📄 Rapport Généré")
+            with st.container():
+                afficher_rapport(rapport, afficher_kpis_auto=True, afficher_alertes_auto=True, afficher_tables_auto=True, compact=True)
 
-                st.divider()
+            st.divider()
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    bouton_sauvegarde(type_analyse="Rapport Client", resultat=rapport, libelle="💾 Sauvegarder")
-                with col2:
-                    try:
-                        nom_fichier = f"Rapport_{nom_client.replace(' ', '_')}_{periode}_{exercice}"
-                        kpis_w = analyser_donnees_client(df) if df is not None and 'CompteNum' in df.columns else None
-                        ind_w, graph_w = visuels_rapport_client(kpis_w)
-                        generer_bouton_word(nom_fichier, rapport, indicateurs=ind_w, graphiques=graph_w)
-                    except Exception as e:
-                        st.error(f"Erreur : {e}")
+            col1, col2 = st.columns(2)
+            with col1:
+                bouton_sauvegarde(type_analyse="Rapport Client", resultat=rapport, libelle="💾 Sauvegarder")
+            with col2:
+                try:
+                    nom_fichier = f"Rapport_{nom_client.replace(' ', '_')}_{periode}_{exercice}"
+                    kpis_w = analyser_donnees_client(df) if df is not None and 'CompteNum' in df.columns else None
+                    ind_w, graph_w = visuels_rapport_client(kpis_w)
+                    generer_bouton_word(nom_fichier, rapport, indicateurs=ind_w, graphiques=graph_w)
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
 
     # -----------------------------------------------------------------------------
     # 10. ALERTES & ANOMALIES - VERSION PROFESSIONNELLE
