@@ -22,8 +22,12 @@ def sanitize_filename(s: str, max_len: int = 80) -> str:
     s = s.replace('/', '').replace('\\', '')
     # Remplacer les espaces par underscores
     s = s.replace(' ', '_')
-    # Supprimer les caracteres non-ASCII dangereux dans les noms de fichiers
+    # Lettres accentuées -> sans accent : Streamlit remplace un nom de fichier non ASCII par un code illisible
+    import unicodedata
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+    # Autres caractères spéciaux -> « _ », sans répétition
     s = re.sub(r'[^\w\-.]', '_', s)
+    s = re.sub(r'_{2,}', '_', s).strip('_')
     # Limiter la longueur
     s = s[:max_len]
     # Fallback si vide apres nettoyage

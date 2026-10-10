@@ -5,6 +5,7 @@ Saisie manuelle + Import balance | Analyse IA Mistral | Export Excel
 """
 from utils.sig_pcg import nb_fr
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
+from utils.security import sanitize_filename
 import streamlit as st
 import pandas as pd
 from io import BytesIO
@@ -340,7 +341,7 @@ def page_plan_financement():
     with col_w:
         from utils.page_helpers import generer_bouton_word
         ind_w, graph_w = visuels_plan_financement(df_r, df_e, annees)
-        generer_bouton_word(f"Plan_Financement_{entreprise}_{annees[0]}",
+        generer_bouton_word(f"Plan_de_financement_{entreprise}_{annees[0]}",
                             rapport_plan_financement(df_r, df_e, annees, entreprise),
                             indicateurs=ind_w, graphiques=graph_w)
 
@@ -349,7 +350,7 @@ def page_plan_financement():
         st.download_button(
             "📥 Exporter Excel",
             data=excel_bytes,
-            file_name=f"Plan_Financement_{entreprise}_{annees[0]}.xlsx",
+            file_name=sanitize_filename(f"Plan_de_financement_{entreprise}_{annees[0]}") + ".xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             width="stretch",
         )

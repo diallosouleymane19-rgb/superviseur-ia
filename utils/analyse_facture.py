@@ -244,7 +244,7 @@ def page_analyse_facture():
 
         e1, e2, e3 = st.columns(3)
         e1.download_button("Télécharger les écritures (format FEC)", export_fec(retenus).encode("utf-8"),
-                           file_name=f"ecritures_factures_{datetime.now():%Y%m%d}.txt", mime="text/plain",
+                           file_name=f"Ecritures_factures_{datetime.now():%Y%m%d}.txt", mime="text/plain",
                            width="stretch")
         rapport = _rapport(resultats)
         with e2:

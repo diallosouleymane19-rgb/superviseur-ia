@@ -7,6 +7,7 @@ SMD Global Consulting LLC - DGFiP / PCG France
 from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 from utils.page_helpers import champs_remplis
+from utils.security import sanitize_filename
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -771,7 +772,7 @@ Débit  44567 — Crédit de TVA        {nb_fr(res['credit_genere'], 2):>14} €
         st.download_button(
             label="📥 Télécharger Excel Déclaration TVA",
             data=excel,
-            file_name=f"TVA_{entreprise}_{periode.replace('/', '-')}.xlsx",
+            file_name=sanitize_filename(f"TVA_{entreprise}_{periode.replace('/', '-')}") + ".xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             width="stretch",
         )
@@ -785,7 +786,7 @@ Débit  44567 — Crédit de TVA        {nb_fr(res['credit_genere'], 2):>14} €
         st.download_button(
             label=f"📄 Télécharger le formulaire {type_decl} (PDF DGFiP)",
             data=pdf_bytes,
-            file_name=f"{type_decl}_{entreprise}_{periode.replace('/', '-')}.pdf",
+            file_name=sanitize_filename(f"{type_decl}_{entreprise}_{periode.replace('/', '-')}") + ".pdf",
             mime="application/pdf",
             width="stretch",
             type="primary",

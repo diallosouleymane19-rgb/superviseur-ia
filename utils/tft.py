@@ -6,6 +6,7 @@ Horizon 1 à 3 exercices comparatifs
 """
 from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
+from utils.security import sanitize_filename
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -476,7 +477,7 @@ def page_tft():
         st.download_button(
             "📥 Exporter Excel",
             data=excel_bytes,
-            file_name=f"TFT_{entreprise}_{exercices[-1]}.xlsx",
+            file_name=sanitize_filename(f"TFT_{entreprise}_{exercices[-1]}") + ".xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             width="stretch",
         )

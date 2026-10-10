@@ -7,6 +7,7 @@ SMD Global Consulting LLC - PCG France
 from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 from utils.page_helpers import champ_exercice, champs_remplis
+from utils.security import sanitize_filename
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -539,7 +540,7 @@ def page_comparatif():
             st.download_button(
                 label="📄 Télécharger le rapport Word (graphiques et indicateurs)",
                 data=word.getvalue(),
-                file_name=f"Comparatif_{entreprise}_{label_n}_vs_{label_n1}.docx",
+                file_name=sanitize_filename(f"Comparatif_{entreprise}_{label_n}_vs_{label_n1}") + ".docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 width="stretch",
                 type="primary"
@@ -555,7 +556,7 @@ def page_comparatif():
             st.download_button(
                 label="📥 Télécharger les tableaux Excel",
                 data=excel_bytes,
-                file_name=f"Comparatif_{entreprise}_{label_n}_vs_{label_n1}.xlsx",
+                file_name=sanitize_filename(f"Comparatif_{entreprise}_{label_n}_vs_{label_n1}") + ".xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 width="stretch"
             )
