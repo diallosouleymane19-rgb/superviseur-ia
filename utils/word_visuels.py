@@ -128,10 +128,14 @@ def _png(fig):
 
 
 def _etiquettes(ax, barres, fmt=nb_fr, taille=6.5):
+    negatif = False
     for r in barres:
         h = r.get_height()
+        negatif |= h < 0
         ax.annotate(fmt(h), (r.get_x() + r.get_width() / 2, h), xytext=(0, 3 if h >= 0 else -10),
                     textcoords="offset points", ha="center", fontsize=taille, color="#333333")
+    # marge haute et basse : les étiquettes ne touchent ni le titre ni les libellés de l'axe
+    ax.margins(y=0.14 if negatif else 0.08)
 
 
 def _axe_x(ax, libelles, largeur=14):
@@ -197,16 +201,28 @@ def barres_et_courbe(libelles, barres, courbe, titre):
     fig, ax = _axes(titre, 3.6)
     n = len(barres)
     l = 0.8 / max(n, 1)
+    sommets = [[] for _ in libelles]   # hauteur des barres à chaque position
     for k, (nom, vals, coul) in enumerate(barres):
         b = ax.bar([i + (k - (n - 1) / 2) * l for i in range(len(libelles))], vals, l * 0.95, color=coul, label=nom)
         _etiquettes(ax, b)
+        for i, v in enumerate(vals):
+            sommets[i].append(v)
     if courbe:
         nom, vals = courbe
         ax.plot(range(len(libelles)), vals, color=COULEUR_REFERENCE, linewidth=2, marker="o", markersize=5,
                 label=nom)
+        tout = [v for s_ in sommets for v in s_] + list(vals)
+        etendue = (max(tout) - min(min(tout), 0)) or 1
+        for i, v in enumerate(vals):
+            # point proche du haut d'une barre : étiquette au-dessus de celle de la barre ; sinon à droite du point
+            proche = any(abs(v - h) < 0.08 * etendue for h in sommets[i])
+            ax.annotate(nb_fr(v), (i, v), xytext=(0, 13) if proche else (9, 3), textcoords="offset points",
+                        fontsize=6.5, ha="center" if proche else "left", color=COULEUR_REFERENCE, fontweight="bold",
+                        bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.85))
+        ax.margins(y=0.12)
     _axe_x(ax, libelles)
     _axe_euros(ax)
-    ax.legend(frameon=False, fontsize=8, ncol=3, loc="upper right", bbox_to_anchor=(1, 1.14))
+    ax.legend(frameon=False, fontsize=8, ncol=4, loc="upper center", bbox_to_anchor=(0.5, -0.12))
     return _png(fig)
 
 

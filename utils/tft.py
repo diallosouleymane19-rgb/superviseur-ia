@@ -273,6 +273,73 @@ Sois concis et professionnel."""
 
 # ─── Page principale ─────────────────────────────────────────────────────────
 
+def exercices_renseignes(resultats: dict, exercices: list) -> list:
+    """Exercices comportant au moins un montant (le dernier est toujours gardé)."""
+    utiles = [ex for ex in exercices if any(abs(v) > 0.005 for v in resultats[ex].values())]
+    return utiles or exercices[-1:]
+
+
+def rapport_tft(data: dict, resultats: dict, exercices: list, entreprise: str) -> str:
+    """Rapport du TFT (Markdown) : flux par section, synthèse, lecture.
+    Seuls les exercices renseignés sont repris (un exercice sans aucun montant n'est pas un exercice à flux nuls)."""
+    from datetime import datetime
+    exercices = exercices_renseignes(resultats, exercices)
+    r = [f"# TABLEAU DES FLUX DE TRÉSORERIE – {entreprise}",
+         f"## Exercice{'s' if len(exercices) > 1 else ''} {', '.join(exercices)}",
+         f"*Méthode indirecte, modèle OEC · édité le {datetime.now().strftime('%d/%m/%Y')} · montants en euros*",
+         "", "---", ""]
+    noms_flux = {K_OP: "Flux activité (I)", K_INV: "Flux investissement (II)", K_FIN: "Flux financement (III)"}
+    for section, info in TFT_STRUCTURE.items():
+        num, _, titre = section.partition(". ")
+        r += [f"## {num}. {titre[:1]}{titre[1:].lower()}", "", "| Poste | " + " | ".join(exercices) + " |",
+              "|---|" + "---:|" * len(exercices)]
+        for lib, _ in info["lignes"]:
+            vals = [float(data.get(lib, {}).get(ex, 0) or 0) for ex in exercices]
+            if any(vals):
+                r.append(f"| {lib} | " + " | ".join(nb_fr(v) for v in vals) + " |")
+        tot = [resultats[ex][noms_flux[section]] for ex in exercices]
+        r += [f"| **Total** | " + " | ".join(f"**{nb_fr(v)}**" for v in tot) + " |", ""]
+    r += ["## Synthèse", "", "| | " + " | ".join(exercices) + " |", "|---|" + "---:|" * len(exercices)]
+    for cle in ("Flux activité (I)", "Flux investissement (II)", "Flux financement (III)",
+                "Variation nette (I+II+III)", "Trésorerie ouverture", "Trésorerie clôture"):
+        g = "**" if cle in ("Variation nette (I+II+III)", "Trésorerie clôture") else ""
+        r.append(f"| {g}{cle}{g} | " + " | ".join(f"{g}{nb_fr(resultats[ex][cle])}{g}" for ex in exercices) + " |")
+    d = resultats[exercices[-1]]
+    r += ["", "## Lecture", ""]
+    r.append(f"- **Activité** : {'génère' if d['Flux activité (I)'] >= 0 else 'consomme'} "
+             f"{nb_fr(abs(d['Flux activité (I)']))} € de trésorerie en {exercices[-1]}.")
+    if d['Flux activité (I)'] + d['Flux investissement (II)'] < 0:
+        r.append("- **Les investissements ne sont pas couverts par l'activité** : ils sont financés par la trésorerie "
+                 "existante ou par le financement externe.")
+    if d['Trésorerie clôture'] < 0:
+        r.append("- **Trésorerie de clôture négative** : besoin de financement à court terme.")
+    r += ["", "---", "*SMD Global Consulting LLC - Superviseur IA Comptable*"]
+    return "\n".join(r)
+
+
+def visuels_tft(resultats: dict, exercices: list):
+    """Indicateurs et graphique pour l'export Word (mêmes chiffres qu'à l'écran)."""
+    from utils.word_visuels import barres_et_courbe, COULEUR_N, COULEUR_N1, COULEUR_ORANGE
+    exercices = exercices_renseignes(resultats, exercices)
+    d = resultats[exercices[-1]]
+    signe = lambda x: ("+" if x > 0 else "") + nb_fr(x) + " €"
+    ind = [{"libelle": f"Flux d'activité {exercices[-1]}", "valeur": signe(d['Flux activité (I)']),
+            "ton": "bon" if d['Flux activité (I)'] >= 0 else "mauvais", "detail": ""},
+           {"libelle": "Flux d'investissement", "valeur": signe(d['Flux investissement (II)'])},
+           {"libelle": "Flux de financement", "valeur": signe(d['Flux financement (III)'])},
+           {"libelle": "Variation de trésorerie", "valeur": signe(d['Variation nette (I+II+III)'])},
+           {"libelle": "Trésorerie de clôture", "valeur": nb_fr(d['Trésorerie clôture']) + " €",
+            "ton": "bon" if d['Trésorerie clôture'] >= 0 else "mauvais",
+            "detail": "positive" if d['Trésorerie clôture'] >= 0 else "négative"}]
+    g = barres_et_courbe(exercices,
+                         [("Activité", [resultats[e]['Flux activité (I)'] for e in exercices], COULEUR_N),
+                          ("Investissement", [resultats[e]['Flux investissement (II)'] for e in exercices], COULEUR_N1),
+                          ("Financement", [resultats[e]['Flux financement (III)'] for e in exercices], COULEUR_ORANGE)],
+                         ("Trésorerie de clôture", [resultats[e]['Trésorerie clôture'] for e in exercices]),
+                         "Flux de trésorerie et trésorerie de clôture")
+    return ind, [g]
+
+
 def page_tft():
     st.title("💹 Tableau de Flux de Trésorerie")
     st.markdown("*Méthode indirecte — modèle OEC — PCG France*")
@@ -282,11 +349,15 @@ def page_tft():
     with col1:
         entreprise = st.text_input("Entreprise", value="Mon Entreprise")
     with col2:
-        annee_ref = st.number_input("Exercice de référence", value=pd.Timestamp.now().year - 1,
+        annee_ref = st.number_input("Exercice de référence", value=None, placeholder="ex. 2025",
                                      min_value=2000, max_value=2050, step=1)
     with col3:
         nb_ex = st.slider("Exercices comparatifs", 1, 3, 2)
 
+    if annee_ref is None:
+        st.info("Saisissez l'exercice de référence pour construire le tableau de flux de trésorerie.")
+        return
+    annee_ref = int(annee_ref)
     exercices = [str(annee_ref - i) for i in range(nb_ex - 1, -1, -1)]
     st.caption(f"Exercices : {' | '.join(exercices)}")
     st.divider()
@@ -342,7 +413,7 @@ def page_tft():
         df_section = pd.DataFrame([r for _, r in rows])
         edited = st.data_editor(
             df_section, width="stretch", hide_index=True,
-            column_config={ex: st.column_config.NumberColumn(ex, format="%.0f €")
+            column_config={ex: st.column_config.NumberColumn(f"{ex} (€)", format="localized")
                            for ex in exercices},
             key=f"tft_{section[:15]}"
         )
@@ -359,7 +430,7 @@ def page_tft():
         treso_rows[0][ex] = data.get("Trésorerie à l'ouverture", {}).get(ex, 0.0)
     df_treso = pd.DataFrame(treso_rows)
     edited_t = st.data_editor(df_treso, width="stretch", hide_index=True,
-                               column_config={ex: st.column_config.NumberColumn(ex, format="%.0f €")
+                               column_config={ex: st.column_config.NumberColumn(f"{ex} (€)", format="localized")
                                               for ex in exercices},
                                key="tft_treso")
     if "Trésorerie à l'ouverture" not in data:
@@ -387,7 +458,12 @@ def page_tft():
     st.plotly_chart(_chart_tft(resultats, exercices), width="stretch")
     st.divider()
 
-    col_ia, col_xl = st.columns(2)
+    col_ia, col_w, col_xl = st.columns(3)
+    with col_w:
+        from utils.page_helpers import generer_bouton_word
+        ind_w, graph_w = visuels_tft(resultats, exercices)
+        generer_bouton_word(f"TFT_{entreprise}_{exercices[-1]}", rapport_tft(data, resultats, exercices, entreprise),
+                            indicateurs=ind_w, graphiques=graph_w)
     with col_ia:
         if st.button("🤖 Analyse IA", type="primary", width="stretch"):
             with st.spinner("Analyse en cours..."):

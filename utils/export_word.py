@@ -131,6 +131,17 @@ def _cellules(ligne):
     return [c.strip() for c in ligne.strip().strip("|").split("|")]
 
 
+def largeurs_colonnes(rangs, n, utile=16.0):
+    """Largeurs (cm) proportionnelles au texte le plus long de chaque colonne, bornées :
+    une colonne longue ne dépasse pas 45 caractères de poids, une courte en garde au moins 6."""
+    poids = []
+    for j in range(n):
+        lmax = max((len(str(r[j]).replace("**", "")) for r in rangs if j < len(r)), default=0)
+        poids.append(min(max(lmax, 7), 45) + 2)   # + 2 : marges intérieures de la cellule
+    total = sum(poids) or 1
+    return [utile * p / total for p in poids]
+
+
 def _tableau(doc, lignes):
     """Tableau Markdown (| a | b |) → tableau Word ; alignement à droite repris de |---:|."""
     rangs = [_cellules(l) for l in lignes]
@@ -157,16 +168,7 @@ def _tableau(doc, lignes):
                 run.font.size = Pt(9.5)
     from docx.shared import Cm
     from utils.word_visuels import largeurs, garder_ensemble
-    utile = 16.0   # largeur utile en cm (A4, marges de 2,5 cm)
-    longueur_1 = max((len(r[0]) for r in rangs if r), default=0)
-    if n == 1:
-        cols = [utile]
-    elif longueur_1 <= 10:   # première colonne courte (chiffre, code) : colonnes égales
-        cols = [utile / n] * n
-    else:
-        premiere = min(max(utile * 0.40, 5.0), utile - 2.2 * (n - 1))
-        cols = [premiere] + [(utile - premiere) / (n - 1)] * (n - 1)
-    largeurs(t, [Cm(c) for c in cols])
+    largeurs(t, [Cm(c) for c in largeurs_colonnes(rangs, n)])
     if len(t.rows) <= 30:   # un tableau court ne se coupe pas entre deux pages
         garder_ensemble(t)
     doc.add_paragraph()
@@ -269,6 +271,30 @@ def _sans_signature(texte):
     return "\n".join(lignes)
 
 
+def _titre_nu(texte):
+    """Titre sans emoji ni ponctuation de tête, en majuscules : « 📊 Synthèse exécutive » → « SYNTHÈSE EXÉCUTIVE »."""
+    return re.sub(r"^[^\wÀ-ÿ]+", "", texte.replace("**", "")).strip().upper()
+
+
+def _retirer_sections(texte, titres):
+    """Retire du Markdown les sections dont le titre figure dans « titres » (déjà présentées par les indicateurs) :
+    du titre jusqu'au titre suivant de même niveau ou de niveau supérieur."""
+    cibles = {_titre_nu(t) for t in titres}
+    sortie, niveau_coupe = [], None
+    for ligne in str(texte).split("\n"):
+        m = re.match(r"^\s*(#{1,6})\s+(.*?)\s*#*\s*$", ligne)
+        if m:
+            niveau = len(m.group(1))
+            if niveau_coupe is not None and niveau <= niveau_coupe:
+                niveau_coupe = None
+            if niveau_coupe is None and _titre_nu(m.group(2)) in cibles:
+                niveau_coupe = niveau
+                continue
+        if niveau_coupe is None:
+            sortie.append(ligne)
+    return "\n".join(sortie)
+
+
 def _separer_chapeau(texte):
     """Sépare l'en-tête du rapport du reste, pour placer les indicateurs et graphiques juste après.
     En-tête : titre « # » ; juste après, un sous-titre « ## » éventuellement suivi d'une ligne « ### » ;
@@ -291,6 +317,20 @@ def _separer_chapeau(texte):
         else:
             break
     return "\n".join(lignes[:i]), "\n".join(lignes[i:])
+
+
+def _retirer_paragraphes_vides_finaux(doc):
+    """Supprime les paragraphes vides en fin de document : ils peuvent créer une dernière page blanche."""
+    corps = doc.element.body
+    while True:
+        derniers = [e for e in corps if e.tag.endswith("}p") or e.tag.endswith("}tbl")]
+        if not derniers or not derniers[-1].tag.endswith("}p"):
+            break
+        p = derniers[-1]
+        texte = "".join(t.text or "" for t in p.iter() if t.tag.endswith("}t"))
+        if texte.strip() or any(e.tag.endswith("}drawing") for e in p.iter()):
+            break
+        corps.remove(p)
 
 
 def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice="", ia=None,
@@ -335,6 +375,7 @@ def export_analyse_word(titre_analyse, contenu_texte, nom_client="", exercice=""
     if ia:
         marquer_docx_ia(doc, ia.get("mention", ""), ia.get("modele", ""), ia.get("date", ""))
 
+    _retirer_paragraphes_vides_finaux(doc)
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)

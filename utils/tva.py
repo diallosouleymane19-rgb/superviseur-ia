@@ -6,6 +6,7 @@ SMD Global Consulting LLC - DGFiP / PCG France
 """
 from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
+from utils.page_helpers import champs_remplis
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -470,7 +471,7 @@ def page_tva():
             "CA12 — Réel simplifié (annuel)"
         ])
     with col3:
-        periode = st.text_input("📅 Période", value=f"{datetime.now().strftime('%m/%Y')}")
+        periode = st.text_input("📅 Période", value="", placeholder="ex. 09/2026").strip()
 
     col4, col5 = st.columns(2)
     with col4:
@@ -514,7 +515,8 @@ def page_tva():
         data["Crédit de TVA période précédente"] = st.number_input("Crédit TVA période précédente — 44567 (€)", min_value=0.0, step=10.0, format="%.2f")
 
         st.divider()
-        if st.button("🧮 Calculer la déclaration TVA", type="primary", width="stretch"):
+        if st.button("🧮 Calculer la déclaration TVA", type="primary", width="stretch") and \
+                champs_remplis(Période=periode):
             res = _calculer_tva(data)
             _afficher_resultats(res, data, periode, entreprise, regime, siret, adresse)
 
@@ -563,7 +565,7 @@ def page_tva():
 
                     st.divider()
                     if st.button("🧮 Générer la déclaration CA3/CA12", type="primary",
-                                 width="stretch", key="btn_import_decl"):
+                                 width="stretch", key="btn_import_decl") and champs_remplis(Période=periode):
                         extrait_ajuste = {
                             "TVA collectée (44571)":            tva_col,
                             "TVA déductible ABS (44566)":       tva_abs,
@@ -625,6 +627,61 @@ def page_tva():
 # ─────────────────────────────────────────────
 # AFFICHAGE RÉSULTATS (partagé saisie/import)
 # ─────────────────────────────────────────────
+def rapport_tva(res: dict, periode: str, entreprise: str, regime: str) -> str:
+    """Note de synthèse de la déclaration de TVA (Markdown)."""
+    from datetime import datetime
+    r = [f"# DÉCLARATION DE TVA – {entreprise}", f"## Période {periode}",
+         f"*{regime} · édité le {datetime.now().strftime('%d/%m/%Y')} · montants en euros · "
+         "document d'aide à la déclaration (dépôt officiel sur impots.gouv.fr)*", "", "---", ""]
+    if res.get("tva_collectee_detail"):
+        r += ["## TVA COLLECTÉE", "", "| Rubrique | Base HT (€) | Taux | TVA (€) |", "|---|---:|---:|---:|"]
+        for rub, d in res["tva_collectee_detail"].items():
+            r.append(f"| {rub} | {nb_fr(d['base_ht'], 2)} | {nb_fr(d['taux'] * 100, 1)} % | {nb_fr(d['tva'], 2)} |")
+        r.append(f"| **Total** |  |  | **{nb_fr(res['tva_collectee'], 2)}** |")
+        r.append("")
+    lignes = [("44566", "TVA déductible sur autres biens et services", res.get("tva_ded_abs", 0)),
+              ("44562", "TVA déductible sur immobilisations", res.get("tva_ded_immo", 0)),
+              ("44563", "TVA intracommunautaire déductible", res.get("tva_ded_intra", 0))]
+    lignes = [l for l in lignes if l[2] > 0]
+    r += ["## TVA DÉDUCTIBLE", ""]
+    if lignes:
+        r += ["| Compte | Nature | Montant (€) |", "|---|---|---:|"]
+        r += [f"| {c} | {n} | {nb_fr(m, 2)} |" for c, n, m in lignes]
+        r.append(f"| **Total** |  | **{nb_fr(res['tva_deductible'], 2)}** |")
+    else:
+        r.append("Aucune TVA déductible.")
+    r += ["", "## SOLDE", "", "| Calcul | Montant (€) |", "|---|---:|",
+          f"| TVA collectée | {nb_fr(res['tva_collectee'], 2)} |",
+          f"| − TVA déductible | {nb_fr(res['tva_deductible'], 2)} |"]
+    if res.get("credit_reporte", 0) > 0:
+        r.append(f"| − Crédit de TVA de la période précédente (44567) | {nb_fr(res['credit_reporte'], 2)} |")
+    if res["a_payer"] > 0:
+        r += [f"| **= TVA à décaisser** | **{nb_fr(res['a_payer'], 2)}** |", ""]
+    else:
+        r += [f"| **= Crédit de TVA** | **{nb_fr(res['credit_genere'], 2)}** |", ""]
+    alertes = _verifier_coherence(res)
+    if alertes:
+        r += ["", "## CONTRÔLES DE COHÉRENCE", ""]
+        r += [f"- {msg}" for _, msg in alertes]
+    r += ["", "---", "*SMD Global Consulting LLC - Superviseur IA Comptable*"]
+    return "\n".join(r)
+
+
+def visuels_tva(res: dict):
+    """Indicateurs et graphique pour l'export Word (mêmes chiffres qu'à l'écran)."""
+    from utils.word_visuels import barres_simples
+    ind = [{"libelle": "TVA collectée", "valeur": f"{nb_fr(res['tva_collectee'])} €"},
+           {"libelle": "TVA déductible", "valeur": f"{nb_fr(res['tva_deductible'])} €"}]
+    if res["a_payer"] > 0:
+        ind.append({"libelle": "TVA à décaisser", "valeur": f"{nb_fr(res['a_payer'])} €", "detail": "à payer", "ton": "neutre"})
+    else:
+        ind.append({"libelle": "Crédit de TVA", "valeur": f"{nb_fr(res['credit_genere'])} €", "detail": "à reporter ou rembourser",
+                    "ton": "bon"})
+    g = barres_simples(["TVA collectée", "TVA déductible", "Solde (+ à payer)"],
+                       [res["tva_collectee"], res["tva_deductible"], res["solde"]], "TVA collectée, déductible et solde")
+    return ind, [g]
+
+
 def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
                          regime: str, siret: str = "", adresse: str = ""):
     st.divider()
@@ -690,19 +747,25 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
     st.markdown("### 📝 Écriture comptable à passer (PCG)")
     if res["a_payer"] > 0:
         st.code(f"""
-Débit  44551 — TVA à décaisser      {res['a_payer']:>12,.2f} €
-  Crédit 512 — Banque                        {res['a_payer']:>12,.2f} €
+Débit  44551 — TVA à décaisser      {nb_fr(res['a_payer'], 2):>14} €
+  Crédit 512 — Banque                        {nb_fr(res['a_payer'], 2):>14} €
   → Règlement TVA {periode}
 """, language="text")
     else:
         st.code(f"""
-Débit  44567 — Crédit de TVA        {res['credit_genere']:>12,.2f} €
-  Crédit 44551 — TVA à décaisser             {res['credit_genere']:>12,.2f} €
+Débit  44567 — Crédit de TVA        {nb_fr(res['credit_genere'], 2):>14} €
+  Crédit 44551 — TVA à décaisser             {nb_fr(res['credit_genere'], 2):>14} €
   → Report crédit TVA {periode}
 """, language="text")
 
-    # ── Export Excel ──
+    # ── Export Word ──
     st.divider()
+    from utils.page_helpers import generer_bouton_word
+    ind_w, graph_w = visuels_tva(res)
+    generer_bouton_word(f"TVA_{entreprise}_{periode.replace('/', '-')}", rapport_tva(res, periode, entreprise, regime),
+                        indicateurs=ind_w, graphiques=graph_w)
+
+    # ── Export Excel ──
     try:
         excel = _export_excel_tva(res, data, periode, entreprise)
         st.download_button(

@@ -125,7 +125,7 @@ def _export_excel(df_r: pd.DataFrame, df_e: pd.DataFrame, annees: list, entrepri
         _style(writer.sheets["Emplois"], "C0392B")
 
         synth = pd.DataFrame({
-            "Annee": annees,
+            "Année": annees,
             "Total Ressources (€)": [df_r[a].sum() for a in annees],
             "Total Emplois (€)": [df_e[a].sum() for a in annees],
             "Solde (€)": [df_r[a].sum() - df_e[a].sum() for a in annees],
@@ -134,6 +134,67 @@ def _export_excel(df_r: pd.DataFrame, df_e: pd.DataFrame, annees: list, entrepri
         _style(writer.sheets["Synthèse"], "2C3E50")
 
     return buf.getvalue()
+
+
+def _lignes_tableau(df, col_lib, annees, total_lib):
+    lignes = [f"| {col_lib} | " + " | ".join(annees) + " | Total |",
+              "|---|" + "---:|" * (len(annees) + 1)]
+    for _, r in df.iterrows():
+        vals = [float(r[a] or 0) for a in annees]
+        if any(vals):
+            lignes.append(f"| {r[col_lib]} | " + " | ".join(nb_fr(v) for v in vals) + f" | {nb_fr(sum(vals))} |")
+    tot = [float(df[a].sum()) for a in annees]
+    lignes.append(f"| **{total_lib}** | " + " | ".join(f"**{nb_fr(v)}**" for v in tot) + f" | **{nb_fr(sum(tot))}** |")
+    return lignes
+
+
+def rapport_plan_financement(df_r, df_e, annees, entreprise):
+    """Rapport du plan de financement (Markdown) : lecture en tête, puis ressources, emplois, synthèse annuelle et cumulée."""
+    tr = [float(df_r[a].sum()) for a in annees]
+    te = [float(df_e[a].sum()) for a in annees]
+    solde = [x - y for x, y in zip(tr, te)]
+    cumul = [sum(solde[:i + 1]) for i in range(len(solde))]
+    deficits = [a for a, v in zip(annees, solde) if v < 0]
+
+    r = [f"# PLAN DE FINANCEMENT – {entreprise}",
+         f"## Période {annees[0]} – {annees[-1]}",
+         f"*Édité le {datetime.now().strftime('%d/%m/%Y')} · montants en euros*", "", "---", "",
+         "## LECTURE", ""]
+    if deficits:
+        r.append(f"- **Besoin de financement** en {', '.join(deficits)} : les emplois dépassent les ressources. "
+                 "Prévoir un financement complémentaire (apport, emprunt, subvention) ou étaler les investissements.")
+    else:
+        r.append("- **Plan équilibré** : les ressources couvrent les emplois chaque année.")
+    if cumul and cumul[-1] < 0:
+        r.append(f"- **Solde cumulé négatif** sur la période : {nb_fr(cumul[-1])} €.")
+    r += ["", "## RESSOURCES", ""]
+    r += _lignes_tableau(df_r, "Ressource", annees, "Total ressources")
+    r += ["", "## EMPLOIS", ""]
+    r += _lignes_tableau(df_e, "Emploi", annees, "Total emplois")
+    r += ["", "## SYNTHÈSE", "", "| | " + " | ".join(annees) + " |", "|---|" + "---:|" * len(annees)]
+    r.append("| Total ressources | " + " | ".join(nb_fr(v) for v in tr) + " |")
+    r.append("| Total emplois | " + " | ".join(nb_fr(v) for v in te) + " |")
+    r.append("| **Solde annuel** | " + " | ".join(f"**{nb_fr(v)}**" for v in solde) + " |")
+    r.append("| Solde cumulé | " + " | ".join(nb_fr(v) for v in cumul) + " |")
+    r += ["", "---", "*SMD Global Consulting LLC - Superviseur IA Comptable*"]
+    return "\n".join(r)
+
+def visuels_plan_financement(df_r, df_e, annees):
+    """Indicateurs et graphique pour l'export Word (mêmes chiffres qu'à l'écran)."""
+    from utils.word_visuels import barres_et_courbe, COULEUR_N, COULEUR_ORANGE
+    tr = [float(df_r[a].sum()) for a in annees]
+    te = [float(df_e[a].sum()) for a in annees]
+    solde = [x - y for x, y in zip(tr, te)]
+    deficits = sum(1 for v in solde if v < 0)
+    ind = [{"libelle": "Ressources sur la période", "valeur": f"{nb_fr(sum(tr))} €"},
+           {"libelle": "Emplois sur la période", "valeur": f"{nb_fr(sum(te))} €"},
+           {"libelle": "Solde cumulé", "valeur": f"{nb_fr(sum(solde))} €", "ton": "bon" if sum(solde) >= 0 else "mauvais",
+            "detail": "excédent" if sum(solde) >= 0 else "besoin de financement"},
+           {"libelle": "Années en déficit", "valeur": f"{deficits} / {len(annees)}",
+            "ton": "mauvais" if deficits else "bon", "detail": "aucune" if not deficits else "à financer"}]
+    g = barres_et_courbe(annees, [("Ressources", tr, COULEUR_N), ("Emplois", te, COULEUR_ORANGE)],
+                         ("Solde annuel", solde), "Ressources, emplois et solde annuel")
+    return ind, [g]
 
 
 def _analyser_ia(df_r: pd.DataFrame, df_e: pd.DataFrame, annees: list, entreprise: str) -> str:
@@ -254,7 +315,7 @@ def page_plan_financement():
             st.metric(f"Emplois {a}", f"{nb_fr(total_e, 0)} €")
             delta_color = "normal" if solde >= 0 else "inverse"
             st.metric(f"Solde {a}", f"{nb_fr(solde, 0)} €",
-                      delta=f"{'Excedent' if solde >= 0 else 'Deficit'}",
+                      delta=f"{'Excédent' if solde >= 0 else 'Déficit'}",
                       delta_color=delta_color)
 
     if _PLOTLY_OK:
@@ -266,7 +327,7 @@ def page_plan_financement():
 
     st.divider()
 
-    col_ia, col_xl = st.columns(2)
+    col_ia, col_w, col_xl = st.columns(3)
 
     with col_ia:
         if st.button("Analyse IA du plan", type="primary", width="stretch"):
@@ -276,10 +337,17 @@ def page_plan_financement():
             from utils.page_helpers import afficher_contenu_ia
             afficher_contenu_ia(analyse, "plan_financement")
 
+    with col_w:
+        from utils.page_helpers import generer_bouton_word
+        ind_w, graph_w = visuels_plan_financement(df_r, df_e, annees)
+        generer_bouton_word(f"Plan_Financement_{entreprise}_{annees[0]}",
+                            rapport_plan_financement(df_r, df_e, annees, entreprise),
+                            indicateurs=ind_w, graphiques=graph_w)
+
     with col_xl:
         excel_bytes = _export_excel(df_r, df_e, annees, entreprise)
         st.download_button(
-            "Exporter Excel",
+            "📥 Exporter Excel",
             data=excel_bytes,
             file_name=f"Plan_Financement_{entreprise}_{annees[0]}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

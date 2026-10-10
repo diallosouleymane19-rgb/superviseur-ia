@@ -306,6 +306,14 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
     rapport.append(f"*Type d'entreprise : {resultat['type_entreprise']}*\n")
     rapport.append("---\n")
     
+    # ANALYSE (en tête : les conclusions avant le détail)
+    if resultat['analyse']:
+        rapport.append("## 💡 ANALYSE QUALITATIVE\n")
+        for item in resultat['analyse']:
+            symbol = '✅' if item['type'] == 'OK' else '⚠' if item['type'] == 'WARNING' else '🔴'
+            rapport.append(f"- {symbol} {item['message']}")
+        rapport.append("")
+    
     # SOLDES INTERMEDIAIRES DE GESTION
     rapport.append("## 📊 SOLDES INTERMÉDIAIRES DE GESTION (SIG)\n")
     rapport.append("| Indicateur | Montant |")
@@ -337,14 +345,6 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
             rapport += [f"| {k} | {eur_fr(v, 2)} |" for k, v in lignes]
             rapport.append("")
 
-    # ANALYSE
-    if resultat['analyse']:
-        rapport.append("## 💡 ANALYSE QUALITATIVE\n")
-        for item in resultat['analyse']:
-            symbol = '✅' if item['type'] == 'OK' else '⚠' if item['type'] == 'WARNING' else '🔴'
-            rapport.append(f"- {symbol} {item['message']}")
-        rapport.append("")
-    
     rapport.append("---")
     rapport.append("*Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*")
     

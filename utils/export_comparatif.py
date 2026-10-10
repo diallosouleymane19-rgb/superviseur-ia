@@ -220,6 +220,8 @@ def export_word_comparatif(entreprise, label_n, label_n1, kpis_cdr, kpis_bilan, 
     _titre(doc, "Passif", 2)
     _tableau(doc, df_passif, label_n1, label_n)
 
+    from utils.export_word import _retirer_paragraphes_vides_finaux
+    _retirer_paragraphes_vides_finaux(doc)
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)
