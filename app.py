@@ -210,10 +210,15 @@ if st.session_state.get("role") != "demo":
         _clients = {}
     if st.session_state.get("dossier_id") not in _clients:
         st.session_state["dossier_id"] = 0          # 0 = aucun dossier
-    st.sidebar.selectbox("📁 Dossier en cours", [0] + list(_clients), key="dossier_id",
-                         format_func=lambda i: _clients.get(i, "Aucun dossier"),
-                         help="Les analyses sauvegardées sont rangées dans ce dossier. Gérez vos dossiers dans 🗂 Mes dossiers.")
+    st.sidebar.selectbox("📁 Client sur lequel vous travaillez", [0] + list(_clients), key="dossier_id",
+                         format_func=lambda i: _clients.get(i, "Aucun client choisi"),
+                         help="Les analyses que vous sauvegardez (bouton 💾 Sauvegarder) sont rangées dans le dossier de "
+                              "ce client. Vous les retrouvez dans 🗂 Mes dossiers.")
     st.session_state["dossier_nom"] = _clients.get(st.session_state.get("dossier_id"))
+    if not st.session_state["dossier_nom"]:
+        st.sidebar.caption("Vos sauvegardes ne seront rangées dans aucun dossier client. "
+                           + ("Choisissez un client ci-dessus." if _clients else
+                              "Créez vos dossiers clients dans 🗂 Mes dossiers."))
 
 st.sidebar.divider()
 

@@ -116,7 +116,7 @@ def page_dossiers():
 def _onglet_analyses(analyses, noms):
     if not analyses:
         st.info("Aucune analyse sauvegardée pour l'instant. Dans un module, cliquez sur « 💾 Sauvegarder » : "
-                "l'analyse apparaîtra ici, rangée dans le dossier en cours (choisi dans le menu de gauche).")
+                "l'analyse apparaîtra ici, rangée dans le dossier du client choisi dans le menu de gauche.")
         return
 
     c1, c2, c3 = st.columns([2, 2, 3])
@@ -204,7 +204,7 @@ def _onglet_dossiers(clients, analyses):
         st.button("Créer le dossier", type="primary", on_click=_creer_dossier, key="btn_creer_dossier")
 
     if not clients:
-        st.info("Aucun dossier client. Créez-en un, puis choisissez-le comme « dossier en cours » dans le menu de gauche : "
+        st.info("Aucun dossier client. Créez-en un, puis choisissez ce client dans le menu de gauche : "
                 "vos sauvegardes y seront rangées.")
         return
 
@@ -217,12 +217,12 @@ def _onglet_dossiers(clients, analyses):
         with st.container(border=True):
             c1, c2, c3 = st.columns([4, 2, 2])
             details = " · ".join(x for x in (f"SIRET {siret}" if siret else "", secteur, contact, email) if x)
-            c1.markdown(f"**{nom}**" + ("  ·  ✅ dossier en cours" if cid == en_cours else "")
+            c1.markdown(f"**{nom}**" + ("  ·  ✅ client en cours" if cid == en_cours else "")
                         + (f"  \n{details}" if details else ""))
             c2.caption(f"{nb.get(cid, 0)} analyse(s)  \ncréé le {_date(cree)[:10]}")
             with c3:
                 if cid != en_cours:
-                    st.button("Choisir comme dossier en cours", key=f"cur_{cid}", on_click=_choisir_dossier_en_cours,
+                    st.button("Travailler sur ce client", key=f"cur_{cid}", on_click=_choisir_dossier_en_cours,
                               args=(cid,), width="stretch")
                 with st.popover("🗑 Supprimer", width="stretch"):
                     st.write(f"Supprimer le dossier « {nom} » ? Ses {nb.get(cid, 0)} analyse(s) sont conservées, sans dossier.")
