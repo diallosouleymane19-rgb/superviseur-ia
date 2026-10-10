@@ -46,6 +46,30 @@ def _formats(c1: str, c2: str) -> dict:
             'Écart (%)': lambda v: "—" if _vide(v) else nb_fr_signe(v, 1)}
 
 
+LIGNES_CHARGES = ("Coût", "Consommations", "Impôts", "Charges", "Participation", "Achats", "Dotations")
+
+
+def _style_ecarts(df, c1, c2, sens="auto"):
+    """Écarts colorés selon leur sens économique : vert = favorable, rouge = défavorable.
+    sens : "auto" (lignes de charges inversées), "produits", "charges", ou "neutre" (pas de couleur, ex. bilan)."""
+    styler = df.style.format(_formats(c1, c2))
+    if sens == "neutre":
+        return styler
+
+    def couleurs(row):
+        charge = sens == "charges" or (sens == "auto" and str(row["Rubrique"]).startswith(LIGNES_CHARGES))
+        out = []
+        for col in row.index:
+            v = row[col]
+            if col not in ("Écart (€)", "Écart (%)") or not isinstance(v, (int, float)) or _vide(v) or v == 0:
+                out.append("")
+                continue
+            favorable = (v > 0) != charge
+            out.append("color: #1e7e34; font-weight:bold" if favorable else "color: #c82333; font-weight:bold")
+        return out
+    return styler.apply(couleurs, axis=1)
+
+
 def _fmt(v: float) -> str:
     if v is None:
         return "—"
@@ -104,7 +128,7 @@ def _style_comparatif(df: pd.DataFrame, col_n: str, col_n1: str):
     styled = (
         df.style
         .apply(bold_totaux, axis=1)
-        .applymap(color_ecart, subset=['Écart (€)', 'Écart (%)'])
+        .map(color_ecart, subset=['Écart (€)', 'Écart (%)'])
         .format(_formats(col_n1, col_n))
     )
     return styled
@@ -150,6 +174,7 @@ def _chart_cdr_comparatif(sig_n: dict, sig_n1: dict, label_n: str, label_n1: str
         barmode='group',
         title="SIG — Comparaison N vs N-1",
         yaxis_title="Montant (€)",
+        yaxis_tickformat=",.0f",
         legend=dict(orientation='h', yanchor='bottom', y=1.02),
         height=400
     )
@@ -189,6 +214,7 @@ def _chart_bilan_comparatif(bilan_n: dict, bilan_n1: dict, label_n: str, label_n
         barmode='group',
         title="Bilan — Comparaison N vs N-1",
         yaxis_title="Montant (€)",
+        yaxis_tickformat=",.0f",
         legend=dict(orientation='h', yanchor='bottom', y=1.02),
         height=400
     )
@@ -379,13 +405,7 @@ def page_comparatif():
     st.markdown("### 📋 Soldes Intermédiaires de Gestion")
     df_sig = _build_comparatif_df(sig_n, sig_n1, label_n, label_n1)
     st.dataframe(
-        df_sig.style
-        .format(_formats(label_n1, label_n))
-        .applymap(
-            lambda v: 'color: #28a745; font-weight:bold' if isinstance(v, (int, float)) and v > 0
-            else ('color: #dc3545; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else ''),
-            subset=['Écart (€)', 'Écart (%)']
-        ),
+        _style_ecarts(df_sig, label_n1, label_n, "auto"),
         width="stretch", hide_index=True
     )
 
@@ -398,16 +418,12 @@ def page_comparatif():
         st.markdown("### 💰 Produits N vs N-1")
         df_prod = _build_comparatif_df(cdr_n['produits'], cdr_n1['produits'], label_n, label_n1)
         df_prod = df_prod[df_prod[label_n].abs() + df_prod[label_n1].abs() > 0]
-        st.dataframe(df_prod.style.format(
-            _formats(label_n1, label_n)
-        ), width="stretch", hide_index=True)
+        st.dataframe(_style_ecarts(df_prod, label_n1, label_n, "produits"), width="stretch", hide_index=True)
     with col_c:
         st.markdown("### 💸 Charges N vs N-1")
         df_chg = _build_comparatif_df(cdr_n['charges'], cdr_n1['charges'], label_n, label_n1)
         df_chg = df_chg[df_chg[label_n].abs() + df_chg[label_n1].abs() > 0]
-        st.dataframe(df_chg.style.format(
-            _formats(label_n1, label_n)
-        ), width="stretch", hide_index=True)
+        st.dataframe(_style_ecarts(df_chg, label_n1, label_n, "charges"), width="stretch", hide_index=True)
 
     # ═══════════════════════════════════════════
     # SECTION 2 — BILAN
@@ -446,24 +462,12 @@ def page_comparatif():
         st.markdown("### 📦 ACTIF N vs N-1")
         df_actif = _build_comparatif_df(bilan_n['actif'], bilan_n1['actif'], label_n, label_n1)
         df_actif = df_actif[df_actif[label_n].abs() + df_actif[label_n1].abs() > 0]
-        st.dataframe(df_actif.style.format(
-            _formats(label_n1, label_n)
-        ).applymap(
-            lambda v: 'color: #28a745; font-weight:bold' if isinstance(v, (int, float)) and v > 0
-            else ('color: #dc3545; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else ''),
-            subset=['Écart (€)', 'Écart (%)']
-        ), width="stretch", hide_index=True)
+        st.dataframe(_style_ecarts(df_actif, label_n1, label_n, "neutre"), width="stretch", hide_index=True)
     with col_p2:
         st.markdown("### 🏛 PASSIF N vs N-1")
         df_passif = _build_comparatif_df(bilan_n['passif'], bilan_n1['passif'], label_n, label_n1)
         df_passif = df_passif[df_passif[label_n].abs() + df_passif[label_n1].abs() > 0]
-        st.dataframe(df_passif.style.format(
-            _formats(label_n1, label_n)
-        ).applymap(
-            lambda v: 'color: #28a745; font-weight:bold' if isinstance(v, (int, float)) and v > 0
-            else ('color: #dc3545; font-weight:bold' if isinstance(v, (int, float)) and v < 0 else ''),
-            subset=['Écart (€)', 'Écart (%)']
-        ), width="stretch", hide_index=True)
+        st.dataframe(_style_ecarts(df_passif, label_n1, label_n, "neutre"), width="stretch", hide_index=True)
 
     # Graphique bilan
     st.plotly_chart(_chart_bilan_comparatif(bilan_n, bilan_n1, label_n, label_n1), width="stretch")

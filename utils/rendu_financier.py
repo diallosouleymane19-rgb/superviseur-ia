@@ -344,7 +344,12 @@ def afficher_synthese_score(
             with cols_rep[0]:
                 st.dataframe(df_rep, width="stretch", hide_index=True)
             with cols_rep[1]:
-                st.bar_chart(df_rep.set_index("Classe"))
+                import plotly.graph_objects as go
+                fig_rep = go.Figure(go.Bar(x=[str(c) for c in df_rep["Classe"]], y=df_rep["Nb écritures"],
+                                           marker_color="#1c5cab"))
+                fig_rep.update_layout(height=300, yaxis_title="Nombre de lignes", yaxis_tickformat=",.0f",
+                                      xaxis_type="category", margin=dict(l=10, r=10, t=10, b=10))
+                st.plotly_chart(fig_rep, width="stretch")
 
     st.divider()
 

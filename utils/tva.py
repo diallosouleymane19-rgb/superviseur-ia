@@ -217,7 +217,7 @@ def _chart_tva(res: dict) -> go.Figure:
     fig.add_hline(y=0, line_dash="dash", line_color="grey",
                   annotation_text=f"Solde : {nb_fr_signe(solde, 0)} €",
                   annotation_position="bottom right")
-    fig.update_layout(title="TVA Collectée vs Déductible", yaxis_title="Montant (€)", height=350)
+    fig.update_layout(title="TVA collectée et déductible", yaxis_title="Montant (€)", yaxis_tickformat=",.0f", height=350)
     return fig
 
 # ─────────────────────────────────────────────

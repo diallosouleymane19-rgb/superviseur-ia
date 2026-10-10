@@ -353,7 +353,16 @@ def page_immobilisations():
                 # Graphique VNC
                 st.markdown("### 📈 Évolution de la VNC")
                 col_vnc = 'VNC (€)' if 'VNC (€)' in tableau.columns else 'VNC Fin (€)'
-                st.line_chart(tableau.set_index('Année')[col_vnc])
+                import plotly.graph_objects as go
+                annees_g = [str(int(a)) for a in tableau['Année']]
+                fig_vnc = go.Figure()
+                fig_vnc.add_bar(x=annees_g, y=tableau['Dotation (€)'], name="Dotation", marker_color="#1c5cab")
+                fig_vnc.add_scatter(x=annees_g, y=tableau[col_vnc], name="VNC fin d'année", mode="lines+markers",
+                                    line=dict(color="#52514e", width=2))
+                fig_vnc.update_layout(height=340, yaxis_title="Montant (€)", yaxis_tickformat=",.0f",
+                                      xaxis_type="category", legend=dict(orientation="h", y=1.12),
+                                      margin=dict(l=10, r=10, t=30, b=10))
+                st.plotly_chart(fig_vnc, width="stretch")
 
                 st.divider()
 
