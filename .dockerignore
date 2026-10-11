@@ -1,0 +1,13 @@
+.git
+.github
+__pycache__
+*.pyc
+tests
+.streamlit/secrets.toml
+.env
+*.env
+deploy/.env
+deploy/secrets.toml
+deploy/sauvegardes
+*.db
+*.sqlite

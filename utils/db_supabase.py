@@ -9,6 +9,9 @@ Secrets requis dans .streamlit/secrets.toml :
 
 Le service_role key bypasse les RLS policies — usage SERVEUR uniquement.
 Ne jamais l'exposer côté client / dans le HTML.
+
+Hébergement OVH (France) : si DATABASE_URL est renseigné, la base PostgreSQL d'OVH est utilisée à la place
+de Supabase, avec la même écriture (voir utils/db_postgres.py).
 """
 import os
 
@@ -22,6 +25,12 @@ def get_supabase():
     """
     global _SUPABASE_CLIENT
     if _SUPABASE_CLIENT is not None:
+        return _SUPABASE_CLIENT
+
+    url_pg = _database_url()
+    if url_pg:
+        from utils.db_postgres import ClientPostgres
+        _SUPABASE_CLIENT = ClientPostgres(url_pg)
         return _SUPABASE_CLIENT
 
     url, key = _load_credentials()
@@ -39,6 +48,18 @@ def get_supabase():
         raise ImportError(
             "Package 'supabase' manquant. Ajoutez 'supabase>=2.4.0' dans requirements.txt."
         )
+
+
+def _database_url() -> str:
+    """Adresse de la base PostgreSQL (OVH), depuis st.secrets ou l'environnement ; vide si absente."""
+    try:
+        import streamlit as st
+        url = st.secrets.get("DATABASE_URL", "")
+        if url:
+            return url
+    except Exception:
+        pass
+    return os.getenv("DATABASE_URL", "")
 
 
 def _load_credentials() -> tuple:
@@ -60,6 +81,8 @@ def _load_credentials() -> tuple:
 def supabase_disponible() -> bool:
     """Retourne True si Supabase est correctement configuré."""
     try:
+        if _database_url():
+            return True
         url, key = _load_credentials()
         return bool(url and key)
     except Exception:
