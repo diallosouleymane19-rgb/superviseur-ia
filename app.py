@@ -9,6 +9,7 @@ from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 import streamlit as st
 import pandas as pd
 import os
+import html
 from datetime import datetime
 
 # Imports des modules utils
@@ -37,7 +38,7 @@ from auth import login, logout, is_connecte
 st.set_page_config(
     page_title="SMD Global Consulting LLC - Superviseur IA", 
     layout="wide", 
-    page_icon="🔒",
+    page_icon="static/favicon.png",
     initial_sidebar_state="auto"
 )
 
@@ -85,9 +86,9 @@ if not is_connecte():
 
     with tab_login:
         col_marque, _, col_form = st.columns([5, 1, 4])
-        with col_marque:
+        with col_marque, st.container(key="smd_panneau"):
             st.markdown(
-                "<div class='smd-marque'>SMD Global Consulting LLC</div>"
+                "<img class='smd-logo' src='app/static/logo_smd.png' alt='SMD Global Consulting LLC'>"
                 "<h1 style='margin:0 0 .75rem'>Superviseur IA Comptable</h1>"
                 "<p class='smd-accroche'>Analyse et supervision comptable pour les cabinets, "
                 "conformes au PCG et aux exigences de la DGFiP.</p>"
@@ -140,8 +141,9 @@ st.session_state.pop("ouvrir_inscription", None)   # connecté : ordre normal de
 # SIDEBAR - NAVIGATION
 # =============================================================================
 
-st.sidebar.title("SMD Global Consulting LLC")
-st.sidebar.caption(st.session_state.get('user_email', 'Utilisateur'))
+st.logo("static/logo_smd.png", size="large", icon_image="static/logo_smd_globe.png")
+st.sidebar.markdown(f"<div class='smd-utilisateur'>{html.escape(st.session_state.get('user_email', 'Utilisateur'))}</div>",
+                    unsafe_allow_html=True)
 
 # Badge rôle + plan + quota
 afficher_badge_role()
@@ -149,57 +151,47 @@ afficher_quota_sidebar()
 
 # Indicateur mode démo
 if st.session_state.get("role") == "demo":
-    st.sidebar.warning("👀 Mode Démonstration")
-
-st.sidebar.divider()
+    st.sidebar.warning("Mode démonstration : rien n'est sauvegardé.")
 
 def _aller_a(nom_page):
-    """Callback des boutons d'accès rapide : change la page du menu."""
+    """Change la page affichée (menu et boutons d'accès rapide)."""
     st.session_state["nav_page"] = nom_page
 
 
-page = st.sidebar.selectbox(
-    "Navigation",
-    [
-        "🏠 Accueil",
-        "🗂 Mes dossiers",
-        "─── Analyse & Contrôle ───",
-        "🧾 Analyse et comptabilisation de factures",
-        "📊 Contrôle de balance",
-        "🛡 Loi de Benford",
-        "⚠ Alertes & Anomalies",
-        "✅ Cohérence des Données",
-        "─── États Financiers ───",
-        "📈 Compte de Résultat",
-        "📊 Bilan Comptable",
-        "🔄 Rapprochement Bancaire",
-        "📦 Immobilisations",
-        "📋 Inventaire & Clôture",
-        "📐 Plan de Financement",
-        "💹 TFT Trésorerie",
-        "📊 Comparatif N/N-1",
-        "🧾 Aide TVA CA3/CA12",
-        "─── Supervision & Reporting ───",
-        "📂 Traitement FEC",
-        "📋 Rapport Client",
-        "📰 Veille Fiscale",
-        "─── Connecteurs ───",
-        "🔌 Connecteurs ERP",
-        "─── Paramètres ───",
-        "👥 Mon cabinet",
-        "💳 Tarifs & Abonnement",
-        "🔒 Confidentialité & Sécurité",
-    ],
-    label_visibility="collapsed",
-    key="nav_page",
-)
-
-# Neutraliser les séparateurs
-separateurs = ["─── Analyse & Contrôle ───", "─── États Financiers ───",
-               "─── Supervision & Reporting ───", "─── Connecteurs ───",
-               "─── Paramètres ───"]
-if page in separateurs:
-    page = "🏠 Accueil"
+# Menu : (identifiant interne de la page, libellé affiché, icône)
+MENU = [
+    (None, [("🏠 Accueil", "Accueil", ":material/home:"),
+            ("🗂 Mes dossiers", "Mes dossiers", ":material/folder_open:")]),
+    ("Analyse et contrôle", [
+        ("🧾 Analyse et comptabilisation de factures", "Factures", ":material/receipt_long:"),
+        ("📊 Contrôle de balance", "Contrôle de balance", ":material/balance:"),
+        ("🛡 Loi de Benford", "Loi de Benford", ":material/query_stats:"),
+        ("⚠ Alertes & Anomalies", "Alertes et anomalies", ":material/report:"),
+        ("✅ Cohérence des Données", "Cohérence des données", ":material/fact_check:")]),
+    ("États financiers", [
+        ("📈 Compte de Résultat", "Compte de résultat", ":material/trending_up:"),
+        ("📊 Bilan Comptable", "Bilan", ":material/account_balance:"),
+        ("🔄 Rapprochement Bancaire", "Rapprochement bancaire", ":material/sync_alt:"),
+        ("📦 Immobilisations", "Immobilisations", ":material/domain:"),
+        ("📋 Inventaire & Clôture", "Inventaire et clôture", ":material/inventory_2:"),
+        ("📐 Plan de Financement", "Plan de financement", ":material/savings:"),
+        ("💹 TFT Trésorerie", "Flux de trésorerie", ":material/payments:"),
+        ("📊 Comparatif N/N-1", "Comparatif N / N-1", ":material/compare_arrows:"),
+        ("🧾 Aide TVA CA3/CA12", "TVA CA3 / CA12", ":material/percent:")]),
+    ("Supervision et reporting", [
+        ("📂 Traitement FEC", "Fichier des écritures (FEC)", ":material/description:"),
+        ("📋 Rapport Client", "Rapport client", ":material/summarize:"),
+        ("📰 Veille Fiscale", "Veille fiscale", ":material/newspaper:"),
+        ("🔌 Connecteurs ERP", "Connecteurs logiciels", ":material/cable:")]),
+    ("Cabinet", [
+        ("👥 Mon cabinet", "Mon cabinet", ":material/group:"),
+        ("💳 Tarifs & Abonnement", "Abonnement", ":material/credit_card:"),
+        ("🔒 Confidentialité & Sécurité", "Confidentialité et sécurité", ":material/shield:")]),
+]
+PAGES = [pid for _, items in MENU for pid, _, _ in items]
+if st.session_state.get("nav_page") not in PAGES:
+    st.session_state["nav_page"] = "🏠 Accueil"
+page = st.session_state["nav_page"]
 
 # Dossier client en cours : les sauvegardes y sont rangées (hors mode démonstration)
 if st.session_state.get("role") != "demo":
@@ -210,14 +202,14 @@ if st.session_state.get("role") != "demo":
         _clients = {}
     if st.session_state.get("dossier_id") not in _clients:
         st.session_state["dossier_id"] = 0          # 0 = aucun dossier
-    st.sidebar.selectbox("📁 Client sur lequel vous travaillez", [0] + list(_clients), key="dossier_id",
+    st.sidebar.selectbox("Client sur lequel vous travaillez", [0] + list(_clients), key="dossier_id",
                          format_func=lambda i: _clients.get(i, "Aucun client choisi"),
                          help="Les analyses que vous sauvegardez (bouton 💾 Sauvegarder) sont rangées dans le dossier de "
-                              "ce client. Vous les retrouvez dans 🗂 Mes dossiers.")
+                              "ce client. Vous les retrouvez dans Mes dossiers.")
     st.session_state["dossier_nom"] = _clients.get(st.session_state.get("dossier_id"))
     if not st.session_state["dossier_nom"]:
-        st.sidebar.caption("Vos sauvegardes ne seront rangées dans aucun dossier client. "
-                           + ("Choisissez un client ci-dessus ou créez-en un." if _clients else "Créez votre premier client :"))
+        st.sidebar.caption("Choisissez un client pour y ranger vos sauvegardes." if _clients
+                           else "Créez un client pour y ranger vos sauvegardes.")
 
     def _nouveau_client_menu():
         nom = st.session_state.get("menu_nouveau_client", "").strip()
@@ -234,17 +226,25 @@ if st.session_state.get("role") != "demo":
         else:
             st.session_state["menu_client_msg"] = "Création impossible (base de données indisponible). Réessayez."
 
-    with st.sidebar.popover("➕ Nouveau client", width="stretch"):
+    with st.sidebar.popover("Nouveau client", icon=":material/add:", width="stretch"):
         st.text_input("Nom du client", key="menu_nouveau_client", placeholder="ex. SARL Martin")
         st.button("Créer le dossier", type="primary", width="stretch", on_click=_nouveau_client_menu,
                   key="menu_btn_client")
         if st.session_state.get("menu_client_msg"):
             st.warning(st.session_state["menu_client_msg"])
-        st.caption("SIRET, secteur et contact se complètent dans 🗂 Mes dossiers.")
+        st.caption("SIRET, secteur et contact se complètent dans Mes dossiers.")
+
+with st.sidebar.container(key="smd_menu"):
+    for _section, _items in MENU:
+        if _section:
+            st.markdown(f"<div class='smd-section'>{_section}</div>", unsafe_allow_html=True)
+        for _pid, _lib, _ico in _items:
+            st.button(_lib, icon=_ico, key=f"menu_{PAGES.index(_pid)}", width="stretch",
+                      type="primary" if _pid == page else "tertiary", on_click=_aller_a, args=(_pid,))
 
 st.sidebar.divider()
 
-if st.sidebar.button("Se déconnecter", width="stretch"):
+if st.sidebar.button("Se déconnecter", icon=":material/logout:", width="stretch", key="deconnexion"):
     logout()
 # =============================================================================
 # PAGES / MODULES
@@ -408,7 +408,7 @@ elif page == "💳 Tarifs & Abonnement":
 # -----------------------------------------------------------------------------
 
 elif page == "🔒 Confidentialité & Sécurité":
-    st.title("🔒 Confidentialité & Sécurité")
+    st.title("Confidentialité et sécurité")
     st.markdown("**Engagements SMD Global Consulting LLC** envers la protection de vos données")
     st.divider()
 

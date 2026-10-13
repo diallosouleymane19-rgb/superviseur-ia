@@ -278,7 +278,7 @@ def page_rapprochement():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("🔄 Rapprochement Bancaire")
+    st.title("Rapprochement bancaire")
     st.markdown("**Matching intelligent** entre relevé bancaire et écritures comptables")
     st.caption("✨ Matching automatique par montant + date + libellé")
 

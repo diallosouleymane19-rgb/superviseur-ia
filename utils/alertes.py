@@ -233,7 +233,7 @@ def page_alertes():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("⚠ Alertes & Anomalies")
+    st.title("Alertes et anomalies")
     st.markdown("**Détection automatique** d'anomalies multi-niveaux")
     st.caption("✨ 10 contrôles automatiques pour cabinets et DAF")
 

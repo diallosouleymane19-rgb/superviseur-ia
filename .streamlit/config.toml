@@ -1,10 +1,43 @@
+# Charte SMD Global Consulting : marine #0A3681 (fond du logo), azur #0A84C6 (globe).
+# Polices hébergées sur le serveur (static/fonts, et Source Serif intégrée à Streamlit) : aucun appel à Google Fonts (RGPD).
+
+[server]
+enableStaticServing = true
+
 [theme]
 base = "light"
-primaryColor = "#1F4E79"
+primaryColor = "#0A3681"
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F2F5F9"
-textColor = "#14273D"
-font = "sans serif"
+secondaryBackgroundColor = "#F3F6FA"
+textColor = "#0E1E3A"
+linkColor = "#0A6FB0"
+borderColor = "#D9E1EC"
+baseRadius = "6px"
+font = "IBM Plex Sans, sans-serif"
+headingFont = "serif"
+baseFontSize = 15
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans"
+url = "app/static/fonts/ibm-plex-sans-latin-400-normal.woff2"
+weight = 400
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans"
+url = "app/static/fonts/ibm-plex-sans-latin-500-normal.woff2"
+weight = 500
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans"
+url = "app/static/fonts/ibm-plex-sans-latin-600-normal.woff2"
+weight = 600
+
+[theme.sidebar]
+backgroundColor = "#0A3681"
+secondaryBackgroundColor = "#13449A"
+textColor = "#E9EEF7"
+primaryColor = "#0A84C6"
+borderColor = "#2A5AAE"
 
 [client]
 toolbarMode = "minimal"

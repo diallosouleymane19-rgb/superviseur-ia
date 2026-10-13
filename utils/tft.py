@@ -342,7 +342,7 @@ def visuels_tft(resultats: dict, exercices: list):
 
 
 def page_tft():
-    st.title("💹 Tableau de Flux de Trésorerie")
+    st.title("Tableau des flux de trésorerie")
     st.markdown("*Méthode indirecte — modèle OEC — PCG France*")
     st.divider()
 

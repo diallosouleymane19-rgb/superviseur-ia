@@ -256,7 +256,7 @@ def page_inventaire():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("📋 Travaux d'Inventaire & Clôture")
+    st.title("Inventaire et clôture")
     st.markdown("**Provisions, Régularisations, Stocks, Check-list clôture**")
     st.caption("✨ Opérations de fin d'exercice — Qualité grand cabinet")
 

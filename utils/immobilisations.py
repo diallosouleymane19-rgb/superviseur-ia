@@ -280,7 +280,7 @@ def page_immobilisations():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("📦 Gestion des Immobilisations")
+    st.title("Immobilisations")
     st.markdown("**Amortissements, Cessions et Plan d'investissement**")
     st.caption("✨ Linéaire, Dégressif, Plus/Moins-value de cession")
 

@@ -294,7 +294,7 @@ def rapport_comparatif(entreprise, label_n, label_n1, kpis, alertes, tableaux) -
 
 
 def page_comparatif():
-    st.title("📊 Comparatif N vs N-1")
+    st.title("Comparatif N / N-1")
     st.markdown("**Comparaison Bilan + Compte de Résultat** entre deux exercices avec analyse des écarts")
     st.caption("✨ Pour Cabinets, DAF et Dirigeants - PCG France")
 

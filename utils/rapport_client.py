@@ -225,7 +225,7 @@ def page_rapport_client():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("📋 Rapport Client")
+    st.title("Rapport client")
     st.markdown("**Livrable professionnel** pour vos clients")
     st.caption("✨ Synthèse + KPIs + Analyse + Recommandations")
 

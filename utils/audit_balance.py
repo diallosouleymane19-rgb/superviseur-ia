@@ -320,7 +320,7 @@ def page_audit_balance():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("📊 Contrôle de balance comptable")
+    st.title("Contrôle de balance")
     st.markdown("**Analyse approfondie** pour Cabinets, DAF et Dirigeants")
     st.caption("✨ Compatible : Sage, Cegid, EBP, Ciel, ACD, Tiime, Pennylane, QuickBooks")
 

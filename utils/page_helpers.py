@@ -148,7 +148,7 @@ def bouton_sauvegarde(type_analyse: str, resultat, libelle: str = "💾 Sauvegar
         elif sauvegarder_si_autorise(type_analyse=type_analyse, resultat=resultat):
             dossier = st.session_state.get("dossier_nom")
             st.toast(f"✅ {type_analyse} sauvegardé(e) pour 30 jours"
-                     + (f" dans le dossier « {dossier} »." if dossier else ". Retrouvez-le dans 🗂 Mes dossiers."))
+                     + (f" dans le dossier « {dossier} »." if dossier else ". Retrouvez-le dans Mes dossiers."))
     st.button(libelle, width="stretch", key=key or f"save_{type_analyse}", on_click=_sauver)
 
 

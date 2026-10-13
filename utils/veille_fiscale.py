@@ -257,7 +257,7 @@ def page_veille_fiscale():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("📰 Veille Fiscale")
+    st.title("Veille fiscale")
     st.markdown("**Actualités fiscales officielles** — France")
     st.caption("✨ Sources : DGFiP, BOFiP, Légifrance")
 

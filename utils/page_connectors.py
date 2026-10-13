@@ -95,7 +95,7 @@ def _creds_key(erp_key):
 
 
 def page_connectors(app_name="pcg"):
-    st.title("Connecteurs ERP")
+    st.title("Connecteurs logiciels")
     st.markdown(
         "Connectez votre logiciel comptable pour importer automatiquement "
         "la balance, les écritures (FEC), le grand livre et les factures."

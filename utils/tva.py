@@ -458,7 +458,7 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
 # PAGE PRINCIPALE
 # ─────────────────────────────────────────────
 def page_tva():
-    st.title("🧾 Aide Déclaration TVA — CA3 / CA12")
+    st.title("TVA : aide à la déclaration CA3 / CA12")
     st.markdown("**Calcul et vérification TVA France** — Régimes réel normal (CA3) et simplifié (CA12)")
     st.caption("✨ Pour Cabinets, DAF et Dirigeants - DGFiP / PCG France")
 

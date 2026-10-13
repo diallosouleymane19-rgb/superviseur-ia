@@ -391,7 +391,7 @@ def page_fec():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("📂 Traitement FEC – Contrôle de conformité DGFiP")
+    st.title("Fichier des écritures comptables (FEC)")
     st.markdown("**Validation et analyse approfondie** des Fichiers des Écritures Comptables (Article L.47 A du LPF)")
 
     uploaded_file = st.file_uploader(

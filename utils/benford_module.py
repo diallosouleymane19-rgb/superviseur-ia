@@ -379,7 +379,7 @@ def page_benford():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("🛡 Loi de Benford – Détection d'anomalies")
+    st.title("Loi de Benford")
     st.markdown("**Détection statistique** d'anomalies et manipulations de données")
     st.caption("✨ Méthode statistique reconnue pour repérer les montants atypiques à examiner")
 

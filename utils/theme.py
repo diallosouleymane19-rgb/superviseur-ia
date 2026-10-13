@@ -1,44 +1,91 @@
 # -*- coding: utf-8 -*-
 """
 utils/theme.py - SMD Global Consulting LLC
-Charte visuelle "finance pro clair" injectée dans Streamlit.
+Charte visuelle SMD Global Consulting, complément de .streamlit/config.toml.
 
-Couleurs :
-    Marine  #1F4E79  marque, boutons, liens
-    Encre   #14273D  titres, texte principal
-    Ardoise #52606D  texte secondaire
-    Brume   #F2F5F9  menu latéral, fonds secondaires
-    Filet   #D8E0EA  traits et bordures
+Couleurs (relevées sur le logo) :
+    Marine  #0A3681  menu latéral, marque, boutons
+    Azur    #0A84C6  repère de la page active, accents
+    Encre   #0E1E3A  titres, texte principal
+    Ardoise #4F5D73  texte secondaire
+    Brume   #F3F6FA  fonds secondaires
+    Filet   #D9E1EC  traits et bordures
     Vert    #1D6B47  statut conforme
-Typo : IBM Plex Sans (chiffres tabulaires).
+Typo : Source Serif (titres, fournie par Streamlit), IBM Plex Sans (texte, chiffres tabulaires, static/fonts).
 """
 import streamlit as st
 
 _CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
 :root {
-  --smd-marine: #1F4E79;
-  --smd-encre: #14273D;
-  --smd-ardoise: #52606D;
-  --smd-brume: #F2F5F9;
-  --smd-filet: #D8E0EA;
+  --smd-marine: #0A3681;
+  --smd-azur: #0A84C6;
+  --smd-encre: #0E1E3A;
+  --smd-ardoise: #4F5D73;
+  --smd-brume: #F3F6FA;
+  --smd-filet: #D9E1EC;
   --smd-vert: #1D6B47;
 }
 
-html, body, [class*="st-"], .stMarkdown, h1, h2, h3, h4, h5, h6, button, input, textarea, select, label, p, li {
+html, body, [class*="st-"], .stMarkdown, button, input, textarea, select, label, p, li {
   font-family: 'IBM Plex Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
+h1, h2, h3, h4, .smd-entete h1 { font-family: 'Source Serif', Georgia, serif !important; }
+[data-testid="stMain"] { font-variant-numeric: tabular-nums; }
 /* Ne jamais remplacer la police des icônes Streamlit */
 [data-testid="stIconMaterial"], .material-symbols-rounded {
   font-family: 'Material Symbols Rounded' !important;
 }
-h1, h2, h3, h4 { color: var(--smd-encre); letter-spacing: -0.01em; font-weight: 600; }
+h1, h2, h3, h4 { color: var(--smd-encre); letter-spacing: -0.005em; font-weight: 600; }
 
-/* Menu latéral */
-[data-testid="stSidebar"] { border-right: 1px solid var(--smd-filet); }
-[data-testid="stSidebar"] h1 { font-size: 1.15rem; line-height: 1.3; }
+/* ── Menu latéral aux couleurs SMD ───────────────────────────────────────── */
+[data-testid="stSidebarHeader"] { padding-top: 1.25rem; padding-bottom: .5rem; }
+[data-testid="stSidebarHeader"] { height: auto !important; }
+[data-testid="stSidebarHeader"] img { height: 3.6rem !important; width: auto !important; max-width: 100%; }
+[data-testid="stSidebar"] hr { border-color: rgba(233,238,247,.18); margin: .9rem 0; }
+.smd-utilisateur { font-size: .82rem; color: #B9C6DE; margin: 0 0 .5rem; word-break: break-all; }
+.smd-role { border-left: 3px solid var(--smd-azur); padding: .15rem 0 .15rem .65rem; margin: 0 0 .5rem; }
+.smd-role-lib { font-weight: 600; color: #FFFFFF; font-size: .9rem; }
+.smd-role-plan { display: flex; align-items: center; gap: .45rem; margin-top: .15rem; }
+.smd-plan { background: rgba(10,132,198,.35); color: #fff; font-size: .72rem; font-weight: 500;
+  padding: .05rem .5rem; border-radius: 999px; }
+.smd-role-nom { color: #B9C6DE; font-size: .78rem; }
+.smd-quota { font-size: .78rem; color: #B9C6DE; margin: .1rem 0 .25rem; }
+.smd-quota b { color: #fff; font-weight: 600; }
+.smd-jauge { background: rgba(255,255,255,.15); border-radius: 3px; height: 4px; margin-bottom: .4rem; }
+.smd-jauge > div { height: 4px; border-radius: 3px; }
+.smd-jauge-ok { background: #3FB37F; } .smd-jauge-moyen { background: #E0A43A; } .smd-jauge-haut { background: #E5534B; }
+
+/* Menu : familles et entrées */
+.st-key-smd_menu [data-testid="stMarkdownContainer"] p { margin: 0; }
+.st-key-smd_menu .stMarkdown > div { margin-bottom: 0 !important; }
+.st-key-smd_menu .stElementContainer:has(.smd-section) { height: auto !important; }
+.smd-section { font-size: .76rem; font-weight: 600; color: #8FA6CC; letter-spacing: .02em;
+  padding: 1.1rem 0 .35rem .6rem; }
+.st-key-smd_menu { gap: 0 !important; }
+.st-key-smd_menu .stButton > button { justify-content: flex-start; text-align: left; min-height: 2.1rem;
+  padding: .3rem .6rem; border-radius: 4px; border: none; font-size: .9rem; font-weight: 400;
+  color: #DCE4F2; background: transparent; }
+.st-key-smd_menu .stButton > button:hover { background: rgba(255,255,255,.08); color: #fff; }
+.st-key-smd_menu .stButton > button[kind="primary"] { background: rgba(255,255,255,.12); color: #fff;
+  font-weight: 600; box-shadow: inset 3px 0 0 var(--smd-azur); }
+.st-key-smd_menu .stButton > button p { font-size: .9rem; }
+.st-key-smd_menu .stButton > button [data-testid="stIconMaterial"] { color: #8FB8E6; font-size: 1.1rem; }
+.st-key-smd_menu .stButton > button[kind="primary"] [data-testid="stIconMaterial"] { color: #fff; }
+[data-testid="stSidebar"] .stButton > button[kind="secondary"] { background: transparent; color: #E9EEF7;
+  border: 1px solid rgba(233,238,247,.35); }
+[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover { border-color: #fff; color: #fff; }
+
+/* Dépôt de fichier : textes en français (Streamlit les affiche en anglais) */
+[data-testid="stFileUploaderDropzoneInstructions"] div > span:first-child { font-size: 0; }
+[data-testid="stFileUploaderDropzoneInstructions"] div > span:first-child::after {
+  content: "Glissez-déposez votre fichier ici"; font-size: 1rem; }
+[data-testid="stFileUploaderDropzoneInstructions"] div > span:last-child { font-size: 0; }
+[data-testid="stFileUploaderDropzoneInstructions"] div > span:last-child::after {
+  content: "200 Mo maximum par fichier"; font-size: .85rem; }
+[data-testid="stFileUploaderDropzone"] button { font-size: 0 !important; }
+[data-testid="stFileUploaderDropzone"] button::after { content: "Parcourir"; font-size: .95rem; }
 
 /* Boutons secondaires : contour marine discret */
 .stButton > button[kind="secondary"] {
@@ -89,7 +136,14 @@ h1, h2, h3, h4 { color: var(--smd-encre); letter-spacing: -0.01em; font-weight: 
   margin-right: .4rem; vertical-align: middle; }
 .ok { background: var(--smd-vert); } .ko { background: #B7791F; }
 
-/* Connexion */
+/* Connexion : panneau aux couleurs SMD */
+.st-key-smd_panneau { background: var(--smd-marine); border-radius: 8px; padding: 2rem 2.25rem 2.25rem; }
+.st-key-smd_panneau .smd-logo { height: 4.2rem; width: auto; margin: 0 0 1.75rem -.25rem; display: block; }
+.st-key-smd_panneau h1 { color: #FFFFFF !important; }
+.st-key-smd_panneau .smd-accroche { color: #C9D6EC; }
+.st-key-smd_panneau .smd-engagements li { color: #FFFFFF; border-top-color: rgba(233,238,247,.2); }
+.st-key-smd_panneau .smd-engagements li::before { border-color: #5FB3E6; }
+.st-key-smd_panneau .smd-engagements span { color: #B9C6DE; }
 .smd-marque { color: var(--smd-ardoise); font-size: .95rem; margin-bottom: .5rem; }
 .smd-accroche { font-size: 1.1rem; color: var(--smd-ardoise); max-width: 34rem; line-height: 1.55; }
 .smd-engagements { list-style: none; padding: 0 !important; margin: 1.5rem 0 0 !important; max-width: 34rem; }

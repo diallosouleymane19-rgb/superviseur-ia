@@ -290,7 +290,7 @@ def page_coherence():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("✅ Cohérence des Données")
+    st.title("Cohérence des données")
     st.markdown("**Contrôle qualité** des données comptables")
     st.caption("✨ 7 contrôles automatiques + Score qualité")
 

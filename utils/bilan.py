@@ -306,7 +306,7 @@ def page_bilan():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("📊 Bilan Comptable")
+    st.title("Bilan")
     st.markdown("**Vision patrimoniale** avec ratios financiers selon PCG")
     st.caption("✨ Pour Cabinets, DAF et Dirigeants - FDR, BFR, Trésorerie nette")
 

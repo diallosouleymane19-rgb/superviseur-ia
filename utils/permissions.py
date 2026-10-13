@@ -96,23 +96,12 @@ def afficher_badge_role() -> None:
     plan_label = plan_info["label"]
     plan_color = plan_info["color"]
 
-    st.sidebar.markdown(f"""
-        <div style='background:{color}12;border:1px solid {color}40;
-                    padding:8px 12px;border-radius:6px;margin:4px 0 8px'>
-            <div style='color:{color};font-weight:700;font-size:0.82em;
-                        letter-spacing:.3px'>
-                {role_label}
-            </div>
-            <div style='display:flex;align-items:center;gap:6px;margin-top:2px'>
-                <span style='background:{plan_color};color:#fff;
-                             font-size:0.68em;font-weight:600;
-                             padding:1px 6px;border-radius:10px'>
-                    {plan_label}
-                </span>
-                {f'<span style="color:#888;font-size:0.75em">{nom}</span>' if nom else ''}
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    import html as _html
+    st.sidebar.markdown(
+        f"<div class='smd-role'><div class='smd-role-lib'>{_html.escape(role_label)}</div>"
+        f"<div class='smd-role-plan'><span class='smd-plan'>{_html.escape(plan_label)}</span>"
+        + (f"<span class='smd-role-nom'>{_html.escape(nom)}</span>" if nom else "") + "</div></div>",
+        unsafe_allow_html=True)
 
 
 # ─── Sidebar : barre de quota ─────────────────────────────────────────────────
@@ -123,7 +112,7 @@ def afficher_quota_sidebar() -> None:
     role       = st.session_state.get("role", "client")
 
     if role == "admin":
-        st.sidebar.caption("♾ Quota illimité (Admin)")
+        st.sidebar.markdown("<div class='smd-quota'>Analyses illimitées (administrateur)</div>", unsafe_allow_html=True)
         return
 
     user = get_user(user_email) if user_email else None
@@ -132,38 +121,22 @@ def afficher_quota_sidebar() -> None:
 
     limit = get_quota_limit(user)
     if limit == -1:
-        st.sidebar.caption("♾ Quota illimité (Enterprise)")
+        st.sidebar.markdown("<div class='smd-quota'>Analyses illimitées (Entreprise)</div>", unsafe_allow_html=True)
         return
 
     used = get_quota_used(user_email)
     pct  = min(100, int(used / limit * 100)) if limit > 0 else 0
     remaining = max(0, limit - used)
 
-    if pct < 60:
-        bar_color = "#22c55e"
-        icon = "🟢"
-    elif pct < 85:
-        bar_color = "#f59e0b"
-        icon = "🟡"
-    else:
-        bar_color = "#ef4444"
-        icon = "🔴"
-
-    st.sidebar.markdown(f"""
-        <div style='font-size:0.78em;color:#555;margin:4px 0 2px'>
-            {icon} Analyses du cabinet ce mois :
-            <b style='color:{bar_color}'>{used} / {limit}</b>
-            <span style='color:#aaa'> ({remaining} restantes)</span>
-        </div>
-        <div style='background:#e5e7eb;border-radius:4px;height:5px;margin-bottom:2px'>
-            <div style='background:{bar_color};width:{pct}%;
-                        height:5px;border-radius:4px;
-                        transition:width .3s'></div>
-        </div>
-    """, unsafe_allow_html=True)
+    niveau = "ok" if pct < 60 else ("moyen" if pct < 85 else "haut")
+    st.sidebar.markdown(
+        f"<div class='smd-quota'>Analyses du cabinet ce mois : <b>{used} / {limit}</b> "
+        f"({remaining} restantes)</div>"
+        f"<div class='smd-jauge'><div class='smd-jauge-{niveau}' style='width:{pct}%'></div></div>",
+        unsafe_allow_html=True)
 
     if pct >= 90:
-        st.sidebar.warning("⚠ Quota presque épuisé — pensez à upgrader.")
+        st.sidebar.warning("Quota presque épuisé : voyez l'offre supérieure dans Abonnement.")
 
 
 # ─── Audit log automatique ────────────────────────────────────────────────────

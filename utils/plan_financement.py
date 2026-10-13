@@ -231,7 +231,7 @@ Sois concis et professionnel."""
 # --- Page principale ---
 
 def page_plan_financement():
-    st.title("Plan de Financement")
+    st.title("Plan de financement")
     st.markdown("*PCG France - Équilibre ressources / emplois sur 1 à 5 ans*")
     st.divider()
 

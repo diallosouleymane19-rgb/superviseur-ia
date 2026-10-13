@@ -99,7 +99,7 @@ def _supprimer_analyse(aid):
 # ─── Page ────────────────────────────────────────────────────────────────────
 
 def page_dossiers():
-    st.title("🗂 Mes dossiers")
+    st.title("Mes dossiers")
     if st.session_state.get("role") == "demo":
         st.info("En mode démonstration, rien n'est sauvegardé. Créez un compte gratuit pour retrouver vos analyses "
                 "et les classer par dossier client.")
@@ -112,7 +112,7 @@ def page_dossiers():
     noms = {c[0]: c[1] for c in clients}
     analyses = D.analyses_du_cabinet()
 
-    onglet_a, onglet_d = st.tabs([f"📄 Analyses sauvegardées ({len(analyses)})", f"📁 Dossiers clients ({len(clients)})"])
+    onglet_a, onglet_d = st.tabs([f"Analyses sauvegardées ({len(analyses)})", f"Dossiers clients ({len(clients)})"])
     with onglet_a:
         _onglet_analyses(analyses, noms)
     with onglet_d:
@@ -200,7 +200,7 @@ def _detail_analyse(aid, noms):
 
 
 def _onglet_dossiers(clients, analyses):
-    with st.expander("➕ Nouveau dossier client", expanded=not clients):
+    with st.expander("Nouveau dossier client", icon=":material/add:", expanded=not clients):
         c1, c2 = st.columns(2)
         c1.text_input("Nom du client *", key="dos_nom", placeholder="ex. SARL Martin")
         c2.text_input("SIRET", key="dos_siret")

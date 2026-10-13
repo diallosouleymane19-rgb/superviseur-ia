@@ -81,7 +81,7 @@ def page_analyse_facture():
     import pandas as pd
     from utils.page_helpers import banniere_demo, generer_bouton_word, sauvegarder_si_autorise
 
-    st.title("🧾 Analyse et comptabilisation de factures")
+    st.title("Analyse et comptabilisation de factures")
     st.markdown("Détection, contrôle et comptabilisation selon le PCG, **sans API** : "
                 "factures électroniques (Factur-X, UBL, CII), PDF issus d'un logiciel, fichiers texte et listes CSV.")
     st.caption("PDF scannés et photos : lecture par OCR Tesseract, gratuit et local (aucune API). Vérifiez toujours les montants lus.")

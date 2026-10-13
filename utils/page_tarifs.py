@@ -134,7 +134,7 @@ def page_tarifs(app_name="pcg"):
     user_email  = st.session_state.get("user_email", "")
     plan_actuel = st.session_state.get("plan", "free")
 
-    st.title("Tarifs & Abonnement")
+    st.title("Abonnement")
     st.markdown("Choisissez le plan adapté à votre activité. Sans engagement, résiliable à tout moment.")
     # L'abonnement et le quota sont ceux du cabinet : seul son responsable les modifie
     collaborateur = st.session_state.get("role") == "collaborateur"

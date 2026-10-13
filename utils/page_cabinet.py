@@ -51,7 +51,7 @@ def _renommer(tenant_id):
 
 
 def page_cabinet():
-    st.title("👥 Mon cabinet")
+    st.title("Mon cabinet")
     role = st.session_state.get("role", "")
     tenant_id = st.session_state.get("tenant_id")
     email = st.session_state.get("user_email", "")

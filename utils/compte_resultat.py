@@ -361,7 +361,7 @@ def page_compte_resultat():
         banniere_demo, is_demo, appel_mistral_securise,
         afficher_rapport, afficher_synthese_score,
     )
-    st.title("📈 Compte de Résultat")
+    st.title("Compte de résultat")
     st.markdown("**Calcul automatique des SIG** (Soldes Intermédiaires de Gestion) selon PCG")
     st.caption("✨ Pour Cabinets, DAF et Dirigeants - Compatible toutes balances")
 
