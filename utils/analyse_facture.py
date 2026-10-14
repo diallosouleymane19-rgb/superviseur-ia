@@ -87,7 +87,7 @@ def page_analyse_facture():
     st.caption("PDF scannés et photos : lecture par OCR Tesseract, gratuit et local (aucune API). Vérifiez toujours les montants lus.")
     banniere_demo()
 
-    with st.expander("⚙️ Paramètres", expanded=False):
+    with st.expander("Paramètres", expanded=False):
         ma_societe = st.text_input(
             "Votre société (nom ou SIREN)", value=st.session_state.get("cabinet", "") or "",
             help="Sert à distinguer vos ventes (vous êtes l'émetteur) de vos achats.")
@@ -96,7 +96,7 @@ def page_analyse_facture():
         st.caption("Exigibilité de la TVA sur les services : à l'encaissement (art. 269 du CGI), "
                    "donc déductible au paiement, sauf option du fournisseur pour les débits.")
 
-    fichiers = st.file_uploader("📎 Déposer une ou plusieurs factures",
+    fichiers = st.file_uploader("Déposer une ou plusieurs factures",
                                 type=["pdf", "xml", "txt", "csv", "png", "jpg", "jpeg"],
                                 accept_multiple_files=True, key="cf_upload")
     if not fichiers:
@@ -136,8 +136,8 @@ def page_analyse_facture():
     c4.metric("Doublons écartés", len(resultats) - len(retenus))
 
     st.subheader("Pièces")
-    st.caption("✅ comptabilisée et conforme · 🟠 comptabilisée, point d'attention (mentions ou TVA) · "
-               "⚠️ imputation ou montants à vérifier · ⛔ doublon écarté")
+    st.caption("comptabilisée et conforme · comptabilisée, point d'attention (mentions ou TVA) · "
+               "imputation ou montants à vérifier · doublon écarté")
     for i, r in enumerate(resultats):
         d = r["donnees"]
         tiers = d.get("fournisseur") if r["sens"] == "achat" else d.get("client")

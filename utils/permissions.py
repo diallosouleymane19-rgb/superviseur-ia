@@ -30,7 +30,7 @@ def require_permission(permission: str, message: str = None) -> None:
         st.markdown("""
             <div style='background:#fef2f2;border-left:4px solid #dc2626;
                         padding:14px 18px;border-radius:6px;margin:16px 0'>
-                <span style='font-size:1.2em'>⛔</span>
+                <span style='font-size:1.2em'></span>
                 <strong style='color:#dc2626'> Accès restreint</strong><br>
                 <span style='color:#666;font-size:0.9em'>
                     Votre rôle actuel ne permet pas d'accéder à cette fonctionnalité.<br>
@@ -64,7 +64,7 @@ def check_quota(action_type: str = "analyse", details: str = "") -> bool:
         st.markdown(f"""
             <div style='background:#fffbeb;border-left:4px solid #f59e0b;
                         padding:14px 18px;border-radius:6px;margin:16px 0'>
-                <span style='font-size:1.2em'>⚠</span>
+                <span style='font-size:1.2em'></span>
                 <strong style='color:#92400e'> Quota mensuel atteint</strong><br>
                 <span style='color:#666;font-size:0.9em'>
                     Votre plan <b>{plan_label}</b> inclut <b>{limit} analyses/mois</b>.<br>
@@ -74,7 +74,7 @@ def check_quota(action_type: str = "analyse", details: str = "") -> bool:
         """, unsafe_allow_html=True)
         col1, col2 = st.columns([1, 3])
         with col1:
-            st.button("🚀 Mettre à niveau", key="btn_upgrade_quota",
+            st.button("Mettre à niveau", key="btn_upgrade_quota",
                       on_click=lambda: st.session_state.update(nav_page="💳 Tarifs & Abonnement"))
         return False
     return True
@@ -158,7 +158,7 @@ def page_admin_users(app_name: str = "") -> None:
     from utils.auth_rbac import lister_users, get_audit_logs
     import pandas as pd
 
-    st.subheader("👥 Gestion des utilisateurs")
+    st.subheader("Gestion des utilisateurs")
 
     users = lister_users()
     if not users:
@@ -182,7 +182,7 @@ def page_admin_users(app_name: str = "") -> None:
     st.dataframe(df_display, width="stretch")
 
     st.divider()
-    st.subheader("📋 Journal des actions (50 dernières)")
+    st.subheader("Journal des actions (50 dernières)")
     logs = get_audit_logs(limit=50)
     if logs:
         df_logs = pd.DataFrame(logs)

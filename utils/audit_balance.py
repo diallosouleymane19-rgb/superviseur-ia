@@ -322,10 +322,10 @@ def page_audit_balance():
     )
     st.title("Contrôle de balance")
     st.markdown("**Analyse approfondie** pour Cabinets, DAF et Dirigeants")
-    st.caption("✨ Compatible : Sage, Cegid, EBP, Ciel, ACD, Tiime, Pennylane, QuickBooks")
+    st.caption("Compatible : Sage, Cegid, EBP, Ciel, ACD, Tiime, Pennylane, QuickBooks")
 
     uploaded_file = st.file_uploader(
-        "📎 Déposer votre balance (CSV, TXT, Excel ou LibreOffice)",
+        "Déposer votre balance (CSV, TXT, Excel ou LibreOffice)",
         type=TYPES_BALANCE
     )
 
@@ -338,39 +338,39 @@ def page_audit_balance():
             st.stop()
 
         mode_lecture = st.radio(
-            "🔧 Mode de lecture",
-            ["🤖 Auto-détection universelle", "📋 Mode manuel"],
+            "Mode de lecture",
+            ["Détection automatique", "Mode manuel"],
             horizontal=True
         )
 
         try:
-            if mode_lecture == "🤖 Auto-détection universelle":
-                with st.spinner("🤖 Analyse intelligente de la balance..."):
+            if mode_lecture == "Détection automatique":
+                with st.spinner("Analyse intelligente de la balance..."):
                     df, info = parser_balance_intelligent(uploaded_file)
 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("📊 Format détecté", info['format_detecte'])
+                    st.metric("Format détecté", info['format_detecte'])
                 with col2:
-                    st.metric("📍 Ligne en-tête", info['ligne_entete'])
+                    st.metric("Ligne en-tête", info['ligne_entete'])
                 with col3:
-                    st.metric("📝 Lignes données", info['nb_lignes_donnees'])
+                    st.metric("Lignes données", info['nb_lignes_donnees'])
 
                 if info['colonnes_manquantes']:
-                    st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.")
+                    st.warning(f"Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.", icon=":material/warning:")
 
-                with st.expander("🔍 Détails de la détection", expanded=False):
+                with st.expander("Détails de la détection", expanded=False):
                     st.write("**Mapping des colonnes :**")
                     for orig, std in info['colonnes_mappees'].items():
                         st.write(f"- `{orig}` → **{std}**")
 
-                with st.expander("👀 Aperçu de la balance", expanded=True):
+                with st.expander("Aperçu de la balance", expanded=True):
                     st.dataframe(df.head(15), width="stretch")
 
             else:
                 col1, col2 = st.columns(2)
                 with col1:
-                    a_un_entete = st.checkbox("✅ Mon fichier a une ligne d'en-tête", value=True)
+                    a_un_entete = st.checkbox("Mon fichier a une ligne d'en-tête", value=True)
                 with col2:
                     ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0) if a_un_entete else None
 
@@ -379,22 +379,22 @@ def page_audit_balance():
                 else:
                     df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
 
-                st.success(f"✅ Balance chargée : **{nb_fr(len(df), 0)} lignes**")
+                st.success(f"Balance chargée : **{nb_fr(len(df), 0)} lignes**", icon=":material/check_circle:")
 
-                with st.expander("👀 Aperçu de la balance", expanded=True):
+                with st.expander("Aperçu de la balance", expanded=True):
                     st.dataframe(df.head(15), width="stretch")
 
                 st.divider()
-                st.markdown("### 🎯 Identification des Colonnes")
+                st.markdown("### Identification des colonnes")
                 colonnes_disponibles = ["-- Aucune --"] + [str(c) for c in df.columns]
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    col_compte = st.selectbox("🔢 Compte", colonnes_disponibles, index=1 if len(df.columns) > 0 else 0)
-                    col_libelle = st.selectbox("📝 Libellé", colonnes_disponibles, index=2 if len(df.columns) > 1 else 0)
+                    col_compte = st.selectbox("Compte", colonnes_disponibles, index=1 if len(df.columns) > 0 else 0)
+                    col_libelle = st.selectbox("Libellé", colonnes_disponibles, index=2 if len(df.columns) > 1 else 0)
                 with col2:
-                    col_debit = st.selectbox("📥 Débit", colonnes_disponibles, index=3 if len(df.columns) > 2 else 0)
-                    col_credit = st.selectbox("📤 Crédit", colonnes_disponibles, index=4 if len(df.columns) > 3 else 0)
+                    col_debit = st.selectbox("Débit", colonnes_disponibles, index=3 if len(df.columns) > 2 else 0)
+                    col_credit = st.selectbox("Crédit", colonnes_disponibles, index=4 if len(df.columns) > 3 else 0)
 
                 renommage = {}
                 if col_compte != "-- Aucune --":
@@ -412,11 +412,11 @@ def page_audit_balance():
 
             col1, col2 = st.columns(2)
             with col1:
-                nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+                nom_entreprise = st.text_input("Nom de l'entreprise", value="Entreprise")
             with col2:
                 exercice = champ_exercice()
 
-            if st.button("🔍 Lancer le contrôle", type="primary", width="stretch") and champs_remplis(Exercice=exercice):
+            if st.button("Lancer le contrôle", type="primary", width="stretch") and champs_remplis(Exercice=exercice):
                 with st.spinner("Contrôle en cours..."):
                     audit = auditer_balance(df)
 
@@ -434,7 +434,7 @@ def page_audit_balance():
                     rapport = generer_rapport_audit(audit, nom_entreprise, exercice)
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Contrôle de balance", resultat=rapport, libelle="💾 Sauvegarder")
+                        bouton_sauvegarde(type_analyse="Contrôle de balance", resultat=rapport, libelle="Sauvegarder")
                     with col2:
                         try:
                             from utils.rendu_financier import visuels_synthese_score
@@ -447,7 +447,7 @@ def page_audit_balance():
                             st.error(f"Erreur : {e}")
 
         except Exception as e:
-            st.error(f"❌ Erreur : {str(e)}")
+            st.error(f"Erreur : {str(e)}", icon=":material/error:")
             import traceback
             with st.expander("Détails techniques"):
                 st.code(traceback.format_exc())

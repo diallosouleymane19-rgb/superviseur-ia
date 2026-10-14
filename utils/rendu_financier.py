@@ -217,7 +217,7 @@ def afficher_rapport(
             else:
                 # Texte restant affiché en expander si compact
                 if compact:
-                    with st.expander("📄 Détail narratif"):
+                    with st.expander("Détail narratif"):
                         _afficher_bloc_texte(None, contenu)
                 else:
                     _afficher_bloc_texte(None, contenu)
@@ -232,7 +232,7 @@ def afficher_rapport(
         else:
             # Texte simple sans sections
             if compact:
-                with st.expander("📄 Voir l'analyse complète"):
+                with st.expander("Voir l'analyse complète"):
                     st.markdown(texte)
             else:
                 st.markdown(texte)
@@ -301,16 +301,16 @@ def afficher_synthese_score(
         nb_ko   = sum(1 for c in controles.values() if c.get('statut') == 'KO')
         nb_warn = sum(1 for c in controles.values() if c.get('statut') == 'WARNING')
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Contrôles OK",    f"✅ {nb_ok}")
-        c2.metric("Avertissements",  f"⚠ {nb_warn}")
-        c3.metric("Contrôles KO",    f"❌ {nb_ko}")
-        c4.metric("Anomalies",       f"🔍 {len(anomalies)}")
+        c1.metric("Contrôles OK",    f"{nb_ok}")
+        c2.metric("Avertissements",  f"{nb_warn}")
+        c3.metric("Contrôles KO",    f"{nb_ko}")
+        c4.metric("Anomalies",       f"{len(anomalies)}")
 
     st.divider()
 
     # KPIs financiers ──────────────────────────────────────────────────────
     if kpis:
-        st.markdown("#### 💰 Indicateurs Financiers")
+        st.markdown("#### Indicateurs financiers")
         kpi_keys = {
             'total_debit':       ("Total Débit",     devise),
             'total_credit':      ("Total Crédit",    devise),
@@ -334,7 +334,7 @@ def afficher_synthese_score(
         # Répartition par classe ───────────────────────────────────────────
         if 'repartition_classes' in kpis and kpis['repartition_classes']:
             st.divider()
-            st.markdown("#### 📚 Répartition par Classe Comptable")
+            st.markdown("#### Répartition par classe comptable")
             rep = kpis['repartition_classes']
             df_rep = pd.DataFrame(
                 [(k, v) for k, v in rep.items()],
@@ -354,7 +354,7 @@ def afficher_synthese_score(
     st.divider()
 
     # Contrôles ────────────────────────────────────────────────────────────
-    st.markdown("#### 🔍 Détail des Contrôles")
+    st.markdown("#### Détail des contrôles")
     rows_ctrl = []
     for nom_ctrl, ctrl in controles.items():
         s = ctrl.get('statut', '')
@@ -371,7 +371,7 @@ def afficher_synthese_score(
 
     # Anomalies ────────────────────────────────────────────────────────────
     if anomalies:
-        st.markdown("#### ⚠ Anomalies Détectées")
+        st.markdown("#### Anomalies détectées")
         rows_anom = []
         for a in anomalies:
             g = a.get('gravite', 'INFO')
@@ -387,7 +387,7 @@ def afficher_synthese_score(
 
     # Recommandations ──────────────────────────────────────────────────────
     if recommandations:
-        st.markdown("#### 💡 Recommandations")
+        st.markdown("#### Recommandations")
         for i, reco in enumerate(recommandations, 1):
             reco_safe = _html_mod.escape(str(reco), quote=True)
             st.markdown(

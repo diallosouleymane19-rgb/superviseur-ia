@@ -460,36 +460,36 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
 def page_tva():
     st.title("TVA : aide à la déclaration CA3 / CA12")
     st.markdown("**Calcul et vérification TVA France** — Régimes réel normal (CA3) et simplifié (CA12)")
-    st.caption("✨ Pour Cabinets, DAF et Dirigeants - DGFiP / PCG France")
+    st.caption("Pour cabinets, DAF et dirigeants - DGFiP / PCG France")
 
     # ── Paramètres ──
     col1, col2, col3 = st.columns(3)
     with col1:
-        entreprise = st.text_input("🏢 Entreprise", value="Entreprise")
+        entreprise = st.text_input("Entreprise", value="Entreprise")
     with col2:
-        regime = st.selectbox("📋 Régime TVA", [
+        regime = st.selectbox("Régime TVA", [
             "CA3 — Réel normal (mensuel/trimestriel)",
             "CA12 — Réel simplifié (annuel)"
         ])
     with col3:
-        periode = st.text_input("📅 Période", value="", placeholder="ex. 09/2026").strip()
+        periode = st.text_input("Période", value="", placeholder="ex. 09/2026").strip()
 
     col4, col5 = st.columns(2)
     with col4:
         siret = st.text_input("🆔 SIRET", placeholder="Ex: 123 456 789 00012")
     with col5:
-        adresse = st.text_input("📍 Adresse", placeholder="Ex: 12 rue de la Paix, 75001 Paris")
+        adresse = st.text_input("Adresse", placeholder="Ex: 12 rue de la Paix, 75001 Paris")
 
     st.divider()
 
     # ── Tabs ──
-    tab1, tab2, tab3 = st.tabs(["📝 Saisie manuelle", "📁 Import balance", "📖 Guide taux & comptes"])
+    tab1, tab2, tab3 = st.tabs(["Saisie manuelle", "Import balance", "Guide taux & comptes"])
 
     # ══════════════════════════════════════════
     # TAB 1 — Saisie manuelle
     # ══════════════════════════════════════════
     with tab1:
-        st.markdown("### 💰 Bases HT soumises à TVA (ventes / opérations imposables)")
+        st.markdown("### Bases HT soumises à TVA (ventes / opérations imposables)")
         data = {}
         col_a, col_b = st.columns(2)
         with col_a:
@@ -505,7 +505,7 @@ def page_tva():
             data["Autoliquidation achats (20%)"]           = st.number_input("Autoliquidation achats 20% — Base HT (€)", min_value=0.0, step=100.0, format="%.2f")
 
         st.divider()
-        st.markdown("### 🔻 TVA Déductible")
+        st.markdown("### TVA déductible")
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
             data["TVA déductible sur achats (ABS)"]      = st.number_input("TVA ded. ABS — 44566 (€)", min_value=0.0, step=10.0, format="%.2f")
@@ -516,7 +516,7 @@ def page_tva():
         data["Crédit de TVA période précédente"] = st.number_input("Crédit TVA période précédente — 44567 (€)", min_value=0.0, step=10.0, format="%.2f")
 
         st.divider()
-        if st.button("🧮 Calculer la déclaration TVA", type="primary", width="stretch") and \
+        if st.button("Calculer la déclaration TVA", type="primary", width="stretch") and \
                 champs_remplis(Période=periode):
             res = _calculer_tva(data)
             _afficher_resultats(res, data, periode, entreprise, regime, siret, adresse)
@@ -525,7 +525,7 @@ def page_tva():
     # TAB 2 — Import balance
     # ══════════════════════════════════════════
     with tab2:
-        st.markdown("### 📁 Import balance comptable")
+        st.markdown("### Import balance comptable")
         st.info("La balance est analysée pour extraire automatiquement les comptes TVA (445xx) et CA (70x).")
         uploaded = st.file_uploader("Balance CSV, TXT ou Excel", type=TYPES_BALANCE, key="tva_balance")
         if uploaded:
@@ -533,10 +533,10 @@ def page_tva():
                 from utils.intelligent_parser import parser_balance_intelligent
                 with st.spinner("Analyse de la balance..."):
                     df, info = parser_balance_intelligent(uploaded)
-                st.success(f"✅ {nb_fr(len(df), 0)} comptes chargés — {info.get('format_detecte', 'format détecté')}")
+                st.success(f"{nb_fr(len(df), 0)} comptes chargés — {info.get('format_detecte', 'format détecté')}", icon=":material/check_circle:")
                 extrait = _extraire_tva_depuis_balance(df)
                 if extrait:
-                    st.markdown("### 📊 Comptes TVA extraits de la balance")
+                    st.markdown("### Comptes TVA extraits de la balance")
                     df_ext = pd.DataFrame([
                         {"Compte / Rubrique": k, "Montant (€)": f"{nb_fr(v, 2)}"}
                         for k, v in extrait.items() if v != 0
@@ -544,20 +544,20 @@ def page_tva():
                     st.dataframe(df_ext, width="stretch", hide_index=True)
 
                     st.divider()
-                    st.markdown("#### ✏ Vérifier / Ajuster les montants avant déclaration")
+                    st.markdown("#### Vérifier / ajuster les montants avant déclaration")
                     col1, col2 = st.columns(2)
                     with col1:
-                        tva_col  = st.number_input("TVA Collectée — 44571 (€)",
+                        tva_col  = st.number_input("TVA collectée — 44571 (€)",
                                                    value=float(extrait.get("TVA collectée (44571)", 0)),
                                                    min_value=0.0, step=10.0, format="%.2f", key="imp_tva_col")
-                        tva_abs  = st.number_input("TVA Déductible ABS — 44566 (€)",
+                        tva_abs  = st.number_input("TVA déductible ABS — 44566 (€)",
                                                    value=float(extrait.get("TVA déductible ABS (44566)", 0)),
                                                    min_value=0.0, step=10.0, format="%.2f", key="imp_tva_abs")
-                        tva_immo = st.number_input("TVA Déductible Immos — 44562 (€)",
+                        tva_immo = st.number_input("TVA déductible immos — 44562 (€)",
                                                    value=float(extrait.get("TVA déductible immos (44562)", 0)),
                                                    min_value=0.0, step=10.0, format="%.2f", key="imp_tva_immo")
                     with col2:
-                        tva_intra = st.number_input("TVA Intracommunautaire — 44563 (€)",
+                        tva_intra = st.number_input("TVA intracommunautaire — 44563 (€)",
                                                     value=float(extrait.get("TVA intracommunautaire (44563)", 0)),
                                                     min_value=0.0, step=10.0, format="%.2f", key="imp_tva_intra")
                         credit_r  = st.number_input("Crédit TVA reporté — 44567 (€)",
@@ -565,7 +565,7 @@ def page_tva():
                                                     min_value=0.0, step=10.0, format="%.2f", key="imp_credit")
 
                     st.divider()
-                    if st.button("🧮 Générer la déclaration CA3/CA12", type="primary",
+                    if st.button("Générer la déclaration CA3/CA12", type="primary",
                                  width="stretch", key="btn_import_decl") and champs_remplis(Période=periode):
                         extrait_ajuste = {
                             "TVA collectée (44571)":            tva_col,
@@ -588,7 +588,7 @@ def page_tva():
     # TAB 3 — Guide
     # ══════════════════════════════════════════
     with tab3:
-        st.markdown("### 📖 Taux de TVA applicables en France")
+        st.markdown("### Taux de TVA applicables en France")
         df_taux = pd.DataFrame([
             {"Taux": "20%",   "Catégorie": "Taux normal",       "Exemples": "Biens et services courants, honoraires, conseil"},
             {"Taux": "10%",   "Catégorie": "Taux intermédiaire","Exemples": "Restauration, transport, travaux logement, médicaments remboursables"},
@@ -599,12 +599,12 @@ def page_tva():
         st.dataframe(df_taux, width="stretch", hide_index=True)
         st.divider()
 
-        st.markdown("### 🏦 Comptes PCG — TVA")
+        st.markdown("### Comptes PCG — TVA")
         df_pcg = pd.DataFrame([{"Compte": k, "Nature": v} for k, v in COMPTES_TVA_PCG.items()])
         st.dataframe(df_pcg, width="stretch", hide_index=True)
         st.divider()
 
-        st.markdown("### 📋 CA3 vs CA12 — Comparatif régimes")
+        st.markdown("### CA3 vs CA12 — Comparatif régimes")
         df_regime = pd.DataFrame([
             {"Critère": "Fréquence",             "CA3 (Réel normal)": "Mensuelle ou trimestrielle",                    "CA12 (Réel simplifié)": "Annuelle (mai N+1)"},
             {"Critère": "CA seuil (BIC/BNC)",    "CA3 (Réel normal)": "> 840 000 € (négoce) / 254 000 € (services)", "CA12 (Réel simplifié)": "< 840 000 € (négoce) / 254 000 € (services)"},
@@ -615,7 +615,7 @@ def page_tva():
         st.dataframe(df_regime, width="stretch", hide_index=True)
         st.divider()
 
-        st.markdown("### ⚡ Autoliquidation — Cas principaux")
+        st.markdown("### Autoliquidation — Cas principaux")
         df_auto = pd.DataFrame([
             {"Opération": "Acquisitions intracommunautaires (AIC)", "Mécanisme": "Autoliquidation — acheteur déclare et déduit simultanément"},
             {"Opération": "Sous-traitance BTP",                     "Mécanisme": "Donneur d'ordre autoliquide la TVA du sous-traitant"},
@@ -686,23 +686,23 @@ def visuels_tva(res: dict):
 def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
                          regime: str, siret: str = "", adresse: str = ""):
     st.divider()
-    st.markdown(f"## 📋 Déclaration TVA — {entreprise} — {periode}")
+    st.markdown(f"## Déclaration TVA — {entreprise} — {periode}")
     st.caption(regime)
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("💰 TVA Collectée",  f"{nb_fr(res['tva_collectee'], 0)} €")
-    col2.metric("🔻 TVA Déductible", f"{nb_fr(res['tva_deductible'], 0)} €")
+    col1.metric("TVA collectée",  f"{nb_fr(res['tva_collectee'], 0)} €")
+    col2.metric("TVA déductible", f"{nb_fr(res['tva_deductible'], 0)} €")
     if res['a_payer'] > 0:
-        col3.metric("💸 TVA à Décaisser", f"{nb_fr(res['a_payer'], 0)} €", delta="À payer",  delta_color="inverse")
-        col4.metric("✅ Crédit TVA",       "0 €")
+        col3.metric("TVA à décaisser", f"{nb_fr(res['a_payer'], 0)} €", delta="À payer",  delta_color="inverse")
+        col4.metric("Crédit TVA",       "0 €")
     else:
-        col3.metric("💸 TVA à Décaisser", "0 €")
-        col4.metric("✅ Crédit TVA",       f"{nb_fr(res['credit_genere'], 0)} €", delta="Crédit", delta_color="normal")
+        col3.metric("TVA à décaisser", "0 €")
+        col4.metric("Crédit TVA",       f"{nb_fr(res['credit_genere'], 0)} €", delta="Crédit", delta_color="normal")
 
     st.divider()
 
     if res["tva_collectee_detail"]:
-        st.markdown("### 🔺 Détail TVA Collectée")
+        st.markdown("### Détail TVA collectée")
         rows = []
         for rubrique, detail in res["tva_collectee_detail"].items():
             rows.append({
@@ -713,7 +713,7 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
             })
         st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
-    st.markdown("### 🔻 Détail TVA Déductible")
+    st.markdown("### Détail TVA déductible")
     rows_ded = []
     if res["tva_ded_abs"]    > 0: rows_ded.append({"Compte": "44566", "Nature": "TVA déductible sur ABS",             "Montant (€)": f"{nb_fr(res['tva_ded_abs'], 2)}"})
     if res["tva_ded_immo"]   > 0: rows_ded.append({"Compte": "44562", "Nature": "TVA déductible sur immos",           "Montant (€)": f"{nb_fr(res['tva_ded_immo'], 2)}"})
@@ -724,7 +724,7 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
     else:
         st.info("Aucune TVA déductible saisie.")
 
-    st.markdown("### 🏁 Synthèse")
+    st.markdown("### Synthèse")
     cols_s = st.columns(3)
     for i, (k, v) in enumerate({
         "TVA Collectée":      res["tva_collectee"],
@@ -738,14 +738,14 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
     alertes = _verifier_coherence(res)
     if alertes:
         st.divider()
-        st.markdown("### ⚠ Contrôles de cohérence")
+        st.markdown("### Contrôles de cohérence")
         for typ, msg in alertes:
             if typ == "warning":   st.warning(msg)
             elif typ == "success": st.success(msg)
             else:                  st.info(msg)
 
     st.divider()
-    st.markdown("### 📝 Écriture comptable à passer (PCG)")
+    st.markdown("### Écriture comptable à passer (PCG)")
     if res["a_payer"] > 0:
         st.code(f"""
 Débit  44551 — TVA à décaisser      {nb_fr(res['a_payer'], 2):>14} €
@@ -775,7 +775,7 @@ Débit  44567 — Crédit de TVA        {nb_fr(res['credit_genere'], 2):>14} €
     try:
         excel = _export_excel_tva(res, data, periode, entreprise)
         st.download_button(
-            label="📥 Télécharger Excel Déclaration TVA",
+            label="Télécharger Excel déclaration TVA",
             data=excel,
             file_name=sanitize_filename(f"TVA_{entreprise}_{periode.replace('/', '-')}") + ".xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -789,7 +789,7 @@ Débit  44567 — Crédit de TVA        {nb_fr(res['credit_genere'], 2):>14} €
         type_decl = "CA3" if "CA3" in regime else "CA12"
         pdf_bytes = _generer_pdf_ca3_ca12(res, data, periode, entreprise, regime, siret, adresse)
         st.download_button(
-            label=f"📄 Télécharger le formulaire {type_decl} (PDF DGFiP)",
+            label=f"Télécharger le formulaire {type_decl} (PDF DGFiP)",
             data=pdf_bytes,
             file_name=sanitize_filename(f"{type_decl}_{entreprise}_{periode.replace('/', '-')}") + ".pdf",
             mime="application/pdf",

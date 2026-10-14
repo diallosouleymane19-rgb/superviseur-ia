@@ -282,7 +282,7 @@ def page_immobilisations():
     )
     st.title("Immobilisations")
     st.markdown("**Amortissements, Cessions et Plan d'investissement**")
-    st.caption("✨ Linéaire, Dégressif, Plus/Moins-value de cession")
+    st.caption("Linéaire, dégressif, plus/moins-value de cession")
 
     from utils.immobilisations import (
         calculer_amortissement_lineaire,
@@ -292,25 +292,25 @@ def page_immobilisations():
     )
 
     onglet1, onglet2, onglet3 = st.tabs([
-        "📋 Tableau d'amortissement",
-        "🔄 Cession / Sortie",
-        "📊 Plan d'investissement"
+        "Tableau d'amortissement",
+        "Cession / sortie",
+        "Plan d'investissement"
     ])
 
     # ── ONGLET 1 : TABLEAU D'AMORTISSEMENT ──
     with onglet1:
-        st.markdown("### 📋 Tableau d'amortissement")
+        st.markdown("### Tableau d'amortissement")
 
         col1, col2 = st.columns(2)
         with col1:
-            nom_bien = st.text_input("🏷 Désignation du bien", placeholder="Ex: Véhicule utilitaire")
-            valeur_origine = st.number_input("💰 Valeur d'origine (€)", min_value=0.0, value=None, step=100.0,
+            nom_bien = st.text_input("Désignation du bien", placeholder="Ex: Véhicule utilitaire")
+            valeur_origine = st.number_input("Valeur d'origine (€)", min_value=0.0, value=None, step=100.0,
                                              placeholder="ex. 12 500")
-            duree_ans = st.number_input("⏱ Durée d'amortissement (ans)", min_value=1, max_value=50, value=5)
+            duree_ans = st.number_input("Durée d'amortissement (ans)", min_value=1, max_value=50, value=5)
         with col2:
-            date_acquisition = st.date_input("📅 Date d'acquisition / mise en service", value=None, format="DD/MM/YYYY")
-            mode = st.selectbox("⚙ Mode d'amortissement", ["Linéaire", "Dégressif"])
-            categorie = st.selectbox("🏭 Catégorie", [
+            date_acquisition = st.date_input("Date d'acquisition / mise en service", value=None, format="DD/MM/YYYY")
+            mode = st.selectbox("Mode d'amortissement", ["Linéaire", "Dégressif"])
+            categorie = st.selectbox("Catégorie", [
                 "Matériel et outillage (5 ans)",
                 "Véhicules (4-5 ans)",
                 "Mobilier (10 ans)",
@@ -320,7 +320,7 @@ def page_immobilisations():
                 "Autre"
             ])
 
-        if st.button("📊 Générer le tableau", type="primary", width="stretch") and champs_remplis(**{
+        if st.button("Générer le tableau", type="primary", width="stretch") and champs_remplis(**{
                 "Désignation du bien": nom_bien, "Valeur d'origine": valeur_origine,
                 "Date d'acquisition / mise en service": date_acquisition}):
             with st.spinner("Calcul en cours..."):
@@ -332,26 +332,26 @@ def page_immobilisations():
                 else:
                     tableau = calculer_amortissement_degressif(valeur_origine, duree_ans, date_acq)
 
-                st.markdown(f"## 📋 {nom_bien} — Amortissement {mode}")
+                st.markdown(f"## {nom_bien} — Amortissement {mode}")
 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("💰 Valeur origine", f"{nb_fr(valeur_origine, 2)} €")
+                    st.metric("Valeur origine", f"{nb_fr(valeur_origine, 2)} €")
                 with col2:
-                    st.metric("⏱ Durée", f"{duree_ans} ans")
+                    st.metric("Durée", f"{duree_ans} ans")
                 with col3:
                     taux = tableau['Taux Dégressif (%)'].iloc[0] if 'Taux Dégressif (%)' in tableau.columns \
                         else 100 / duree_ans
-                    st.metric("📊 Taux", f"{nb_fr(taux, 2)} %")
+                    st.metric("Taux", f"{nb_fr(taux, 2)} %")
                 with col4:
                     dotation = tableau['Dotation (€)'].iloc[0]
-                    st.metric("📅 Dotation/an", f"{nb_fr(dotation, 2)} €")
+                    st.metric("Dotation/an", f"{nb_fr(dotation, 2)} €")
 
                 st.divider()
                 st.dataframe(tableau, width="stretch", hide_index=True)
 
                 # Graphique VNC
-                st.markdown("### 📈 Évolution de la VNC")
+                st.markdown("### Évolution de la VNC")
                 col_vnc = 'VNC (€)' if 'VNC (€)' in tableau.columns else 'VNC Fin (€)'
                 import plotly.graph_objects as go
                 annees_g = [str(int(a)) for a in tableau['Année']]
@@ -367,7 +367,7 @@ def page_immobilisations():
                 st.divider()
 
                 # Écritures comptables
-                st.markdown("### 📚 Écritures Comptables d'Amortissement")
+                st.markdown("### Écritures comptables d'amortissement")
                 st.caption("Compte 6811 — Dotations aux amortissements / 28xx — Amortissements")
 
                 from utils.immobilisations import generer_ecritures_amortissement
@@ -379,17 +379,17 @@ def page_immobilisations():
                     dotation_courante = df_ecritures[
                         df_ecritures['Année'] == annee_courante
                     ]['Débit (€)'].sum()
-                    st.metric("📅 Dotation exercice en cours", f"{nb_fr(dotation_courante, 2)} €")
+                    st.metric("Dotation exercice en cours", f"{nb_fr(dotation_courante, 2)} €")
                 with col2:
                     total_amorti = df_ecritures[
                         df_ecritures['Statut'].str.contains('Passé|cours', na=False)
                     ]['Débit (€)'].sum()
-                    st.metric("📉 Total amorti à ce jour", f"{nb_fr(total_amorti, 2)} €")
+                    st.metric("Total amorti à ce jour", f"{nb_fr(total_amorti, 2)} €")
                 with col3:
                     vnc_col = 'VNC (€)' if 'VNC (€)' in tableau.columns else 'VNC Fin (€)'
                     vnc_actuelle = tableau[tableau['Année'] == annee_courante][vnc_col].values
                     vnc_val = vnc_actuelle[0] if len(vnc_actuelle) > 0 else 0
-                    st.metric("💼 VNC actuelle", f"{nb_fr(vnc_val, 2)} €")
+                    st.metric("VNC actuelle", f"{nb_fr(vnc_val, 2)} €")
 
                 st.dataframe(df_ecritures, width="stretch", hide_index=True)
 
@@ -398,7 +398,7 @@ def page_immobilisations():
                 with col1:
                     rapport = generer_rapport_immobilisation(nom_bien, tableau, mode, valeur_origine, duree_ans,
                                                              date_acquisition, categorie)
-                    bouton_sauvegarde(type_analyse="Immobilisation", resultat=rapport, libelle="💾 Sauvegarder")
+                    bouton_sauvegarde(type_analyse="Immobilisation", resultat=rapport, libelle="Sauvegarder")
                 with col2:
                     try:
                         ind_w, graph_w = visuels_immobilisation(tableau, valeur_origine, duree_ans, mode)
@@ -409,34 +409,34 @@ def page_immobilisations():
 
     # ── ONGLET 2 : CESSION / SORTIE ──
     with onglet2:
-        st.markdown("### 🔄 Calcul de Cession / Sortie d'immobilisation")
+        st.markdown("### Calcul de cession / sortie d'immobilisation")
 
         col1, col2 = st.columns(2)
         with col1:
-            nom_bien_c = st.text_input("🏷 Désignation", placeholder="Ex: Véhicule X", key="cess_nom")
-            valeur_origine_c = st.number_input("💰 Valeur d'origine (€)", min_value=0.0, value=None, key="cess_vo",
+            nom_bien_c = st.text_input("Désignation", placeholder="Ex: Véhicule X", key="cess_nom")
+            valeur_origine_c = st.number_input("Valeur d'origine (€)", min_value=0.0, value=None, key="cess_vo",
                                                placeholder="ex. 10 000")
-            amort_cumule = st.number_input("📉 Amortissements cumulés (€)", min_value=0.0, value=None, key="cess_amort",
+            amort_cumule = st.number_input("Amortissements cumulés (€)", min_value=0.0, value=None, key="cess_amort",
                                            placeholder="ex. 6 000")
         with col2:
-            prix_cession = st.number_input("💵 Prix de cession (€)", min_value=0.0, value=None, key="cess_prix",
+            prix_cession = st.number_input("Prix de cession (€)", min_value=0.0, value=None, key="cess_prix",
                                            placeholder="0 en cas de mise au rebut")
-            date_cession = st.date_input("📅 Date de cession", value=None, key="cess_date", format="DD/MM/YYYY")
-            taux_is = st.number_input("🏛 Taux IS (%)", min_value=0, max_value=100, value=25, key="cess_is")
+            date_cession = st.date_input("Date de cession", value=None, key="cess_date", format="DD/MM/YYYY")
+            taux_is = st.number_input("Taux IS (%)", min_value=0, max_value=100, value=25, key="cess_is")
 
-        if st.button("🔄 Calculer la cession", type="primary", width="stretch") and champs_remplis(**{
+        if st.button("Calculer la cession", type="primary", width="stretch") and champs_remplis(**{
                 "Valeur d'origine": valeur_origine_c, "Amortissements cumulés": amort_cumule,
                 "Prix de cession": prix_cession, "Date de cession": date_cession}):
             with st.spinner("Calcul en cours..."):
                 result = calculer_cession(valeur_origine_c, amort_cumule, prix_cession, date_cession, taux_is)
 
-                st.markdown(f"## 🔄 Cession — {nom_bien_c}")
+                st.markdown(f"## Cession — {nom_bien_c}")
 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("📦 Valeur origine", f"{nb_fr(result['valeur_origine'], 2)} €")
+                    st.metric("Valeur origine", f"{nb_fr(result['valeur_origine'], 2)} €")
                 with col2:
-                    st.metric("📉 VNC", f"{nb_fr(result['vnc'], 2)} €")
+                    st.metric("VNC", f"{nb_fr(result['vnc'], 2)} €")
                 with col3:
                     delta_color = "normal" if result['resultat_cession'] > 0 else "inverse"
                     st.metric(
@@ -446,27 +446,27 @@ def page_immobilisations():
                         delta_color=delta_color
                     )
                 with col4:
-                    st.metric("🏛 IS estimé", f"{nb_fr(result['impot_estime'], 2)} €")
+                    st.metric("IS estimé", f"{nb_fr(result['impot_estime'], 2)} €")
 
                 if result['resultat_cession'] > 0:
-                    st.success(f"✅ **Plus-value de cession** : {nb_fr(result['resultat_cession'], 2)} €")
+                    st.success(f"**Plus-value de cession** : {nb_fr(result['resultat_cession'], 2)} €", icon=":material/check_circle:")
                 else:
-                    st.warning(f"⚠ **Moins-value de cession** : {nb_fr(abs(result['resultat_cession']), 2)} €")
+                    st.warning(f"**Moins-value de cession** : {nb_fr(abs(result['resultat_cession']), 2)} €", icon=":material/warning:")
 
                 st.divider()
-                st.markdown("### 📚 Écritures Comptables")
+                st.markdown("### Écritures comptables")
                 st.dataframe(result['ecritures'], width="stretch", hide_index=True)
 
                 st.divider()
                 rapport_c = f"Cession {nom_bien_c} : {result['type_resultat']} {nb_fr(result['resultat_cession'], 2)} €"
-                bouton_sauvegarde(type_analyse="Cession Immobilisation", resultat=rapport_c, libelle="💾 Sauvegarder la cession")
+                bouton_sauvegarde(type_analyse="Cession Immobilisation", resultat=rapport_c, libelle="Sauvegarder la cession")
     # ── ONGLET 3 : PLAN D'INVESTISSEMENT ──
     with onglet3:
-        st.markdown("### 📊 Plan d'investissement — Suivi du parc")
+        st.markdown("### Plan d'investissement — Suivi du parc")
         st.caption("Uploadez un fichier Excel avec vos immobilisations")
 
         uploaded_file = st.file_uploader(
-            "📎 Fichier immobilisations (CSV, XLSX)",
+            "Fichier immobilisations (CSV, XLSX)",
             type=TYPES_TABLEUR_CSV,
             help="Colonnes attendues : Désignation, Valeur, Date acquisition, Durée, Amort. cumulé"
         )
@@ -474,25 +474,25 @@ def page_immobilisations():
         if uploaded_file:
             df, erreur = charger_fichier(uploaded_file)
             if erreur:
-                st.error(f"❌ Erreur : {erreur}")
+                st.error(f"Erreur : {erreur}", icon=":material/error:")
             else:
-                st.success(f"✅ {len(df)} immobilisation(s) chargée(s)")
+                st.success(f"{len(df)} immobilisation(s) chargée(s)", icon=":material/check_circle:")
                 st.dataframe(df, width="stretch", hide_index=True)
 
                 st.divider()
-                st.markdown("### 📊 Analyse du parc")
+                st.markdown("### Analyse du parc")
 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("📦 Nombre de biens", len(df))
+                    st.metric("Nombre de biens", len(df))
                 with col2:
                     if 'Valeur' in df.columns:
-                        st.metric("💰 Valeur totale", f"{nb_fr(pd.to_numeric(df['Valeur'], errors='coerce').sum(), 2)} €")
+                        st.metric("Valeur totale", f"{nb_fr(pd.to_numeric(df['Valeur'], errors='coerce').sum(), 2)} €")
                 with col3:
                     if 'Amort. cumulé' in df.columns:
-                        st.metric("📉 Amort. total", f"{nb_fr(pd.to_numeric(df['Amort. cumulé'], errors='coerce').sum(), 2)} €")
+                        st.metric("Amort. total", f"{nb_fr(pd.to_numeric(df['Amort. cumulé'], errors='coerce').sum(), 2)} €")
         else:
-            st.info("💡 Vous pouvez aussi saisir vos immobilisations manuellement via l'onglet Tableau d'amortissement.")
+            st.info("Vous pouvez aussi saisir vos immobilisations manuellement via l'onglet Tableau d'amortissement.", icon=":material/info:")
     # -----------------------------------------------------------------------------
     # INVENTAIRE & CLÔTURE
     # -----------------------------------------------------------------------------

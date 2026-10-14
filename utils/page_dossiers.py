@@ -104,7 +104,7 @@ def page_dossiers():
         st.info("En mode démonstration, rien n'est sauvegardé. Créez un compte gratuit pour retrouver vos analyses "
                 "et les classer par dossier client.")
         return
-    st.caption("Les analyses sauvegardées (bouton 💾 Sauvegarder des modules) sont conservées 30 jours, puis supprimées "
+    st.caption("Les analyses sauvegardées (bouton sauvegarder des modules) sont conservées 30 jours, puis supprimées "
                "automatiquement. Elles sont partagées avec les membres de votre cabinet.")
     _message()
 
@@ -121,7 +121,7 @@ def page_dossiers():
 
 def _onglet_analyses(analyses, noms):
     if not analyses:
-        st.info("Aucune analyse sauvegardée pour l'instant. Dans un module, cliquez sur « 💾 Sauvegarder » : "
+        st.info("Aucune analyse sauvegardée pour l'instant. Dans un module, cliquez sur «Sauvegarder » : "
                 "l'analyse apparaîtra ici, rangée dans le dossier du client choisi dans le menu de gauche.")
         return
 
@@ -180,7 +180,7 @@ def _detail_analyse(aid, noms):
             from utils.export_word import export_analyse_word
             from utils.ai import extraire_contenu_mistral
             buf = export_analyse_word(type_a or "Analyse", extraire_contenu_mistral(contenu))
-            st.download_button("📄 Télécharger en Word", buf, f"{sanitize_filename(titre or type_a)}.docx",
+            st.download_button("Télécharger en Word", buf, f"{sanitize_filename(titre or type_a)}.docx",
                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                width="stretch", key=f"dl_{aid}")
         except Exception:
@@ -192,7 +192,7 @@ def _detail_analyse(aid, noms):
                      on_change=_rattacher, args=(aid,))
     with c3:
         confirme = st.checkbox("Confirmer la suppression", key=f"conf_{aid}")
-        st.button("🗑 Supprimer", key=f"sup_{aid}", disabled=not confirme, width="stretch",
+        st.button("Supprimer", key=f"sup_{aid}", disabled=not confirme, width="stretch",
                   on_click=_supprimer_analyse, args=(aid,))
     st.caption("Le fichier Word reprend le rapport sauvegardé ; les graphiques ne sont pas conservés.")
     with st.container(border=True):
@@ -223,21 +223,21 @@ def _onglet_dossiers(clients, analyses):
         with st.container(border=True):
             c1, c2, c3 = st.columns([4, 2, 2])
             details = " · ".join(x for x in (f"SIRET {siret}" if siret else "", secteur, contact, email) if x)
-            c1.markdown(f"**{nom}**" + ("  ·  ✅ client en cours" if cid == en_cours else "")
+            c1.markdown(f"**{nom}**" + ("  · client en cours" if cid == en_cours else "")
                         + (f"  \n{details}" if details else ""))
             c2.caption(f"{nb.get(cid, 0)} analyse(s)  \ncréé le {_date(cree)[:10]}")
             with c3:
                 if cid != en_cours:
                     st.button("Travailler sur ce client", key=f"cur_{cid}", on_click=_choisir_dossier_en_cours,
                               args=(cid,), width="stretch")
-                with st.popover("✏ Modifier", width="stretch"):
+                with st.popover("Modifier", width="stretch"):
                     st.text_input("Nom du client *", value=nom, key=f"mod_nom_{cid}")
                     st.text_input("SIRET", value=siret or "", key=f"mod_siret_{cid}")
                     st.text_input("Secteur d'activité", value=secteur or "", key=f"mod_secteur_{cid}")
                     st.text_input("Contact", value=contact or "", key=f"mod_contact_{cid}")
                     st.text_input("E-mail", value=email or "", key=f"mod_email_{cid}")
                     st.button("Enregistrer", key=f"modb_{cid}", on_click=_modifier_dossier, args=(cid,), type="primary")
-                with st.popover("🗑 Supprimer", width="stretch"):
+                with st.popover("Supprimer", width="stretch"):
                     st.write(f"Supprimer le dossier « {nom} » ? Ses {nb.get(cid, 0)} analyse(s) sont conservées, sans dossier.")
                     st.button("Confirmer la suppression", key=f"supd_{cid}", on_click=_supprimer_dossier, args=(cid, nom),
                               type="primary")

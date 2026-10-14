@@ -227,27 +227,27 @@ def page_rapport_client():
     )
     st.title("Rapport client")
     st.markdown("**Livrable professionnel** pour vos clients")
-    st.caption("✨ Synthèse + KPIs + Analyse + Recommandations")
+    st.caption("Synthèse + KPIs + analyse + recommandations")
 
-    st.markdown("### 👤 Informations Client")
+    st.markdown("### Informations client")
 
     col1, col2 = st.columns(2)
     with col1:
-        nom_client = st.text_input("🏢 Nom du client", placeholder="Ex: SARL DARLING")
+        nom_client = st.text_input("Nom du client", placeholder="Ex: SARL DARLING")
         siret = st.text_input("🆔 SIRET")
-        secteur = st.text_input("🏭 Secteur d'activité")
+        secteur = st.text_input("Secteur d'activité")
 
     with col2:
-        periode = st.selectbox("📆 Période", ["Mensuel", "Trimestriel", "Semestriel", "Annuel"])
+        periode = st.selectbox("Période", ["Mensuel", "Trimestriel", "Semestriel", "Annuel"])
         exercice = champ_exercice(key="rc_exercice")
-        date_rapport = st.date_input("📋 Date du rapport", format="DD/MM/YYYY")
+        date_rapport = st.date_input("Date du rapport", format="DD/MM/YYYY")
 
     st.divider()
 
-    st.markdown("### 📂 Données Comptables")
+    st.markdown("### Données comptables")
 
     uploaded_file = st.file_uploader(
-        "📎 Balance ou FEC du client",
+        "Balance ou FEC du client",
         type=TYPES_BALANCE
     )
 
@@ -256,26 +256,26 @@ def page_rapport_client():
         from utils.intelligent_parser import parser_balance_intelligent, charger_balance_ou_fec
 
         mode_lecture = st.radio(
-            "🔧 Mode de lecture",
-            ["🤖 Auto-détection", "📋 Mode manuel"],
+            "Mode de lecture",
+            ["Détection automatique", "Mode manuel"],
             horizontal=True,
             key="rc_mode"
         )
 
-        if mode_lecture == "🤖 Auto-détection":
+        if mode_lecture == "Détection automatique":
             try:
-                with st.spinner("🤖 Analyse..."):
+                with st.spinner("Analyse..."):
                     df, _msg, info = charger_balance_ou_fec(uploaded_file)
-                    st.success(f"✅ {_msg}")
+                    st.success(f"{_msg}", icon=":material/check_circle:")
                     if info and info.get('colonnes_manquantes'):
-                        st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.")
+                        st.warning(f"Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.", icon=":material/warning:")
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
         else:
             col1, col2 = st.columns(2)
             with col1:
-                a_un_entete = st.checkbox("✅ Fichier a une ligne d'en-tête", value=True, key="rc_entete")
+                a_un_entete = st.checkbox("Fichier a une ligne d'en-tête", value=True, key="rc_entete")
             with col2:
                 ligne_entete = st.number_input("Ligne d'en-tête", min_value=0, max_value=20, value=0, key="rc_ligne") if a_un_entete else None
 
@@ -285,21 +285,21 @@ def page_rapport_client():
                 else:
                     df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', header=ligne_entete if a_un_entete else None)
 
-                st.success(f"✅ Fichier chargé : {_nb(len(df))} lignes")
+                st.success(f"Fichier chargé : {_nb(len(df))} lignes", icon=":material/check_circle:")
 
-                with st.expander("👀 Aperçu"):
+                with st.expander("Aperçu"):
                     st.dataframe(df.head(15), width="stretch")
 
-                st.markdown("#### 🎯 Mapping des colonnes")
+                st.markdown("#### Mapping des colonnes")
                 colonnes_disponibles = ["-- Aucune --"] + [str(c) for c in df.columns]
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    col_compte = st.selectbox("🔢 Compte", colonnes_disponibles, index=1 if len(df.columns) > 0 else 0, key="rc_cc")
-                    col_debit = st.selectbox("📥 Débit", colonnes_disponibles, index=3 if len(df.columns) > 2 else 0, key="rc_cd")
+                    col_compte = st.selectbox("Compte", colonnes_disponibles, index=1 if len(df.columns) > 0 else 0, key="rc_cc")
+                    col_debit = st.selectbox("Débit", colonnes_disponibles, index=3 if len(df.columns) > 2 else 0, key="rc_cd")
                 with col2:
-                    col_libelle = st.selectbox("📝 Libellé", colonnes_disponibles, index=2 if len(df.columns) > 1 else 0, key="rc_cl")
-                    col_credit = st.selectbox("📤 Crédit", colonnes_disponibles, index=4 if len(df.columns) > 3 else 0, key="rc_cre")
+                    col_libelle = st.selectbox("Libellé", colonnes_disponibles, index=2 if len(df.columns) > 1 else 0, key="rc_cl")
+                    col_credit = st.selectbox("Crédit", colonnes_disponibles, index=4 if len(df.columns) > 3 else 0, key="rc_cre")
 
                 renommage = {}
                 if col_compte != "-- Aucune --":
@@ -318,25 +318,25 @@ def page_rapport_client():
 
     st.divider()
 
-    st.markdown("### ✍ Personnalisation")
+    st.markdown("### Personnalisation")
 
     col1, col2 = st.columns(2)
     with col1:
         observations = st.text_area(
-            "📝 Observations particulières",
+            "Observations particulières",
             placeholder="Évènements marquants, points d'attention...",
             height=120
         )
     with col2:
         objectifs = st.text_area(
-            "🎯 Objectifs prochaine période",
+            "Objectifs prochaine période",
             placeholder="Objectifs de croissance, plans d'action...",
             height=120
         )
 
     st.divider()
 
-    if st.button("📋 Générer le Rapport Client", type="primary", width="stretch") and \
+    if st.button("Générer le rapport client", type="primary", width="stretch") and \
             champs_remplis(**{"Nom du client": nom_client, "Exercice": exercice}):
         from utils.rapport_client import generer_rapport_client, analyser_donnees_client
 
@@ -359,14 +359,14 @@ def page_rapport_client():
                 kpis = analyser_donnees_client(df)
 
                 if kpis.get('chiffre_affaires', 0) > 0:
-                    st.markdown("## 📊 Aperçu KPIs Client")
+                    st.markdown("## Aperçu KPIs client")
 
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         st.metric("CA", f"{_eur(kpis['chiffre_affaires'])}")
                     with col2:
                         rn = kpis['resultat_net']
-                        st.metric("Résultat Net", f"{_eur(rn)}",
+                        st.metric("Résultat net", f"{_eur(rn)}",
                                  delta="Bénéfice" if rn > 0 else "Déficit",
                                  delta_color="normal" if rn > 0 else "inverse")
                     with col3:
@@ -386,7 +386,7 @@ def page_rapport_client():
 
                     st.divider()
 
-            st.markdown("## 📄 Rapport Généré")
+            st.markdown("## Rapport généré")
             with st.container():
                 afficher_rapport(rapport, afficher_kpis_auto=True, afficher_alertes_auto=True, afficher_tables_auto=True, compact=True)
 
@@ -394,7 +394,7 @@ def page_rapport_client():
 
             col1, col2 = st.columns(2)
             with col1:
-                bouton_sauvegarde(type_analyse="Rapport Client", resultat=rapport, libelle="💾 Sauvegarder")
+                bouton_sauvegarde(type_analyse="Rapport Client", resultat=rapport, libelle="Sauvegarder")
             with col2:
                 try:
                     nom_fichier = f"Rapport_{nom_client.replace(' ', '_')}_{periode}_{exercice}"

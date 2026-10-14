@@ -381,28 +381,28 @@ def page_benford():
     )
     st.title("Loi de Benford")
     st.markdown("**Détection statistique** d'anomalies et manipulations de données")
-    st.caption("✨ Méthode statistique reconnue pour repérer les montants atypiques à examiner")
+    st.caption("Méthode statistique reconnue pour repérer les montants atypiques à examiner")
 
-    with st.expander("ℹ Comment ça marche ?"):
+    with st.expander("Comment ça marche ?"):
         st.markdown("""
         **La Loi de Benford** (1938) stipule que dans les données numériques naturelles, 
         le **chiffre 1** apparaît comme premier chiffre dans **30%** des cas, 
         le 2 dans 17,6%, le 3 dans 12,5%, etc.
 
-        ⚠ **Si vos données ne suivent pas cette distribution**, cela peut indiquer :
+        **Si vos données ne suivent pas cette distribution**, cela peut indiquer :
         - Manipulation manuelle des chiffres
         - Erreurs de saisie systématiques
         - Seuils d'autorisation contournés
         - **Fraude potentielle**
 
         **Indicateurs analysés** :
-        - 📊 **MAD** : Écart moyen absolu (référence Mark Nigrini)
-        - 📈 **Chi-carré** : Test statistique de conformité
-        - 🎯 **Z-score** par chiffre : détection des anomalies à 99% de confiance
+        - **MAD** : Écart moyen absolu (référence Mark Nigrini)
+        - **Chi-carré** : Test statistique de conformité
+        - **Z-score** par chiffre : détection des anomalies à 99% de confiance
         """)
 
     uploaded_file = st.file_uploader(
-        "📎 Données comptables (FEC, balance : TXT, CSV, Excel)",
+        "Données comptables (FEC, balance : TXT, CSV, Excel)",
         type=TYPES_BALANCE,
         help="FEC, balance, ou tout fichier avec une colonne de montants"
     )
@@ -410,18 +410,18 @@ def page_benford():
     if uploaded_file:
         df, erreur = charger_fichier(uploaded_file)
         if erreur:
-            st.error(f"❌ Erreur lecture fichier : {erreur}")
+            st.error(f"Erreur lecture fichier : {erreur}", icon=":material/error:")
             st.stop()
 
-        st.success(f"✅ Fichier chargé : **{nb_fr(len(df), 0)} lignes**")
+        st.success(f"Fichier chargé : **{nb_fr(len(df), 0)} lignes**", icon=":material/check_circle:")
 
-        with st.expander("👀 Aperçu des données"):
+        with st.expander("Aperçu des données"):
             st.dataframe(df.head(10), width="stretch")
 
         colonnes_num, deb_cre = colonnes_montants(df)
         if colonnes_num:
             col_choix = st.selectbox(
-                "🔢 Montants à analyser",
+                "Montants à analyser",
                 colonnes_num,
                 help="Colonnes de montants détectées. Les numéros de compte, dates, codes et références sont écartés : "
                      "la loi de Benford ne s'applique qu'à des montants."
@@ -429,31 +429,31 @@ def page_benford():
         else:
             st.warning("Aucune colonne de montants reconnue : choisissez-la vous-même. "
                        "Un numéro de compte, une date ou un code ne convient pas.")
-            col_choix = st.selectbox("🔢 Montants à analyser", [str(c) for c in df.columns])
+            col_choix = st.selectbox("Montants à analyser", [str(c) for c in df.columns])
         n_val = len(valeurs_montants(df, col_choix, deb_cre)) if col_choix in colonnes_num or col_choix in df.columns else 0
         st.caption(f"{n_val} montants non nuls à analyser."
                    + (" Moins de 100 : résultat seulement indicatif." if 30 <= n_val < 100 else ""))
 
-        if st.button("🔍 Lancer l'analyse Benford", type="primary", width="stretch"):
+        if st.button("Lancer l'analyse Benford", type="primary", width="stretch"):
             with st.spinner("Analyse statistique en cours..."):
                 try:
                     fig, rapport, score_risque = analyse_benford_complete(df, col_choix, deb_cre)
                     if score_risque == "Indeterminee":
-                        st.warning(f"⚠ Analyse impossible : {rapport[:1].lower() + rapport[1:].rstrip('.')}. "
-                                   "Utilisez un fichier plus détaillé (FEC ou grand livre plutôt qu'une balance courte).")
+                        st.warning(f"Analyse impossible : {rapport[:1].lower() + rapport[1:].rstrip('.')}. "
+                                   "Utilisez un fichier plus détaillé (FEC ou grand livre plutôt qu'une balance courte).", icon=":material/warning:")
                         st.stop()
 
-                    st.markdown("## 🎯 Score de Risque")
+                    st.markdown("## Score de risque")
                     col1, col2, col3 = st.columns([1, 2, 1])
                     with col2:
                         if score_risque == "Faible":
-                            st.success(f"### ✅ Risque {score_risque}")
+                            st.success(f"### Risque {score_risque}", icon=":material/check_circle:")
                             st.info("**Conformité Benford** - Pas d'anomalie statistique majeure")
                         elif score_risque == "Modéré":
-                            st.warning(f"### ⚠ Risque {score_risque}")
+                            st.warning(f"### Risque {score_risque}", icon=":material/warning:")
                             st.warning("**Écarts détectés** - Investigation recommandée")
                         else:
-                            st.error(f"### 🚨 Risque {score_risque}")
+                            st.error(f"### Risque {score_risque}", icon=":material/error:")
                             st.error("**Anomalies significatives** – revue approfondie nécessaire")
 
                     st.divider()
@@ -465,7 +465,7 @@ def page_benford():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Loi de Benford", resultat=rapport, libelle="💾 Sauvegarder")
+                        bouton_sauvegarde(type_analyse="Loi de Benford", resultat=rapport, libelle="Sauvegarder")
                     with col2:
                         try:
                             ind_w, graph_w = visuels_benford(fig, rapport, score_risque)
@@ -474,7 +474,7 @@ def page_benford():
                             st.error(f"Erreur : {e}")
 
                 except Exception as e:
-                    st.error(f"❌ Erreur : {str(e)}")
+                    st.error(f"Erreur : {str(e)}", icon=":material/error:")
                     import traceback
                     with st.expander("Détails techniques"):
                         st.code(traceback.format_exc())

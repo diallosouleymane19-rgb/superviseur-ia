@@ -308,10 +308,10 @@ def page_bilan():
     )
     st.title("Bilan")
     st.markdown("**Vision patrimoniale** avec ratios financiers selon PCG")
-    st.caption("✨ Pour Cabinets, DAF et Dirigeants - FDR, BFR, Trésorerie nette")
+    st.caption("Pour cabinets, DAF et dirigeants - FDR, BFR, trésorerie nette")
 
     uploaded_file = st.file_uploader(
-        "📎 Déposer votre balance ou FEC",
+        "Déposer votre balance ou FEC",
         type=TYPES_BALANCE
     )
 
@@ -319,58 +319,58 @@ def page_bilan():
         from utils.intelligent_parser import parser_balance_intelligent, charger_balance_ou_fec
 
         try:
-            with st.spinner("🤖 Analyse..."):
+            with st.spinner("Analyse..."):
                 df, _msg, info = charger_balance_ou_fec(uploaded_file)
-                st.success(f"✅ {_msg}")
+                st.success(f"{_msg}", icon=":material/check_circle:")
                 if info and info.get('colonnes_manquantes'):
-                    st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.")
+                    st.warning(f"Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.", icon=":material/warning:")
 
             st.divider()
             col1, col2, col3 = st.columns(3)
             with col1:
-                nom_entreprise = st.text_input("🏢 Entreprise", value="Entreprise")
+                nom_entreprise = st.text_input("Entreprise", value="Entreprise")
             with col2:
                 exercice = champ_exercice()
             with col3:
-                date_cloture = st.date_input("📆 Date de clôture", value=None, format="DD/MM/YYYY")
+                date_cloture = st.date_input("Date de clôture", value=None, format="DD/MM/YYYY")
 
-            if st.button("📊 Générer le Bilan", type="primary", width="stretch") and \
+            if st.button("Générer le bilan", type="primary", width="stretch") and \
                     champs_remplis(Exercice=exercice, **{"Date de clôture": date_cloture}):
                 with st.spinner("Calcul en cours..."):
                     bilan = calculer_bilan(df, date_cloture.strftime('%d/%m/%Y'))
 
                     if 'erreur' in bilan:
-                        st.error(f"❌ {bilan['erreur']}")
+                        st.error(f"{bilan['erreur']}", icon=":material/error:")
                     else:
-                        st.markdown(f"## 💼 Bilan au {date_cloture.strftime('%d/%m/%Y')}")
+                        st.markdown(f"## Bilan au {date_cloture.strftime('%d/%m/%Y')}")
                         st.caption(f"{nom_entreprise} - Exercice {exercice}")
 
                         totaux = bilan['totaux']
                         col1, col2, col3, col4 = st.columns(4)
-                        col1.metric("📦 Total actif", eur_fr(totaux['total_actif']))
-                        col2.metric("💼 Total passif", eur_fr(totaux['total_passif']))
-                        col3.metric("🏦 Capitaux propres", eur_fr(totaux['capitaux_propres']))
+                        col1.metric("Total actif", eur_fr(totaux['total_actif']))
+                        col2.metric("Total passif", eur_fr(totaux['total_passif']))
+                        col3.metric("Capitaux propres", eur_fr(totaux['capitaux_propres']))
                         ecart = totaux['ecart']
-                        col4.metric("⚖ Écart", eur_fr(ecart, 2))
+                        col4.metric("Écart", eur_fr(ecart, 2))
                         desequilibre = bilan.get('balance_desequilibree')
                         if desequilibre:
-                            st.error(f"⛔ {bilan['analyse'][0]['message']}")
+                            st.error(f"{bilan['analyse'][0]['message']}", icon=":material/error:")
                         elif ecart < 1:
-                            st.success("✅ Bilan équilibré")
+                            st.success("Bilan équilibré", icon=":material/check_circle:")
                         else:
-                            st.warning(f"⚠ Bilan déséquilibré de {eur_fr(ecart, 2)}")
+                            st.warning(f"Bilan déséquilibré de {eur_fr(ecart, 2)}", icon=":material/warning:")
 
                         st.divider()
                         col1, col2 = st.columns(2)
                         with col1:
-                            st.markdown("### 📦 ACTIF")
+                            st.markdown("### Actif")
                             lignes = [{'Poste': k, 'Brut (€)': nb_fr(b_, 2), 'Amort./dépr. (€)': nb_fr(a_, 2),
                                        'Net (€)': nb_fr(n_, 2)} for k, b_, a_, n_ in bilan['actif_detail'] if b_ or a_]
                             lignes.append({'Poste': TOTAL_ACTIF, 'Brut (€)': '', 'Amort./dépr. (€)': '',
                                            'Net (€)': nb_fr(bilan['actif'][TOTAL_ACTIF], 2)})
                             st.dataframe(pd.DataFrame(lignes), width="stretch", hide_index=True)
                         with col2:
-                            st.markdown("### 💼 PASSIF")
+                            st.markdown("### Passif")
                             st.dataframe(pd.DataFrame([
                                 {'Poste': k, 'Montant (€)': nb_fr(v, 2)}
                                 for k, v in bilan['passif'].items() if v or k.startswith("TOTAL")
@@ -382,12 +382,12 @@ def page_bilan():
                             st.info("Ratios et diagnostic masqués tant que la balance n'est pas équilibrée. "
                                     "Corrigez la balance (comptes manquants, à-nouveaux, écritures) puis déposez-la à nouveau.")
                         if not desequilibre:
-                            st.markdown("## 📈 Équilibre financier")
+                            st.markdown("## Équilibre financier")
                             c1, c2, c3 = st.columns(3)
                             c1.metric("FRNG", eur_fr(ratios[R_FRNG]), help="Capitaux propres + provisions + emprunts - actif immobilisé net")
                             c2.metric("BFR", eur_fr(ratios[R_BFR]), help="Actif circulant hors trésorerie - dettes d'exploitation et diverses")
                             c3.metric("Trésorerie nette", eur_fr(ratios[R_TN]), help="Disponibilités + VMP - concours bancaires = FRNG - BFR")
-                            st.markdown("## 📊 Ratios")
+                            st.markdown("## Ratios")
                             c1, c2, c3, c4 = st.columns(4)
                             c1.metric("Autonomie financière", _fmt_ratio(R_AUTONOMIE, ratios[R_AUTONOMIE]), help="Capitaux propres / total passif. Seuil d'alerte : 20 %")
                             c2.metric("Endettement", _fmt_ratio(R_ENDETTEMENT, ratios[R_ENDETTEMENT]), help="Dettes financières (emprunts + concours bancaires) / capitaux propres. Alerte au-delà de 1")
@@ -396,20 +396,20 @@ def page_bilan():
                             st.caption("Emprunts (16-17) considérés à plus d'un an : la balance ne donne pas l'échéance.")
 
                             st.divider()
-                            st.markdown("## 💡 Analyse")
+                            st.markdown("## Analyse")
                             for item in bilan['analyse']:
                                 if item['type'] == 'OK':
-                                    st.success(f"✅ {item['message']}")
+                                    st.success(f"{item['message']}", icon=":material/check_circle:")
                                 elif item['type'] == 'WARNING':
-                                    st.warning(f"⚠ {item['message']}")
+                                    st.warning(f"{item['message']}", icon=":material/warning:")
                                 else:
-                                    st.error(f"🔴 {item['message']}")
+                                    st.error(f"{item['message']}", icon=":material/error:")
 
                         st.divider()
                         rapport = generer_rapport_bilan(bilan, nom_entreprise, exercice)
                         col1, col2 = st.columns(2)
                         with col1:
-                            bouton_sauvegarde(type_analyse="Bilan", resultat=rapport, libelle="💾 Sauvegarder")
+                            bouton_sauvegarde(type_analyse="Bilan", resultat=rapport, libelle="Sauvegarder")
                         with col2:
                             try:
                                 ind_w, graph_w = visuels_bilan(bilan)
@@ -419,7 +419,7 @@ def page_bilan():
                                 st.error(f"Erreur : {e}")
 
         except Exception as e:
-            st.error(f"❌ Erreur : {str(e)}")
+            st.error(f"Erreur : {str(e)}", icon=":material/error:")
             import traceback
             with st.expander("Détails techniques"):
                 st.code(traceback.format_exc())

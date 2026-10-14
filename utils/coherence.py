@@ -292,9 +292,9 @@ def page_coherence():
     )
     st.title("Cohérence des données")
     st.markdown("**Contrôle qualité** des données comptables")
-    st.caption("✨ 7 contrôles automatiques + Score qualité")
+    st.caption("7 contrôles automatiques + score qualité")
 
-    with st.expander("ℹ Quels contrôles ?"):
+    with st.expander("Quels contrôles ?"):
         st.markdown("""
         1. **Complétude des données** (20 pts)
         2. **Unicité / Doublons** (15 pts)
@@ -307,7 +307,7 @@ def page_coherence():
         """)
 
     uploaded_file = st.file_uploader(
-        "📎 Données comptables",
+        "Données comptables",
         type=TYPES_BALANCE
     )
 
@@ -316,24 +316,24 @@ def page_coherence():
         from utils.intelligent_parser import parser_balance_intelligent, charger_balance_ou_fec
 
         try:
-            with st.spinner("🤖 Analyse..."):
+            with st.spinner("Analyse..."):
                 df, _msg, info = charger_balance_ou_fec(uploaded_file)
-                st.success(f"✅ {_msg}")
+                st.success(f"{_msg}", icon=":material/check_circle:")
                 if info and info.get('colonnes_manquantes'):
-                    st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.")
+                    st.warning(f"Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.", icon=":material/warning:")
 
-            with st.expander("👀 Aperçu"):
+            with st.expander("Aperçu"):
                 st.dataframe(df.head(10), width="stretch")
 
             st.divider()
 
-            nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+            nom_entreprise = st.text_input("Nom de l'entreprise", value="Entreprise")
 
-            if st.button("🔍 Vérifier la cohérence", type="primary", width="stretch"):
+            if st.button("Vérifier la cohérence", type="primary", width="stretch"):
                 with st.spinner("Vérifications en cours..."):
                     resultat = verifier_coherence(df)
 
-                    st.markdown("## 🎯 Score de Qualité")
+                    st.markdown("## Score de qualité")
 
                     score = resultat['score_qualite']
                     niveau = resultat.get('niveau', 'N/A')
@@ -341,13 +341,13 @@ def page_coherence():
                     col1, col2, col3 = st.columns([1, 2, 1])
                     with col2:
                         if score >= 90:
-                            st.success(f"### {niveau} : {nb_fr(score, 1)} % ✅")
+                            st.success(f"### {niveau} : {nb_fr(score, 1)} %")
                         elif score >= 75:
-                            st.info(f"### {niveau} : {nb_fr(score, 1)} % ℹ")
+                            st.info(f"### {niveau} : {nb_fr(score, 1)} %")
                         elif score >= 50:
-                            st.warning(f"### {niveau} : {nb_fr(score, 1)} % ⚠")
+                            st.warning(f"### {niveau} : {nb_fr(score, 1)} %")
                         else:
-                            st.error(f"### {niveau} : {nb_fr(score, 1)} % ❌")
+                            st.error(f"### {niveau} : {nb_fr(score, 1)} %")
 
                         st.progress(int(score))
 
@@ -356,33 +356,33 @@ def page_coherence():
                     kpis = resultat.get('kpis', {})
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.metric("📝 Lignes", f"{nb_fr(kpis.get('nb_lignes', 0), 0)}")
+                        st.metric("Lignes", f"{nb_fr(kpis.get('nb_lignes', 0), 0)}")
                     with col2:
-                        st.metric("📊 Colonnes", kpis.get('nb_colonnes', 0))
+                        st.metric("Colonnes", kpis.get('nb_colonnes', 0))
                     with col3:
-                        st.metric("✅ Complétude", f"{nb_fr(kpis.get('completude', 0), 1)} %")
+                        st.metric("Complétude", f"{nb_fr(kpis.get('completude', 0), 1)} %")
                     with col4:
-                        st.metric("⚠ Doublons", kpis.get('doublons', 0),
+                        st.metric("Doublons", kpis.get('doublons', 0),
                                  delta_color="inverse" if kpis.get('doublons', 0) > 0 else "normal")
 
                     st.divider()
 
-                    st.markdown("## 🔍 Vérifications Effectuées")
+                    st.markdown("## Vérifications effectuées")
 
                     for nom, ctrl in resultat['verifications'].items():
                         if ctrl['status'] == 'OK':
-                            st.success(f"✅ **{nom}** : {ctrl['message']}")
+                            st.success(f"**{nom}** : {ctrl['message']}", icon=":material/check_circle:")
                         elif ctrl['status'] == 'WARNING':
-                            st.warning(f"⚠ **{nom}** : {ctrl['message']}")
+                            st.warning(f"**{nom}** : {ctrl['message']}", icon=":material/warning:")
                         else:
-                            st.error(f"❌ **{nom}** : {ctrl['message']}")
+                            st.error(f"**{nom}** : {ctrl['message']}", icon=":material/error:")
 
                     st.divider()
 
                     if resultat['recommandations']:
-                        st.markdown("## 💡 Recommandations")
+                        st.markdown("## Recommandations")
                         for reco in resultat['recommandations']:
-                            st.info(f"💼 {reco}")
+                            st.info(f"{reco}", icon=":material/info:")
 
                     st.divider()
 
@@ -390,7 +390,7 @@ def page_coherence():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Cohérence", resultat=rapport, libelle="💾 Sauvegarder")
+                        bouton_sauvegarde(type_analyse="Cohérence", resultat=rapport, libelle="Sauvegarder")
                     with col2:
                         try:
                             ind_w, graph_w = visuels_coherence(resultat)
@@ -400,7 +400,7 @@ def page_coherence():
                             st.error(f"Erreur : {e}")
 
         except Exception as e:
-            st.error(f"❌ Erreur : {str(e)}")
+            st.error(f"Erreur : {str(e)}", icon=":material/error:")
 
     # -----------------------------------------------------------------------------
     # 12. VEILLE FISCALE

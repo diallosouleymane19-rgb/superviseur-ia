@@ -56,72 +56,72 @@ def page_inscription(app_name: str = "pcg") -> None:
 
     # ── Formulaire ────────────────────────────────────────────────────────────
     with col_form:
-        st.subheader("📝 Créer mon compte")
+        st.subheader("Créer mon compte")
 
         with st.form("form_inscription_publique", clear_on_submit=False):
 
             email = st.text_input(
-                "📧 Email professionnel *",
+                "Email professionnel *",
                 placeholder="contact@cabinet.com",
             )
             col_nom, col_prenom = st.columns(2)
             with col_nom:
-                nom = st.text_input("👤 Nom *", placeholder="Diallo")
+                nom = st.text_input("Nom *", placeholder="Diallo")
             with col_prenom:
                 prenom = st.text_input("Prénom", placeholder="Souleymane")
 
             cabinet = st.text_input(
-                "🏢 Cabinet / Entreprise",
+                "Cabinet / Entreprise",
                 placeholder="Cabinet Comptable XYZ",
                 help="Invité par un cabinet ? Utilisez l'e-mail de l'invitation : vous rejoindrez ce cabinet "
                      "automatiquement, ce champ et le plan seront ignorés.",
             )
 
             pays_options = {
-                "🇫🇷 France":            "FR",
-                "🇸🇳 Sénégal":           "SN",
-                "🇨🇮 Côte d'Ivoire":     "CI",
-                "🇨🇲 Cameroun":          "CM",
-                "🇧🇫 Burkina Faso":      "BF",
-                "🇲🇱 Mali":              "ML",
-                "🇬🇳 Guinée":            "GN",
-                "🇧🇯 Bénin":             "BJ",
-                "🇹🇬 Togo":              "TG",
-                "🇳🇪 Niger":             "NE",
-                "🇬🇦 Gabon":             "GA",
-                "🇨🇬 Congo":             "CG",
-                "🌍 Autre":              "XX",
+                "France":            "FR",
+                "Sénégal":           "SN",
+                "Côte d'Ivoire":     "CI",
+                "Cameroun":          "CM",
+                "Burkina Faso":      "BF",
+                "Mali":              "ML",
+                "Guinée":            "GN",
+                "Bénin":             "BJ",
+                "Togo":              "TG",
+                "Niger":             "NE",
+                "Gabon":             "GA",
+                "Congo":             "CG",
+                "Autre":              "XX",
             }
-            pays_label = st.selectbox("🌍 Pays", list(pays_options.keys()))
+            pays_label = st.selectbox("Pays", list(pays_options.keys()))
             pays_code  = pays_options[pays_label]
 
             st.markdown("---")
 
             # Choix du plan
-            st.markdown("**💳 Choisissez votre plan**")
+            st.markdown("**Choisissez votre plan**")
             plan_options = {
                 "🆓 Gratuit — 10 analyses/mois (0\u00a0€)":                "free",
-                "🚀 Starter — 50 analyses/mois (29\u00a0€ HT/mois)":       "starter",
-                "⭐ Pro — 200 analyses/mois (79\u00a0€ HT/mois)":          "pro",
-                "🏆 Entreprise — analyses illimitées (199\u00a0€ HT/mois)": "enterprise",
+                "Starter — 50 analyses/mois (29\u00a0€ HT/mois)":       "starter",
+                "Pro — 200 analyses/mois (79\u00a0€ HT/mois)":          "pro",
+                "Entreprise — analyses illimitées (199\u00a0€ HT/mois)": "enterprise",
             }
             plan_label  = st.selectbox("Plan", list(plan_options.keys()),
                                        label_visibility="collapsed")
             plan_choisi = plan_options[plan_label]
 
             if plan_choisi != "free":
-                st.caption("💡 Vous serez redirigé vers Stripe pour payer en toute sécurité.")
+                st.caption("Vous serez redirigé vers Stripe pour payer en toute sécurité.")
 
             st.markdown("---")
 
-            mdp  = st.text_input("🔑 Mot de passe *", type="password",
+            mdp  = st.text_input("Mot de passe *", type="password",
                                   help="8 caractères min, 1 majuscule, 1 chiffre")
-            mdp2 = st.text_input("🔑 Confirmer le mot de passe *", type="password")
+            mdp2 = st.text_input("Confirmer le mot de passe *", type="password")
 
             cgv = st.checkbox("J'accepte les [Conditions Générales d'Utilisation](?doc=cgu) et la [Politique de Confidentialité](?doc=confidentialite)")
 
             submitted = st.form_submit_button(
-                "✅ Créer mon compte" if plan_choisi == "free" else "✅ Créer et payer",
+                "Créer mon compte" if plan_choisi == "free" else "Créer et payer",
                 width="stretch",
                 type="primary",
             )
@@ -147,7 +147,7 @@ def page_inscription(app_name: str = "pcg") -> None:
 
             if errors:
                 for err in errors:
-                    st.error(f"❌ {err}")
+                    st.error(f"{err}", icon=":material/error:")
             else:
                 nom_complet = f"{prenom.strip()} {nom.strip()}".strip()
                 result = creer_user_rbac(
@@ -161,17 +161,17 @@ def page_inscription(app_name: str = "pcg") -> None:
                 )
 
                 if "error" in result:
-                    st.error(f"❌ {result['error']}")
+                    st.error(f"{result['error']}", icon=":material/error:")
                 elif result.get("invite"):
                     # Invité par un cabinet : il le rejoint, l'abonnement est celui du cabinet
-                    st.success(f"✅ Compte créé : vous avez rejoint « **{result.get('cabinet', '')}** » "
-                               "en tant que collaborateur. Connectez-vous maintenant.")
+                    st.success(f"Compte créé : vous avez rejoint « **{result.get('cabinet', '')}** » "
+                               "en tant que collaborateur. Connectez-vous maintenant.", icon=":material/check_circle:")
                     st.session_state["inscription_ok"] = True
                     st.session_state["prefill_email"]  = email.strip().lower()
                 else:
                     # Compte créé avec succès
                     if plan_choisi == "free":
-                        st.success("✅ Compte créé ! Connectez-vous maintenant.")
+                        st.success("Compte créé ! Connectez-vous maintenant.", icon=":material/check_circle:")
                         st.balloons()
                         # Basculer vers l'onglet connexion
                         st.session_state["inscription_ok"] = True
@@ -188,12 +188,12 @@ def page_inscription(app_name: str = "pcg") -> None:
                                 billing = "monthly",
                                 nom     = nom_complet,
                             )
-                            st.success("✅ Compte créé ! Redirection vers le paiement…")
+                            st.success("Compte créé ! Redirection vers le paiement…", icon=":material/check_circle:")
                             st.markdown(
                                 f'<meta http-equiv="refresh" content="2;url={url}">',
                                 unsafe_allow_html=True
                             )
-                            st.link_button("💳 Accéder au paiement Stripe", url,
+                            st.link_button("Accéder au paiement Stripe", url,
                                            width="stretch")
                         except Exception as e:
                             st.warning(
@@ -246,9 +246,9 @@ def page_inscription(app_name: str = "pcg") -> None:
         st.markdown("""
             <div style='background:#f0fdf4;border:1px solid #bbf7d0;
                         padding:12px 16px;border-radius:8px;font-size:0.82em'>
-                ✅ <b>Sans engagement</b> — résiliable à tout moment<br>
-                ✅ <b>Paiement sécurisé</b> — Stripe (3D Secure)<br>
-                ✅ <b>Facture disponible</b> — portail client Stripe<br>
-                ✅ <b>Support</b> — contact@smdconsulting.pro
+                <b>Sans engagement</b> — résiliable à tout moment<br>
+                <b>Paiement sécurisé</b> — Stripe (3D Secure)<br>
+                <b>Facture disponible</b> — portail client Stripe<br>
+                <b>Support</b> — contact@smdconsulting.pro
             </div>
         """, unsafe_allow_html=True)

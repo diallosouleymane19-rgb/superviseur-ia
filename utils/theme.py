@@ -34,7 +34,7 @@ html, body, [class*="st-"], .stMarkdown, button, input, textarea, select, label,
 h1, h2, h3, h4, .smd-entete h1 { font-family: 'Source Serif', Georgia, serif !important; }
 [data-testid="stMain"] { font-variant-numeric: tabular-nums; }
 /* Ne jamais remplacer la police des icônes Streamlit */
-[data-testid="stIconMaterial"], .material-symbols-rounded {
+[data-testid="stIconMaterial"], [data-testid$="DynamicIcon"], .material-symbols-rounded {
   font-family: 'Material Symbols Rounded' !important;
 }
 h1, h2, h3, h4 { color: var(--smd-encre); letter-spacing: -0.005em; font-weight: 600; }

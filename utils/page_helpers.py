@@ -26,7 +26,7 @@ def is_demo() -> bool:
 
 def banniere_demo():
     if is_demo():
-        st.warning("👀 **Mode Démonstration** — Données fictives uniquement. Sauvegarde désactivée.")
+        st.warning("**Mode Démonstration** — Données fictives uniquement. Sauvegarde désactivée.", icon=":material/warning:")
 
 
 # =============================================================================
@@ -37,7 +37,7 @@ MENTION_IA = ("Contenu généré par intelligence artificielle (Mistral AI). Il 
               "à vérifier par un professionnel avant toute utilisation.")
 
 
-def champ_exercice(label: str = "📅 Exercice", key: str = None, exemple: str = "2025") -> str:
+def champ_exercice(label: str = "Exercice", key: str = None, exemple: str = "2025") -> str:
     """Exercice à saisir : aucune valeur proposée par défaut."""
     return st.text_input(label, value="", placeholder=f"ex. {exemple}", key=key).strip()
 
@@ -54,7 +54,7 @@ def champs_remplis(**champs) -> bool:
 
 def mention_ia():
     """Signale à l'utilisateur que le texte qui suit est produit par une IA."""
-    st.caption("🤖 " + MENTION_IA)
+    st.caption("" + MENTION_IA)
 
 
 def avec_mention_ia(texte) -> str:
@@ -86,7 +86,7 @@ def afficher_contenu_ia(texte: str, cle: str, modele: str = "", masques: int = 0
             unsafe_allow_html=True)
         mention_ia()
         if masques:
-            st.caption(f"🔒 {masques} identifiant(s) masqué(s) avant l'envoi à Mistral, remis en clair ici.")
+            st.caption(f"{masques} identifiant(s) masqué(s) avant l'envoi à Mistral, remis en clair ici.")
         st.markdown(texte)
 
 
@@ -125,29 +125,29 @@ def titre_du_rapport(contenu, defaut: str) -> str:
 def sauvegarder_si_autorise(type_analyse: str, resultat) -> bool:
     """Sauvegarde uniquement si pas en mode démo. Retourne True si sauvegardé."""
     if is_demo():
-        st.info("💡 Sauvegarde désactivée en mode démonstration.")
+        st.info("Sauvegarde désactivée en mode démonstration.", icon=":material/info:")
         return False
     try:
         if sauvegarder_analyse(type_analyse=type_analyse, resultat=resultat, titre=titre_du_rapport(resultat, type_analyse),
                                client_id=st.session_state.get("dossier_id") or 0):
             return True
-        st.warning("⚠ Sauvegarde impossible : base de données indisponible. Réessayez plus tard.")
+        st.warning("Sauvegarde impossible : base de données indisponible. Réessayez plus tard.", icon=":material/warning:")
         return False
     except Exception as e:
-        st.warning(f"⚠ Sauvegarde impossible : {e}")
+        st.warning(f"Sauvegarde impossible : {e}", icon=":material/warning:")
         return False
 
 
-def bouton_sauvegarde(type_analyse: str, resultat, libelle: str = "💾 Sauvegarder", key: str = None):
+def bouton_sauvegarde(type_analyse: str, resultat, libelle: str = "Sauvegarder", key: str = None):
     """Bouton de sauvegarde qui fonctionne même placé sous un autre bouton (« Générer… »).
     La sauvegarde est faite dans le rappel (on_click), exécuté avant le rechargement de la page :
     un bouton classique imbriqué ne déclenche jamais son code, car le bouton parent redevient faux."""
     def _sauver():
         if is_demo():
-            st.toast("💡 Sauvegarde désactivée en mode démonstration.")
+            st.toast("Sauvegarde désactivée en mode démonstration.")
         elif sauvegarder_si_autorise(type_analyse=type_analyse, resultat=resultat):
             dossier = st.session_state.get("dossier_nom")
-            st.toast(f"✅ {type_analyse} sauvegardé(e) pour 30 jours"
+            st.toast(f"{type_analyse} sauvegardé(e) pour 30 jours"
                      + (f" dans le dossier « {dossier} »." if dossier else ". Retrouvez-le dans Mes dossiers."))
     st.button(libelle, width="stretch", key=key or f"save_{type_analyse}", on_click=_sauver)
 
@@ -165,7 +165,7 @@ def generer_bouton_word(titre: str, contenu, ia=None, indicateurs=None, graphiqu
         buf = export_analyse_word(titre, texte_final, ia=ia, indicateurs=indicateurs, graphiques=graphiques,
                                   sans_sections=sans_sections)
         st.download_button(
-            "📄 Télécharger le rapport Word",
+            "Télécharger le rapport Word",
             buf,
             f"{sanitize_filename(titre)}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -175,7 +175,7 @@ def generer_bouton_word(titre: str, contenu, ia=None, indicateurs=None, graphiqu
     except Exception as e:
         import logging
         logging.getLogger("export_word").error("Export Word %s : %s", titre, e)
-        st.warning("⚠ Export Word temporairement indisponible. Copiez le contenu manuellement.")
+        st.warning("Export Word temporairement indisponible. Copiez le contenu manuellement.", icon=":material/warning:")
 
 
 # =============================================================================
@@ -224,8 +224,8 @@ def appel_mistral_securise(prompt: str, temperature: float = 0.3, label: str = "
         result = appel_mistral(prompt, temperature=temperature)
         if result["success"]:
             return result
-        st.warning(f"⚠ L'IA est momentanément indisponible pour {label}. Réessayez dans quelques instants.")
+        st.warning(f"L'IA est momentanément indisponible pour {label}. Réessayez dans quelques instants.", icon=":material/warning:")
         return {"success": False, "content": "", "error": result.get("error", "")}
     except Exception as e:
-        st.warning(f"⚠ Connexion IA interrompue pour {label}.")
+        st.warning(f"Connexion IA interrompue pour {label}.", icon=":material/warning:")
         return {"success": False, "content": "", "error": str(e)}

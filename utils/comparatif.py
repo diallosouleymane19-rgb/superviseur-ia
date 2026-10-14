@@ -296,7 +296,7 @@ def rapport_comparatif(entreprise, label_n, label_n1, kpis, alertes, tableaux) -
 def page_comparatif():
     st.title("Comparatif N / N-1")
     st.markdown("**Comparaison Bilan + Compte de Résultat** entre deux exercices avec analyse des écarts")
-    st.caption("✨ Pour Cabinets, DAF et Dirigeants - PCG France")
+    st.caption("Pour cabinets, DAF et dirigeants - PCG France")
 
     from utils.intelligent_parser import parser_balance_intelligent
     from utils.compte_resultat import calculer_compte_resultat
@@ -305,22 +305,22 @@ def page_comparatif():
     # ── Paramètres ──
     col1, col2, col3 = st.columns(3)
     with col1:
-        entreprise = st.text_input("🏢 Entreprise", value="Entreprise")
+        entreprise = st.text_input("Entreprise", value="Entreprise")
     with col2:
-        label_n = champ_exercice("📅 Exercice N")
+        label_n = champ_exercice("Exercice N")
     with col3:
-        label_n1 = champ_exercice("📅 Exercice N-1", exemple="2024")
+        label_n1 = champ_exercice("Exercice N-1", exemple="2024")
 
     col_type, _ = st.columns([1, 2])
     with col_type:
-        type_entreprise = st.selectbox("🏭 Type", ["Mixte", "Commerciale", "Industrielle", "Services"])
+        type_entreprise = st.selectbox("Type", ["Mixte", "Commerciale", "Industrielle", "Services"])
 
     st.divider()
 
     # ── Upload balances ──
     col_n, col_n1 = st.columns(2)
     with col_n:
-        st.markdown(f"### 📁 Balance N" + (f" ({label_n})" if label_n else ""))
+        st.markdown(f"### Balance N" + (f" ({label_n})" if label_n else ""))
         file_n = st.file_uploader(
             "Balance N",
             type=TYPES_BALANCE,
@@ -328,7 +328,7 @@ def page_comparatif():
             label_visibility="collapsed"
         )
     with col_n1:
-        st.markdown(f"### 📁 Balance N-1" + (f" ({label_n1})" if label_n1 else ""))
+        st.markdown(f"### Balance N-1" + (f" ({label_n1})" if label_n1 else ""))
         file_n1 = st.file_uploader(
             "Balance N-1",
             type=TYPES_BALANCE,
@@ -337,7 +337,7 @@ def page_comparatif():
         )
 
     if not file_n or not file_n1:
-        st.info("👆 Déposez les deux balances pour lancer le comparatif.")
+        st.info("Déposez les deux balances pour lancer le comparatif.", icon=":material/info:")
         st.markdown("""
         **Formats acceptés :** balance CSV, TXT, Excel ou LibreOffice avec colonnes `CompteNum`, `Debit`, `Credit`
         (ou `SoldeDebit` / `SoldeCredit`).
@@ -351,18 +351,18 @@ def page_comparatif():
 
     # ── Parsing ──
     try:
-        with st.spinner("🤖 Analyse balance N..."):
+        with st.spinner("Analyse balance N..."):
             df_n, info_n = parser_balance_intelligent(file_n)
-        with st.spinner("🤖 Analyse balance N-1..."):
+        with st.spinner("Analyse balance N-1..."):
             df_n1, info_n1 = parser_balance_intelligent(file_n1)
     except Exception as e:
-        st.error(f"❌ Erreur parsing balance : {e}")
+        st.error(f"Erreur parsing balance : {e}", icon=":material/error:")
         return
 
     st.success(
-        f"✅ N ({label_n}) : **{nb_fr(len(df_n), 0)} comptes** | "
+        f"N ({label_n}) : **{nb_fr(len(df_n), 0)} comptes** | "
         f"N-1 ({label_n1}) : **{nb_fr(len(df_n1), 0)} comptes**"
-    )
+    , icon=":material/check_circle:")
     st.divider()
 
     # ── Calculs ──
@@ -372,7 +372,7 @@ def page_comparatif():
         bilan_n = calculer_bilan(df_n)
         bilan_n1 = calculer_bilan(df_n1)
     except Exception as e:
-        st.error(f"❌ Erreur de calcul : {e}")
+        st.error(f"Erreur de calcul : {e}", icon=":material/error:")
         import traceback
         with st.expander("Détails"):
             st.code(traceback.format_exc())
@@ -388,17 +388,17 @@ def page_comparatif():
     # ═══════════════════════════════════════════
     # SECTION 1 — COMPTE DE RÉSULTAT
     # ═══════════════════════════════════════════
-    st.markdown("## 📈 Compte de Résultat")
+    st.markdown("## Compte de résultat")
 
     sig_n = cdr_n['sig']
     sig_n1 = cdr_n1['sig']
 
     # Métriques clés
     indicateurs_cles = [
-        ("💰 CA", "Chiffre d'affaires"),
-        ("⚙ VA", "Valeur ajoutée (VA)"),
-        ("📈 EBE", "Excédent brut d'exploitation (EBE)"),
-        ("🎯 Résultat Net", "Résultat net"),
+        ("CA", "Chiffre d'affaires"),
+        ("VA", "Valeur ajoutée (VA)"),
+        ("EBE", "Excédent brut d'exploitation (EBE)"),
+        ("Résultat net", "Résultat net"),
     ]
     kpis_cdr = []
     cols = st.columns(4)
@@ -406,7 +406,7 @@ def page_comparatif():
         vn = sig_n.get(cle, 0) or 0
         vn1 = sig_n1.get(cle, 0) or 0
         ea, ep = _ecart(vn, vn1)
-        kpis_cdr.append((label_m.split(" ", 1)[1], vn, ea, ep, True))
+        kpis_cdr.append((label_m, vn, ea, ep, True))
         with cols[i]:
             st.metric(
                 label=label_m,
@@ -418,7 +418,7 @@ def page_comparatif():
     st.divider()
 
     # Tableau SIG
-    st.markdown("### 📋 Soldes Intermédiaires de Gestion")
+    st.markdown("### Soldes intermédiaires de gestion")
     df_sig = _build_comparatif_df(sig_n, sig_n1, label_n, label_n1)
     st.dataframe(
         _style_ecarts(df_sig, label_n1, label_n, "auto"),
@@ -431,12 +431,12 @@ def page_comparatif():
     # Tableaux charges / produits
     col_p, col_c = st.columns(2)
     with col_p:
-        st.markdown("### 💰 Produits N vs N-1")
+        st.markdown("### Produits N vs N-1")
         df_prod = _build_comparatif_df(cdr_n['produits'], cdr_n1['produits'], label_n, label_n1)
         df_prod = df_prod[df_prod[label_n].abs() + df_prod[label_n1].abs() > 0]
         st.dataframe(_style_ecarts(df_prod, label_n1, label_n, "produits"), width="stretch", hide_index=True)
     with col_c:
-        st.markdown("### 💸 Charges N vs N-1")
+        st.markdown("### Charges N vs N-1")
         df_chg = _build_comparatif_df(cdr_n['charges'], cdr_n1['charges'], label_n, label_n1)
         df_chg = df_chg[df_chg[label_n].abs() + df_chg[label_n1].abs() > 0]
         st.dataframe(_style_ecarts(df_chg, label_n1, label_n, "charges"), width="stretch", hide_index=True)
@@ -445,14 +445,14 @@ def page_comparatif():
     # SECTION 2 — BILAN
     # ═══════════════════════════════════════════
     st.divider()
-    st.markdown("## 📊 Bilan Comptable")
+    st.markdown("## Bilan comptable")
 
     # Métriques bilan
     bilan_cles = [
-        ("🏗 Total Actif", 'actif', B.TOTAL_ACTIF),
-        ("💼 Capitaux Propres", 'passif', B.TOTAL_CP),
-        ("🏦 FRNG", 'ratios', B.R_FRNG),
-        ("⚡ BFR", 'ratios', B.R_BFR),
+        ("Total actif", 'actif', B.TOTAL_ACTIF),
+        ("Capitaux propres", 'passif', B.TOTAL_CP),
+        ("FRNG", 'ratios', B.R_FRNG),
+        ("BFR", 'ratios', B.R_BFR),
     ]
     kpis_bilan = []
     cols2 = st.columns(4)
@@ -461,7 +461,7 @@ def page_comparatif():
         vn1 = (bilan_n1.get(section) or {}).get(cle, 0) or 0
         ea, ep = _ecart(vn, vn1)
         hausse_ok = cle != B.R_BFR   # une hausse du BFR est défavorable
-        kpis_bilan.append((label_m.split(" ", 1)[1], vn, ea, ep, hausse_ok))
+        kpis_bilan.append((label_m, vn, ea, ep, hausse_ok))
         with cols2[i]:
             st.metric(
                 label=label_m,
@@ -475,12 +475,12 @@ def page_comparatif():
     # Tableaux ACTIF / PASSIF
     col_a, col_p2 = st.columns(2)
     with col_a:
-        st.markdown("### 📦 ACTIF N vs N-1")
+        st.markdown("### Actif N vs N-1")
         df_actif = _build_comparatif_df(bilan_n['actif'], bilan_n1['actif'], label_n, label_n1)
         df_actif = df_actif[df_actif[label_n].abs() + df_actif[label_n1].abs() > 0]
         st.dataframe(_style_ecarts(df_actif, label_n1, label_n, "neutre"), width="stretch", hide_index=True)
     with col_p2:
-        st.markdown("### 🏛 PASSIF N vs N-1")
+        st.markdown("### Passif N vs N-1")
         df_passif = _build_comparatif_df(bilan_n['passif'], bilan_n1['passif'], label_n, label_n1)
         df_passif = df_passif[df_passif[label_n].abs() + df_passif[label_n1].abs() > 0]
         st.dataframe(_style_ecarts(df_passif, label_n1, label_n, "neutre"), width="stretch", hide_index=True)
@@ -492,7 +492,7 @@ def page_comparatif():
     # SECTION 3 — ANALYSE AUTOMATIQUE
     # ═══════════════════════════════════════════
     st.divider()
-    st.markdown("## 💡 Analyse des Écarts")
+    st.markdown("## Analyse des écarts")
 
     alertes = []
     # CA
@@ -501,47 +501,47 @@ def page_comparatif():
     if ca_n1 > 0:
         ea_ca = (ca_n - ca_n1) / abs(ca_n1) * 100
         if ea_ca < -10:
-            alertes.append(('error', f"🔴 CA en baisse de {nb_fr(abs(ea_ca), 1)} % — analyse des causes requise"))
+            alertes.append(('error', f"CA en baisse de {nb_fr(abs(ea_ca), 1)} % — analyse des causes requise"))
         elif ea_ca > 15:
-            alertes.append(('success', f"✅ CA en hausse de {nb_fr(ea_ca, 1)} % — performance commerciale solide"))
+            alertes.append(('success', f"CA en hausse de {nb_fr(ea_ca, 1)} % — performance commerciale solide"))
         else:
-            alertes.append(('info', f"ℹ CA stable ({nb_fr_signe(ea_ca, 1)} %)"))
+            alertes.append(('info', f"CA stable ({nb_fr_signe(ea_ca, 1)} %)"))
 
     # Résultat net
     rn_n = sig_n.get("Résultat net", 0) or 0
     rn_n1 = sig_n1.get("Résultat net", 0) or 0
     if rn_n < 0 and rn_n1 >= 0:
-        alertes.append(('error', "🔴 Résultat net : passage en déficit — vigilance requise"))
+        alertes.append(('error', "Résultat net : passage en déficit — vigilance requise"))
     elif rn_n > 0 and rn_n1 < 0:
-        alertes.append(('success', "✅ Résultat net : retour à l'excédent"))
+        alertes.append(('success', "Résultat net : retour à l'excédent"))
     elif rn_n1 != 0:
         ea_rn, _ = _ecart(rn_n, rn_n1)
         if abs(ea_rn) / abs(rn_n1) > 0.20:
-            alertes.append(('warning', f"⚠ Résultat net : variation significative de {nb_fr_signe(ea_rn, 0)} €"))
+            alertes.append(('warning', f"Résultat net : variation significative de {nb_fr_signe(ea_rn, 0)} €"))
 
     # BFR
     bfr_n = (bilan_n.get('ratios') or {}).get(B.R_BFR, 0) or 0
     bfr_n1 = (bilan_n1.get('ratios') or {}).get(B.R_BFR, 0) or 0
     if bfr_n > bfr_n1 * 1.20 and bfr_n1 > 0:
-        alertes.append(('warning', f"⚠ BFR en hausse de {nb_fr(((bfr_n/bfr_n1)-1)*100, 1)} % — surveiller le cycle d'exploitation"))
+        alertes.append(('warning', f"BFR en hausse de {nb_fr(((bfr_n/bfr_n1)-1)*100, 1)} % — surveiller le cycle d'exploitation"))
 
     # FDR
     fdr_n = (bilan_n.get('ratios') or {}).get(B.R_FRNG, 0) or 0
     if fdr_n < 0:
-        alertes.append(('error', "🔴 Fonds de Roulement négatif — risque de déséquilibre financier"))
+        alertes.append(('error', "Fonds de roulement négatif — risque de déséquilibre financier"))
 
     for typ, msg in alertes:
         if typ == 'success':
-            st.success(msg)
+            st.success(msg, icon=":material/check_circle:")
         elif typ == 'warning':
-            st.warning(msg)
+            st.warning(msg, icon=":material/warning:")
         elif typ == 'error':
-            st.error(msg)
+            st.error(msg, icon=":material/error:")
         else:
-            st.info(msg)
+            st.info(msg, icon=":material/info:")
 
     if not alertes:
-        st.info("ℹ Aucune alerte significative détectée.")
+        st.info("Aucune alerte significative détectée.", icon=":material/info:")
 
     # ═══════════════════════════════════════════
     # EXPORTS WORD ET EXCEL
@@ -563,7 +563,7 @@ def page_comparatif():
                 entreprise, label_n, label_n1, kpis_cdr, kpis_bilan, df_sig, df_prod, df_chg,
                 df_actif, df_passif, _donnees_sig(sig_n, sig_n1), _donnees_bilan(bilan_n, bilan_n1), alertes)
             st.download_button(
-                label="📄 Télécharger le rapport Word (graphiques et indicateurs)",
+                label="Télécharger le rapport Word (graphiques et indicateurs)",
                 data=word.getvalue(),
                 file_name=sanitize_filename(f"Comparatif_{entreprise}_{label_n}_vs_{label_n1}") + ".docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -579,7 +579,7 @@ def page_comparatif():
                 entreprise, label_n, label_n1
             )
             st.download_button(
-                label="📥 Télécharger les tableaux Excel",
+                label="Télécharger les tableaux Excel",
                 data=excel_bytes,
                 file_name=sanitize_filename(f"Comparatif_{entreprise}_{label_n}_vs_{label_n1}") + ".xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

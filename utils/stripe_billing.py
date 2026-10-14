@@ -294,17 +294,17 @@ def gerer_retour_stripe() -> None:
 
         if params.get("stripe") == "success":
             plan = params.get("plan", "")
-            st.success(f"✅ Abonnement **{plan.capitalize()}** activé ! Bienvenue dans la plateforme SMD.")
+            st.success(f"Abonnement **{plan.capitalize()}** activé ! Bienvenue dans la plateforme SMD.", icon=":material/check_circle:")
             st.balloons()
             # Nettoyer les query params
             st.query_params.clear()
 
         elif params.get("stripe") == "cancel":
-            st.info("ℹ Paiement annulé. Vous restez sur votre plan actuel.")
+            st.info("Paiement annulé. Vous restez sur votre plan actuel.", icon=":material/info:")
             st.query_params.clear()
 
         elif params.get("stripe") == "portal_return":
-            st.success("✅ Votre abonnement a été mis à jour.")
+            st.success("Votre abonnement a été mis à jour.", icon=":material/check_circle:")
             st.query_params.clear()
 
     except Exception:

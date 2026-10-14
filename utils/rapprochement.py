@@ -280,12 +280,12 @@ def page_rapprochement():
     )
     st.title("Rapprochement bancaire")
     st.markdown("**Matching intelligent** entre relevé bancaire et écritures comptables")
-    st.caption("✨ Matching automatique par montant + date + libellé")
+    st.caption("Matching automatique par montant + date + libellé")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("### 📥 Relevé Bancaire")
+        st.markdown("### Relevé bancaire")
         releve = st.file_uploader(
             "Fichier relevé (CSV, XLSX)",
             type=TYPES_TABLEUR_CSV,
@@ -294,7 +294,7 @@ def page_rapprochement():
         )
 
     with col2:
-        st.markdown("### 📚 Écritures Comptables")
+        st.markdown("### Écritures comptables")
         ecritures = st.file_uploader(
             "Fichier écritures (CSV, XLSX)",
             type=TYPES_TABLEUR_CSV,
@@ -309,9 +309,9 @@ def page_rapprochement():
             df_releve = pd.read_excel(releve) if est_tableur(releve.name) else pd.read_csv(releve, sep=None, engine='python')
             df_ecritures = pd.read_excel(ecritures) if est_tableur(ecritures.name) else pd.read_csv(ecritures, sep=None, engine='python')
 
-            st.success(f"✅ Relevé : **{len(df_releve)} opérations** | Écritures : **{len(df_ecritures)} lignes**")
+            st.success(f"Relevé : **{len(df_releve)} opérations** | Écritures : **{len(df_ecritures)} lignes**", icon=":material/check_circle:")
 
-            with st.expander("👀 Aperçu des fichiers"):
+            with st.expander("Aperçu des fichiers"):
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown("**Relevé bancaire**")
@@ -324,54 +324,54 @@ def page_rapprochement():
 
             col1, col2 = st.columns(2)
             with col1:
-                nom_compte = st.text_input("🏦 Nom du compte", value="Compte bancaire principal")
+                nom_compte = st.text_input("Nom du compte", value="Compte bancaire principal")
             with col2:
-                tolerance = st.slider("⏱ Tolérance jours", 0, 10, 3,
+                tolerance = st.slider("Tolérance (jours)", 0, 10, 3,
                                      help="Écart maximum entre date relevé et écriture")
 
-            if st.button("🔄 Lancer le rapprochement", type="primary", width="stretch"):
+            if st.button("Lancer le rapprochement", type="primary", width="stretch"):
                 with st.spinner("Matching intelligent en cours..."):
                     resultats = rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=tolerance)
 
-                    st.markdown("## 📊 Résultats du Rapprochement")
+                    st.markdown("## Résultats du rapprochement")
 
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.metric("✅ Rapprochés", resultats['nb_rapproches'])
+                        st.metric("Rapprochés", resultats['nb_rapproches'])
                     with col2:
-                        st.metric("❌ Non rapp. relevé", resultats['nb_non_rapproches_releve'])
+                        st.metric("Non rapp. relevé", resultats['nb_non_rapproches_releve'])
                     with col3:
-                        st.metric("❌ Non rapp. écritures", resultats['nb_non_rapproches_ecritures'])
+                        st.metric("Non rapp. écritures", resultats['nb_non_rapproches_ecritures'])
                     with col4:
                         taux = resultats['taux_rapprochement']
-                        st.metric("📈 Taux", f"{nb_fr(taux, 1)} %",
+                        st.metric("Taux", f"{nb_fr(taux, 1)} %",
                                  delta="Excellent" if taux >= 90 else "Bon" if taux >= 70 else "À vérifier",
                                  delta_color="normal" if taux >= 70 else "inverse")
 
                     st.progress(min(int(taux), 100))
 
                     if taux >= 90:
-                        st.success("✅ **Excellent rapprochement** - Quasi-complet")
+                        st.success("**Excellent rapprochement** - Quasi-complet", icon=":material/check_circle:")
                     elif taux >= 70:
-                        st.info("ℹ **Bon rapprochement** - Satisfaisant")
+                        st.info("**Bon rapprochement** - Satisfaisant", icon=":material/info:")
                     elif taux >= 50:
-                        st.warning("⚠ **Rapprochement moyen** - Investigations nécessaires")
+                        st.warning("**Rapprochement moyen** - Investigations nécessaires", icon=":material/warning:")
                     else:
-                        st.error("🚨 **Rapprochement faible** - Anomalies importantes")
+                        st.error("**Rapprochement faible** - Anomalies importantes", icon=":material/error:")
 
                     st.divider()
 
                     if not resultats['rapproches'].empty:
-                        with st.expander(f"✅ Opérations rapprochées ({resultats['nb_rapproches']})"):
+                        with st.expander(f"Opérations rapprochées ({resultats['nb_rapproches']})"):
                             st.dataframe(resultats['rapproches'], width="stretch", hide_index=True)
 
                     if not resultats['non_rapproches_releve'].empty:
-                        with st.expander(f"❌ Relevé non rapproché ({resultats['nb_non_rapproches_releve']})", expanded=True):
+                        with st.expander(f"Relevé non rapproché ({resultats['nb_non_rapproches_releve']})", expanded=True):
                             st.warning("Opérations bancaires sans contrepartie comptable")
                             st.dataframe(resultats['non_rapproches_releve'], width="stretch", hide_index=True)
 
                     if not resultats['non_rapproches_ecritures'].empty:
-                        with st.expander(f"❌ Écritures non rapprochées ({resultats['nb_non_rapproches_ecritures']})", expanded=True):
+                        with st.expander(f"Écritures non rapprochées ({resultats['nb_non_rapproches_ecritures']})", expanded=True):
                             st.warning("Écritures sans contrepartie bancaire")
                             st.dataframe(resultats['non_rapproches_ecritures'], width="stretch", hide_index=True)
 
@@ -381,7 +381,7 @@ def page_rapprochement():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Rapprochement Bancaire", resultat=rapport, libelle="💾 Sauvegarder")
+                        bouton_sauvegarde(type_analyse="Rapprochement Bancaire", resultat=rapport, libelle="Sauvegarder")
                     with col2:
                         try:
                             ind_w, graph_w = visuels_rapprochement(resultats)
@@ -391,7 +391,7 @@ def page_rapprochement():
                             st.error(f"Erreur : {e}")
 
         except Exception as e:
-            st.error(f"❌ Erreur : {str(e)}")
+            st.error(f"Erreur : {str(e)}", icon=":material/error:")
             import traceback
             with st.expander("Détails techniques"):
                 st.code(traceback.format_exc())

@@ -235,16 +235,16 @@ def page_alertes():
     )
     st.title("Alertes et anomalies")
     st.markdown("**Détection automatique** d'anomalies multi-niveaux")
-    st.caption("✨ 10 contrôles automatiques pour cabinets et DAF")
+    st.caption("10 contrôles automatiques pour cabinets et DAF")
 
-    with st.expander("ℹ Quels contrôles sont effectués ?"):
+    with st.expander("Quels contrôles sont effectués ?"):
         st.markdown("""
         Le module détecte automatiquement :
 
-        🔴 **CRITIQUE**
+        **CRITIQUE**
         - Déséquilibre Débit/Crédit
 
-        🟡 **WARNING**
+        **WARNING**
         - Doublons exacts
         - Montants ronds suspects (>30%)
         - Écritures sans libellé
@@ -252,7 +252,7 @@ def page_alertes():
         - Débit ET Crédit simultanés
         - Numéros de comptes invalides
 
-        🔵 **INFO**
+        **INFO**
         - Écritures montant nul
         - Montants très répétés
         - Écritures week-end
@@ -261,7 +261,7 @@ def page_alertes():
         """)
 
     uploaded_file = st.file_uploader(
-        "📎 Données comptables (FEC, Balance, CSV, XLSX)",
+        "Données comptables (FEC, balance, CSV, XLSX)",
         type=TYPES_BALANCE
     )
 
@@ -270,20 +270,20 @@ def page_alertes():
         from utils.intelligent_parser import parser_balance_intelligent, charger_balance_ou_fec
 
         try:
-            with st.spinner("🤖 Analyse..."):
+            with st.spinner("Analyse..."):
                 df, _msg, info = charger_balance_ou_fec(uploaded_file)
-                st.success(f"✅ {_msg}")
+                st.success(f"{_msg}", icon=":material/check_circle:")
                 if info and info.get('colonnes_manquantes'):
-                    st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.")
+                    st.warning(f"Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.", icon=":material/warning:")
 
-            with st.expander("👀 Aperçu"):
+            with st.expander("Aperçu"):
                 st.dataframe(df.head(10), width="stretch")
 
             st.divider()
 
-            nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+            nom_entreprise = st.text_input("Nom de l'entreprise", value="Entreprise")
 
-            if st.button("🔍 Détecter les anomalies", type="primary", width="stretch"):
+            if st.button("Détecter les anomalies", type="primary", width="stretch"):
                 with st.spinner("Analyse en cours..."):
                     alertes = detecter_alertes(df)
 
@@ -291,46 +291,46 @@ def page_alertes():
                     nb_warning = len([a for a in alertes if a['niveau'] == 'WARNING'])
                     nb_info = len([a for a in alertes if a['niveau'] == 'INFO'])
 
-                    st.markdown("## 📊 Résumé des Alertes")
+                    st.markdown("## Résumé des alertes")
 
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.metric("🔴 Critiques", nb_critique,
+                        st.metric("Critiques", nb_critique,
                                  delta_color="inverse" if nb_critique > 0 else "normal")
                     with col2:
-                        st.metric("🟡 À surveiller", nb_warning)
+                        st.metric("À surveiller", nb_warning)
                     with col3:
-                        st.metric("🔵 Infos", nb_info)
+                        st.metric("Infos", nb_info)
                     with col4:
-                        st.metric("📊 Total", len(alertes))
+                        st.metric("Total", len(alertes))
 
                     if nb_critique > 0:
-                        st.error("🚨 **ATTENTION** : Anomalies critiques détectées - Investigation urgente !")
+                        st.error("**ATTENTION** : Anomalies critiques détectées - Investigation urgente !", icon=":material/error:")
                     elif nb_warning > 0:
-                        st.warning("⚠ **Vigilance** : Alertes à investiguer")
+                        st.warning("**Vigilance** : Alertes à investiguer", icon=":material/warning:")
                     elif len(alertes) == 0:
-                        st.success("✅ **Aucune anomalie majeure détectée** - Données saines")
+                        st.success("**Aucune anomalie majeure détectée** - Données saines", icon=":material/check_circle:")
                     else:
-                        st.info("ℹ **Points à surveiller** identifiés")
+                        st.info("**Points à surveiller** identifiés", icon=":material/info:")
 
                     st.divider()
 
                     if alertes:
                         alertes_critiques = [a for a in alertes if a['niveau'] == 'CRITIQUE']
                         if alertes_critiques:
-                            st.markdown("### 🔴 Alertes CRITIQUES")
+                            st.markdown("### Alertes CRITIQUES")
                             for a in alertes_critiques:
                                 st.error(f"**{a['titre']}** ({a['count']}) : {a['message']}")
 
                         alertes_warning = [a for a in alertes if a['niveau'] == 'WARNING']
                         if alertes_warning:
-                            st.markdown("### 🟡 Alertes WARNING")
+                            st.markdown("### Alertes WARNING")
                             for a in alertes_warning:
                                 st.warning(f"**{a['titre']}** ({a['count']}) : {a['message']}")
 
                         alertes_info = [a for a in alertes if a['niveau'] == 'INFO']
                         if alertes_info:
-                            st.markdown("### 🔵 Alertes INFO")
+                            st.markdown("### Alertes INFO")
                             for a in alertes_info:
                                 st.info(f"**{a['titre']}** ({a['count']}) : {a['message']}")
 
@@ -340,7 +340,7 @@ def page_alertes():
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Alertes", resultat=rapport, libelle="💾 Sauvegarder")
+                        bouton_sauvegarde(type_analyse="Alertes", resultat=rapport, libelle="Sauvegarder")
                     with col2:
                         try:
                             ind_w, graph_w = visuels_alertes(alertes)
@@ -350,7 +350,7 @@ def page_alertes():
                             st.error(f"Erreur : {e}")
 
         except Exception as e:
-            st.error(f"❌ Erreur : {str(e)}")
+            st.error(f"Erreur : {str(e)}", icon=":material/error:")
             import traceback
             with st.expander("Détails techniques"):
                 st.code(traceback.format_exc())

@@ -369,9 +369,9 @@ def page_tft():
     data = st.session_state.tft_data
 
     # ── Import de deux balances (N et N-1)
-    with st.expander("📂 Importer les balances N et N-1 pour pré-remplir", expanded=True):
+    with st.expander("Importer les balances N et N-1 pour pré-remplir", expanded=True):
         st.caption("Balances de clôture avant affectation du résultat (Excel, CSV ou TXT). "
-                   "Les variations sont calculées entre les deux exercices.")
+                   "les variations sont calculées entre les deux exercices.")
         col_n, col_n1, col_ex = st.columns([2, 2, 1])
         with col_n:
             f_n = st.file_uploader("Balance de l'exercice (N)", type=TYPES_BALANCE, key="balance_tft_n")
@@ -444,7 +444,7 @@ def page_tft():
 
     # ── Synthèse
     resultats = _calculer_tft(data, exercices)
-    st.subheader("📊 Synthèse")
+    st.subheader("Synthèse")
     cols = st.columns(len(exercices))
     for i, ex in enumerate(exercices):
         r = resultats[ex]
@@ -467,16 +467,16 @@ def page_tft():
         generer_bouton_word(f"TFT_{entreprise}_{exercices[-1]}", rapport_w, indicateurs=ind_w, graphiques=graph_w)
         bouton_sauvegarde(type_analyse="Tableau des flux de trésorerie", resultat=rapport_w, key="save_tft")
     with col_ia:
-        if st.button("🤖 Analyse IA", type="primary", width="stretch"):
+        if st.button("Analyse IA", type="primary", width="stretch"):
             with st.spinner("Analyse en cours..."):
                 analyse = _analyser_ia(resultats, exercices, entreprise)
-            st.markdown("### 🤖 Analyse IA")
+            st.markdown("### Analyse IA")
             from utils.page_helpers import afficher_contenu_ia
             afficher_contenu_ia(analyse, "tft")
     with col_xl:
         excel_bytes = _export_excel_tft(data, resultats, exercices, entreprise)
         st.download_button(
-            "📥 Exporter Excel",
+            "Exporter Excel",
             data=excel_bytes,
             file_name=sanitize_filename(f"TFT_{entreprise}_{exercices[-1]}") + ".xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

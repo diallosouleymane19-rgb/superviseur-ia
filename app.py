@@ -204,7 +204,7 @@ if st.session_state.get("role") != "demo":
         st.session_state["dossier_id"] = 0          # 0 = aucun dossier
     st.sidebar.selectbox("Client sur lequel vous travaillez", [0] + list(_clients), key="dossier_id",
                          format_func=lambda i: _clients.get(i, "Aucun client choisi"),
-                         help="Les analyses que vous sauvegardez (bouton 💾 Sauvegarder) sont rangées dans le dossier de "
+                         help="Les analyses que vous sauvegardez (bouton Sauvegarder) sont rangées dans le dossier de "
                               "ce client. Vous les retrouvez dans Mes dossiers.")
     st.session_state["dossier_nom"] = _clients.get(st.session_state.get("dossier_id"))
     if not st.session_state["dossier_nom"]:
@@ -222,7 +222,7 @@ if st.session_state.get("role") != "demo":
             st.session_state["dossier_id"] = cid
             st.session_state["menu_nouveau_client"] = ""
             st.session_state["menu_client_msg"] = None
-            st.toast(f"✅ Dossier « {nom} » créé : vos sauvegardes y seront rangées.")
+            st.toast(f"Dossier « {nom} » créé : vos sauvegardes y seront rangées.")
         else:
             st.session_state["menu_client_msg"] = "Création impossible (base de données indisponible). Réessayez."
 
@@ -414,22 +414,22 @@ elif page == "🔒 Confidentialité & Sécurité":
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.success("### 📂 Fichiers non enregistrés\n\nLes fichiers que vous déposez sont lus en mémoire pour l'analyse "
-                   "et ne sont pas enregistrés sur nos serveurs.")
+        st.success("### Fichiers non enregistrés\n\nLes fichiers que vous déposez sont lus en mémoire pour l'analyse "
+                   "et ne sont pas enregistrés sur nos serveurs.", icon=":material/check_circle:")
     with col2:
-        st.success("### 🗓️ Sauvegardes limitées\n\nSeules les analyses que vous choisissez de sauvegarder sont conservées, "
-                   "dans une base hébergée dans l'UE (Irlande), puis supprimées automatiquement après 30 jours.")
+        st.success("### Sauvegardes limitées\n\nSeules les analyses que vous choisissez de sauvegarder sont conservées, "
+                   "dans une base hébergée dans l'UE (Irlande), puis supprimées automatiquement après 30 jours.", icon=":material/check_circle:")
     with col3:
-        st.info("### 🤖 IA signalée\n\nLes analyses IA sont rédigées par Mistral AI (France) et signalées comme telles. "
+        st.info("### IA signalée\n\nLes analyses IA sont rédigées par Mistral AI (France) et signalées comme telles. "
                 "Avant l'envoi, les identifiants (SIREN, SIRET, n° de TVA, IBAN, e-mails, téléphones, nom de "
                 "l'entreprise saisi) sont remplacés par des repères, puis remis en clair dans la réponse. "
                 "Les montants et le texte libre sont transmis tels quels : n'y saisissez pas de données "
                 "personnelles inutiles. L'utilisation de ces données pour entraîner les modèles de Mistral "
-                "est désactivée depuis le 07/10/2026.")
+                "est désactivée depuis le 07/10/2026.", icon=":material/info:")
     st.caption("La comptabilisation des factures (comptes PCG, TVA, export FEC) est calculée par des règles, sans IA.")
     st.divider()
     st.markdown("[Conditions générales d'utilisation](?doc=cgu) · "
                 "[Politique de confidentialité complète](?doc=confidentialite)")
-    st.markdown("### 📋 Politique de Conservation (RGPD)")
+    st.markdown("### Politique de conservation (RGPD)")
     st.info("Les analyses sauvegardées sont automatiquement supprimées après **30 jours**.")
     st.caption("**SMD Global Consulting LLC** — Superviseur IA Comptable © 2026")

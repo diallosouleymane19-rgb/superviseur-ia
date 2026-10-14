@@ -259,45 +259,45 @@ def page_veille_fiscale():
     )
     st.title("Veille fiscale")
     st.markdown("**Actualités fiscales officielles** — France")
-    st.caption("✨ Sources : DGFiP, BOFiP, Légifrance")
+    st.caption("Sources : DGFiP, BOFiP, Légifrance")
 
     onglet1, onglet2 = st.tabs([
-        "🇫🇷 Fiscalité France",
-        "❓ Question Fiscale IA"
+        "Fiscalité France",
+        "Question fiscale IA"
     ])
 
     with onglet1:
-        st.markdown("### 📡 Sources Officielles Françaises")
+        st.markdown("### Sources officielles françaises")
 
         col1, col2, col3 = st.columns(3)
         with col1:
             st.info("**DGFiP**\nDirection Générale des Finances Publiques")
-            st.markdown("[🔗 impots.gouv.fr](https://www.impots.gouv.fr)")
+            st.markdown("[impots.gouv.fr](https://www.impots.gouv.fr)")
         with col2:
             st.info("**BOFiP**\nBulletin Officiel des Finances Publiques")
-            st.markdown("[🔗 bofip.impots.gouv.fr](https://bofip.impots.gouv.fr)")
+            st.markdown("[bofip.impots.gouv.fr](https://bofip.impots.gouv.fr)")
         with col3:
             st.info("**Légifrance**\nTextes législatifs et réglementaires")
-            st.markdown("[🔗 legifrance.gouv.fr](https://www.legifrance.gouv.fr)")
+            st.markdown("[legifrance.gouv.fr](https://www.legifrance.gouv.fr)")
 
         st.divider()
 
         # La liste et les analyses IA sont gardées en mémoire de session : un clic sur « Analyser avec IA »
         # recharge la page, et sans cela la liste disparaissait avant que l'analyse ne s'affiche.
-        if st.button("🔄 Actualiser la veille France", type="primary", width="stretch"):
+        if st.button("Actualiser la veille France", type="primary", width="stretch"):
             with st.spinner("Récupération des actualités fiscales françaises..."):
                 try:
                     st.session_state["veille_fr"] = obtenir_veille_fiscale() or []
                     st.session_state["veille_fr_ia"] = {}
                 except Exception as e:
                     st.session_state.pop("veille_fr", None)
-                    st.error(f"❌ Erreur de récupération : {str(e)}")
+                    st.error(f"Erreur de récupération : {str(e)}", icon=":material/error:")
 
         actualites = st.session_state.get("veille_fr")
         if actualites is not None:
             analyses_ia = st.session_state.setdefault("veille_fr_ia", {})
             if len(actualites) > 0:
-                st.success(f"✅ {len(actualites)} actualité(s) récupérée(s)")
+                st.success(f"{len(actualites)} actualité(s) récupérée(s)", icon=":material/check_circle:")
                 for idx, article in enumerate(actualites):
                     if not isinstance(article, dict):
                         continue
@@ -307,17 +307,17 @@ def page_veille_fiscale():
                     lien = article.get('lien', '')
                     source = article.get('source', 'Source officielle')
 
-                    with st.expander(f"📄 {titre}", expanded=idx in analyses_ia):
+                    with st.expander(f"{titre}", expanded=idx in analyses_ia):
                         col1, col2 = st.columns([2, 1])
                         with col1:
-                            st.caption(f"🗓 {date} | 📡 {source}")
+                            st.caption(f"{date} | {source}")
                         with col2:
                             if lien:
-                                st.markdown(f"[🔗 Article complet]({lien})")
+                                st.markdown(f"[Article complet]({lien})")
                         if resume:
                             st.markdown(resume)
 
-                        if st.button("🤖 Analyser avec IA", key=f"ia_{idx}"):
+                        if st.button("Analyser avec IA", key=f"ia_{idx}"):
                             with st.spinner("Analyse IA..."):
                                 prompt = f"""En tant qu'expert fiscal français, analyse cette actualité :
 
@@ -332,32 +332,32 @@ def page_veille_fiscale():
                                 analyses_ia[idx] = appel_mistral_securise(prompt, temperature=0.2, label="analyse fiscale")
                         result = analyses_ia.get(idx)
                         if result and result.get("success"):
-                            st.markdown("#### 🤖 Analyse IA")
+                            st.markdown("#### Analyse IA")
                             from utils.page_helpers import afficher_contenu_ia
                             afficher_contenu_ia(result["content"], f"veille_{idx}", result.get("model", ""),
                                                 result.get("masques", 0))
                         elif result:
-                            st.error(f"❌ {result.get('error') or 'Analyse IA indisponible.'}")
+                            st.error(f"{result.get('error') or 'Analyse IA indisponible.'}", icon=":material/error:")
 
                 bouton_sauvegarde(type_analyse="Veille Fiscale France", resultat="\n".join(
                                       [f"# VEILLE FISCALE – {datetime.now().strftime('%d/%m/%Y')}", ""] +
                                       [f"- **{a.get('titre', '')}** ({a.get('source', '')}, {a.get('date', '')})"
                                        + (f" : {a['lien']}" if a.get('lien') else "") for a in actualites]),
-                                  libelle="💾 Sauvegarder la veille")
+                                  libelle="Sauvegarder la veille")
             else:
-                st.info("ℹ Aucune actualité récente. Consultez directement les sources officielles.")
+                st.info("Aucune actualité récente. Consultez directement les sources officielles.", icon=":material/info:")
 
     with onglet2:
-        st.markdown("### 🤖 Posez votre question fiscale à l'IA")
+        st.markdown("### Posez votre question fiscale à l'IA")
         st.caption("Fiscalité française — CGI, BOFiP, LPF")
 
         question = st.text_area(
-            "📝 Votre question",
+            "Votre question",
             placeholder="Ex: Quel est le taux de TVA applicable aux prestations de services ?",
             height=120
         )
 
-        if st.button("🤖 Obtenir une réponse IA", type="primary", width="stretch") and question:
+        if st.button("Obtenir une réponse IA", type="primary", width="stretch") and question:
             with st.spinner("Analyse fiscale en cours..."):
                 prompt = f"""En tant qu'expert en fiscalité française (CGI, BOFiP, LPF), réponds à cette question professionnelle :
 
@@ -373,14 +373,14 @@ def page_veille_fiscale():
                 result = appel_mistral_securise(prompt, temperature=0.2, label="question fiscale")
 
                 if result["success"]:
-                    st.markdown("### 🤖 Réponse IA")
+                    st.markdown("### Réponse IA")
                     from utils.page_helpers import afficher_contenu_ia, avec_mention_ia, meta_ia
                     afficher_contenu_ia(result["content"], "question_fiscale", result.get("model", ""),
                                         result.get("masques", 0))
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Question Fiscale IA", resultat=avec_mention_ia(result["content"]), libelle="💾 Sauvegarder")
+                        bouton_sauvegarde(type_analyse="Question Fiscale IA", resultat=avec_mention_ia(result["content"]), libelle="Sauvegarder")
                     with col2:
                         try:
                             generer_bouton_word("Reponse_Fiscale", avec_mention_ia(result["content"]),
@@ -388,7 +388,7 @@ def page_veille_fiscale():
                         except Exception as e:
                             st.error(f"Erreur : {e}")
 
-                    st.caption("⚠ Réponse à titre informatif. Consultez un expert pour validation.")
+                    st.caption("Réponse à titre informatif. Consultez un expert pour validation.")
 
 
     # -----------------------------------------------------------------------------

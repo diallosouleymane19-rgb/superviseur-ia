@@ -363,10 +363,10 @@ def page_compte_resultat():
     )
     st.title("Compte de résultat")
     st.markdown("**Calcul automatique des SIG** (Soldes Intermédiaires de Gestion) selon PCG")
-    st.caption("✨ Pour Cabinets, DAF et Dirigeants - Compatible toutes balances")
+    st.caption("Pour cabinets, DAF et dirigeants - Compatible toutes balances")
 
     uploaded_file = st.file_uploader(
-        "📎 Déposer votre balance ou FEC",
+        "Déposer votre balance ou FEC",
         type=TYPES_BALANCE,
         help="La balance doit contenir les comptes des classes 6 (charges) et 7 (produits)"
     )
@@ -376,53 +376,53 @@ def page_compte_resultat():
         from utils.intelligent_parser import parser_balance_intelligent, charger_balance_ou_fec
 
         try:
-            with st.spinner("🤖 Analyse de la balance..."):
+            with st.spinner("Analyse de la balance..."):
                 df, _msg, info = charger_balance_ou_fec(uploaded_file)
-                st.success(f"✅ {_msg}")
+                st.success(f"{_msg}", icon=":material/check_circle:")
                 if info and info.get('colonnes_manquantes'):
-                    st.warning(f"⚠ Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.")
+                    st.warning(f"Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Vérifiez l'en-tête du fichier.", icon=":material/warning:")
 
             st.divider()
             col1, col2, col3 = st.columns(3)
             with col1:
-                nom_entreprise = st.text_input("🏢 Nom de l'entreprise", value="Entreprise")
+                nom_entreprise = st.text_input("Nom de l'entreprise", value="Entreprise")
             with col2:
                 exercice = champ_exercice()
             with col3:
                 type_entreprise = st.selectbox(
-                    "🏭 Type d'entreprise",
+                    "Type d'entreprise",
                     ["Mixte", "Commerciale", "Industrielle", "Services"]
                 )
 
-            if st.button("📊 Générer le Compte de Résultat", type="primary", width="stretch") and \
+            if st.button("Générer le compte de résultat", type="primary", width="stretch") and \
                     champs_remplis(Exercice=exercice):
                 with st.spinner("Calcul des SIG en cours..."):
                     resultat = calculer_compte_resultat(df, type_entreprise)
 
                     if 'erreur' in resultat:
-                        st.error(f"❌ {resultat['erreur']}")
+                        st.error(f"{resultat['erreur']}", icon=":material/error:")
                     else:
-                        st.markdown("## 📊 Soldes Intermédiaires de Gestion")
+                        st.markdown("## Soldes intermédiaires de gestion")
                         st.caption(f"{nom_entreprise} - Exercice {exercice}")
 
                         sig = resultat['sig']
                         col1, col2, col3, col4 = st.columns(4)
                         with col1:
                             _ca = sig.get("Chiffre d'affaires", 0)
-                            st.metric("💰 CA", eur_fr(_ca))
+                            st.metric("CA", eur_fr(_ca))
                         with col2:
-                            st.metric("⚙ VA", eur_fr(sig['Valeur ajoutée (VA)']))
+                            st.metric("VA", eur_fr(sig['Valeur ajoutée (VA)']))
                         with col3:
                             _ebe = sig.get("Excédent brut d'exploitation (EBE)", 0)
-                            st.metric("📈 EBE", eur_fr(_ebe))
+                            st.metric("EBE", eur_fr(_ebe))
                         with col4:
                             rn = sig['Résultat net']
-                            st.metric("🎯 Résultat Net", eur_fr(rn),
+                            st.metric("Résultat net", eur_fr(rn),
                                      delta="Bénéfice" if rn > 0 else "Déficit",
                                      delta_color="normal" if rn > 0 else "inverse")
 
                         st.divider()
-                        st.markdown("### 📋 Détail des Soldes Intermédiaires")
+                        st.markdown("### Détail des soldes intermédiaires")
                         df_sig = pd.DataFrame([
                             {'Indicateur': nom, 'Montant (€)': nb_fr(val, 2)} 
                             for nom, val in sig.items()
@@ -443,7 +443,7 @@ def page_compte_resultat():
 
                         st.divider()
                         if resultat['ratios']:
-                            st.markdown("## 📈 Ratios de Performance")
+                            st.markdown("## Ratios de performance")
                             ratios = resultat['ratios']
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
@@ -462,13 +462,13 @@ def page_compte_resultat():
                         st.divider()
                         col1, col2 = st.columns(2)
                         with col1:
-                            st.markdown("### 💰 PRODUITS")
+                            st.markdown("### PRODUITS")
                             st.dataframe(pd.DataFrame([
                                 {'Rubrique': k, 'Montant (€)': nb_fr(v, 2)} 
                                 for k, v in resultat['produits'].items() if v != 0
                             ]), width="stretch", hide_index=True)
                         with col2:
-                            st.markdown("### 💸 CHARGES")
+                            st.markdown("### CHARGES")
                             st.dataframe(pd.DataFrame([
                                 {'Rubrique': k, 'Montant (€)': nb_fr(v, 2)} 
                                 for k, v in resultat['charges'].items() if v != 0
@@ -476,20 +476,20 @@ def page_compte_resultat():
 
                         st.divider()
                         if resultat['analyse']:
-                            st.markdown("## 💡 Analyse Cabinet")
+                            st.markdown("## Analyse Cabinet")
                             for item in resultat['analyse']:
                                 if item['type'] == 'OK':
-                                    st.success(f"✅ {item['message']}")
+                                    st.success(f"{item['message']}", icon=":material/check_circle:")
                                 elif item['type'] == 'WARNING':
-                                    st.warning(f"⚠ {item['message']}")
+                                    st.warning(f"{item['message']}", icon=":material/warning:")
                                 else:
-                                    st.error(f"🔴 {item['message']}")
+                                    st.error(f"{item['message']}", icon=":material/error:")
 
                         st.divider()
                         rapport = generer_rapport_compte_resultat(resultat, nom_entreprise, exercice)
                         col1, col2 = st.columns(2)
                         with col1:
-                            bouton_sauvegarde(type_analyse="Compte de Résultat", resultat=rapport, libelle="💾 Sauvegarder")
+                            bouton_sauvegarde(type_analyse="Compte de Résultat", resultat=rapport, libelle="Sauvegarder")
                         with col2:
                             try:
                                 ind_w, graph_w = visuels_compte_resultat(resultat)
@@ -499,7 +499,7 @@ def page_compte_resultat():
                                 st.error(f"Erreur : {e}")
 
         except Exception as e:
-            st.error(f"❌ Erreur : {str(e)}")
+            st.error(f"Erreur : {str(e)}", icon=":material/error:")
             import traceback
             with st.expander("Détails techniques"):
                 st.code(traceback.format_exc())

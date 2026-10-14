@@ -395,7 +395,7 @@ def page_fec():
     st.markdown("**Validation et analyse approfondie** des Fichiers des Écritures Comptables (Article L.47 A du LPF)")
 
     uploaded_file = st.file_uploader(
-        "📎 Déposer votre fichier FEC", 
+        "Déposer votre fichier FEC", 
         type=["txt", "csv"],
         help="Format pipe (|) ou tabulation, encodage UTF-8 ou ISO-8859-1"
     )
@@ -403,37 +403,37 @@ def page_fec():
     if uploaded_file:
         from utils.fec import lire_fec, valider_fec, analyser_fec, detecter_anomalies_fec, colonnes_trouvees
 
-        with st.spinner("📖 Lecture du FEC..."):
+        with st.spinner("Lecture du FEC..."):
             df, sep, enc = lire_fec(uploaded_file)
 
         if df is None:
             n = colonnes_trouvees(uploaded_file)
-            st.error(f"❌ Ce fichier n'est pas un FEC : {n} colonne{'s' if n > 1 else ''} trouvée{'s' if n > 1 else ''}, "
-                     "18 attendues (JournalCode, EcritureDate, CompteNum…), séparées par | ou une tabulation.")
+            st.error(f"Ce fichier n'est pas un FEC : {n} colonne{'s' if n > 1 else ''} trouvée{'s' if n > 1 else ''}, "
+                     "18 attendues (JournalCode, EcritureDate, CompteNum…), séparées par | ou une tabulation.", icon=":material/error:")
             st.info("Pour une facture, utilisez la page **Analyse et comptabilisation de factures**, "
                     "puis exportez les écritures au format FEC.")
         else:
-            st.success(f"✅ FEC chargé : **{nb_fr(len(df), 0)} écritures** | Séparateur : `{sep}` | Encodage : `{enc}`")
+            st.success(f"FEC chargé : **{nb_fr(len(df), 0)} écritures** | Séparateur : `{sep}` | Encodage : `{enc}`", icon=":material/check_circle:")
 
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("📝 Écritures", f"{nb_fr(len(df), 0)}")
+                st.metric("Écritures", f"{nb_fr(len(df), 0)}")
             with col2:
                 if 'EcritureNum' in df.columns:
-                    st.metric("📄 Pièces", f"{nb_fr(df['EcritureNum'].nunique(), 0)}")
+                    st.metric("Pièces", f"{nb_fr(df['EcritureNum'].nunique(), 0)}")
             with col3:
                 if 'CompteNum' in df.columns:
-                    st.metric("🔢 Comptes", f"{df['CompteNum'].nunique()}")
+                    st.metric("Comptes", f"{df['CompteNum'].nunique()}")
             with col4:
                 if 'JournalCode' in df.columns:
-                    st.metric("📚 Journaux", f"{df['JournalCode'].nunique()}")
+                    st.metric("Journaux", f"{df['JournalCode'].nunique()}")
 
-            with st.expander("👀 Aperçu des données (20 premières lignes)"):
+            with st.expander("Aperçu des données (20 premières lignes)"):
                 st.dataframe(df.head(20), width="stretch")
 
             st.divider()
 
-            if st.button("🛡 Lancer la validation DGFiP complète", type="primary", width="stretch"):
+            if st.button("Lancer la validation DGFiP complète", type="primary", width="stretch"):
                 with st.spinner("Validation en cours selon Article A.47 A-1 du LPF..."):
                     resultats = valider_fec(df)
 
@@ -441,41 +441,41 @@ def page_fec():
                     score = meta.get('score_conformite', 0)
                     niveau = meta.get('niveau', 'Inconnu')
 
-                    st.markdown("## 🎯 Score de Conformité DGFiP")
+                    st.markdown("## Score de conformité DGFiP")
 
                     col1, col2, col3 = st.columns([1, 2, 1])
                     with col2:
                         if score >= 90:
-                            st.success(f"### {niveau} : {nb_fr(score, 1)} % ✅")
+                            st.success(f"### {niveau} : {nb_fr(score, 1)} %")
                         elif score >= 75:
-                            st.info(f"### {niveau} : {nb_fr(score, 1)} % ℹ")
+                            st.info(f"### {niveau} : {nb_fr(score, 1)} %")
                         elif score >= 50:
-                            st.warning(f"### {niveau} : {nb_fr(score, 1)} % ⚠")
+                            st.warning(f"### {niveau} : {nb_fr(score, 1)} %")
                         else:
-                            st.error(f"### {niveau} : {nb_fr(score, 1)} % ❌")
+                            st.error(f"### {niveau} : {nb_fr(score, 1)} %")
 
                         st.progress(min(int(score), 100))
                         st.caption(f"Points obtenus : {meta.get('points', 0)} / {meta.get('points_max', 100)}")
 
                     st.divider()
 
-                    st.markdown("## 📋 Détail des Contrôles")
+                    st.markdown("## Détail des contrôles")
 
                     for verif, status in resultats.items():
                         if status["valide"]:
-                            st.success(f"✅ **{verif}** : {status.get('message', 'Conforme')}")
+                            st.success(f"**{verif}** : {status.get('message', 'Conforme')}", icon=":material/check_circle:")
                         else:
-                            st.error(f"❌ **{verif}** : {status.get('message', '')}")
+                            st.error(f"**{verif}** : {status.get('message', '')}", icon=":material/error:")
 
                     st.divider()
 
-                    st.markdown("## 🔍 Analyse Approfondie")
+                    st.markdown("## Analyse approfondie")
                     analyse = analyser_fec(df)
                     afficher_rapport(analyse, afficher_kpis_auto=True, afficher_alertes_auto=True, afficher_tables_auto=True)
 
                     st.divider()
 
-                    st.markdown("## ⚠ Détection d'Anomalies")
+                    st.markdown("## Détection d'anomalies")
                     anomalies = detecter_anomalies_fec(df)
 
                     if anomalies:
@@ -485,28 +485,28 @@ def page_fec():
                         nb_faibles = len([a for a in anomalies if a['gravite'] == 'Faible'])
 
                         with col1:
-                            st.metric("🔴 Élevées", nb_elevees)
+                            st.metric("Élevées", nb_elevees)
                         with col2:
-                            st.metric("🟡 Moyennes", nb_moyennes)
+                            st.metric("Moyennes", nb_moyennes)
                         with col3:
-                            st.metric("🔵 Faibles", nb_faibles)
+                            st.metric("Faibles", nb_faibles)
 
                         for anomalie in anomalies:
                             if anomalie['gravite'] == 'Élevée':
-                                st.error(f"🔴 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
+                                st.error(f"**{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}", icon=":material/error:")
                             elif anomalie['gravite'] == 'Moyenne':
-                                st.warning(f"🟡 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
+                                st.warning(f"**{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}", icon=":material/warning:")
                             else:
-                                st.info(f"🔵 **{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}")
+                                st.info(f"**{anomalie['type']}** ({anomalie['count']}) : {anomalie['description']}", icon=":material/info:")
                     else:
-                        st.success("✅ Aucune anomalie majeure détectée")
+                        st.success("Aucune anomalie majeure détectée", icon=":material/check_circle:")
 
                     st.divider()
 
                     rapport_complet = rapport_controle_fec(score, niveau, resultats, analyse, anomalies)
                     col1, col2 = st.columns(2)
                     with col1:
-                        bouton_sauvegarde(type_analyse="Contrôle FEC", resultat=rapport_complet, libelle="💾 Sauvegarder le rapport")
+                        bouton_sauvegarde(type_analyse="Contrôle FEC", resultat=rapport_complet, libelle="Sauvegarder le rapport")
                     with col2:
                         try:
                             ind_w, graph_w = visuels_fec(df, score, niveau, anomalies)

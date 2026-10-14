@@ -349,7 +349,7 @@ def page_plan_financement():
     with col_xl:
         excel_bytes = _export_excel(df_r, df_e, annees, entreprise)
         st.download_button(
-            "📥 Exporter Excel",
+            "Exporter Excel",
             data=excel_bytes,
             file_name=sanitize_filename(f"Plan_de_financement_{entreprise}_{annees[0]}") + ".xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
