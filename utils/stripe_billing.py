@@ -24,6 +24,14 @@ def _get_stripe_key() -> str:
     return os.getenv("STRIPE_SECRET_KEY", "")
 
 
+def paiement_actif() -> bool:
+    """Vrai si une vraie clé Stripe est configurée (pas un modèle du type « sk_test_..._ICI »)."""
+    key = _get_stripe_key().strip()
+    if not key.startswith(("sk_test_", "sk_live_", "rk_test_", "rk_live_")) or len(key) < 30:
+        return False
+    return not any(m in key.upper() for m in ("ICI", "VOTRE", "XXXX", "..."))
+
+
 def _get_webhook_secret() -> str:
     try:
         import streamlit as st

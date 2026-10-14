@@ -6,6 +6,8 @@ le sanitizer Streamlit et garantir le rendu HTML des cartes.
 """
 
 import streamlit as st
+import logging
+
 import streamlit.components.v1 as components
 from utils.auth_rbac import get_quota_used, get_user
 
@@ -142,17 +144,20 @@ def page_tarifs(app_name="pcg"):
         st.info(f"L'abonnement est commun à tous les membres de « **{st.session_state.get('cabinet', '')}** » "
                 "et géré par son responsable. Adressez-vous à lui pour changer de plan.")
 
+    from utils.stripe_billing import paiement_actif
+    paiement_ok = paiement_actif()
+    if not paiement_ok:
+        st.info("Le paiement en ligne n'est pas encore activé. Pour changer de plan, écrivez à contact@smdconsulting.pro.", icon=":material/info:")
+
     # --- Abonnement actuel ---
     if plan_actuel != "free":
         info  = PLANS_DISPLAY.get(plan_actuel, {})
         used  = get_quota_used(user_email) if user_email else 0
         limit = info.get("quota", 0)
-        limit_str = "illimite" if limit == -1 else str(limit)
-        st.success(
-            "Plan actuel : **" + info.get("label", "") + "**  —  "
-            + str(used) + " / " + limit_str + " analyses utilisées ce mois par le cabinet"
-        )
-        if st.button("Gérer mon abonnement Stripe", disabled=collaborateur):
+        detail = (f"analyses illimitées ({used} utilisée{'s' if used > 1 else ''} ce mois par le cabinet)"
+                  if limit == -1 else f"{used} / {limit} analyses utilisées ce mois par le cabinet")
+        st.success("Plan actuel : **" + info.get("label", "") + "** — " + detail)
+        if st.button("Gérer mon abonnement Stripe", disabled=collaborateur or not paiement_ok):
             try:
                 from utils.stripe_billing import creer_portal_session
                 url = creer_portal_session(user_email, app_name)
@@ -160,8 +165,9 @@ def page_tarifs(app_name="pcg"):
                     "<meta http-equiv='refresh' content='0;url=" + url + "'>",
                     unsafe_allow_html=True
                 )
-            except Exception as e:
-                st.error("Erreur portail : " + str(e))
+            except Exception:
+                logging.exception("Portail Stripe")
+                st.error("Le portail de paiement ne répond pas. Réessayez plus tard ou écrivez à contact@smdconsulting.pro.")
         st.divider()
 
     # --- Facturation mensuelle / annuelle ---
@@ -198,7 +204,7 @@ def page_tarifs(app_name="pcg"):
                           help="Résiliez via le portail Stripe.")
             else:
                 label = "Commencer" if plan_actuel == "free" else "Upgrader"
-                if st.button(label, key="pay_" + plan_key, disabled=collaborateur,
+                if st.button(label, key="pay_" + plan_key, disabled=collaborateur or not paiement_ok,
                              width="stretch", type="primary"):
                     if not user_email:
                         st.error("Connectez-vous pour souscrire.")
@@ -216,8 +222,9 @@ def page_tarifs(app_name="pcg"):
                                 "<meta http-equiv='refresh' content='0;url=" + url + "'>",
                                 unsafe_allow_html=True
                             )
-                        except Exception as e:
-                            st.error("Erreur Stripe : " + str(e))
+                        except Exception:
+                            logging.exception("Paiement Stripe")
+                            st.error("Le paiement en ligne ne répond pas. Réessayez plus tard ou écrivez à contact@smdconsulting.pro.")
 
     # --- FAQ ---
     st.divider()

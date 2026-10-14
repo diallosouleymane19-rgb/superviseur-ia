@@ -100,11 +100,15 @@ def page_inscription(app_name: str = "pcg") -> None:
             # Choix du plan
             st.markdown("**Choisissez votre plan**")
             plan_options = {
-                "🆓 Gratuit — 10 analyses/mois (0\u00a0€)":                "free",
+                "Gratuit — 10 analyses/mois (0\u00a0€)":                "free",
                 "Starter — 50 analyses/mois (29\u00a0€ HT/mois)":       "starter",
                 "Pro — 200 analyses/mois (79\u00a0€ HT/mois)":          "pro",
                 "Entreprise — analyses illimitées (199\u00a0€ HT/mois)": "enterprise",
             }
+            from utils.stripe_billing import paiement_actif
+            if not paiement_actif():   # sans paiement en ligne, seul le plan Gratuit est proposé
+                plan_options = {k: v for k, v in plan_options.items() if v == "free"}
+                st.caption("Plans payants : le paiement en ligne arrive bientôt. Écrivez à contact@smdconsulting.pro.")
             plan_label  = st.selectbox("Plan", list(plan_options.keys()),
                                        label_visibility="collapsed")
             plan_choisi = plan_options[plan_label]
@@ -195,11 +199,11 @@ def page_inscription(app_name: str = "pcg") -> None:
                             )
                             st.link_button("Accéder au paiement Stripe", url,
                                            width="stretch")
-                        except Exception as e:
-                            st.warning(
-                                f"Compte créé, mais erreur Stripe : {e}\n"
-                                "Vous pouvez upgrader depuis la page Tarifs après connexion."
-                            )
+                        except Exception:
+                            import logging
+                            logging.exception("Paiement Stripe à l'inscription")
+                            st.warning("Compte créé en plan Gratuit, mais le paiement en ligne ne répond pas. "
+                                       "Vous pourrez changer de plan depuis la page Abonnement après connexion.")
 
         # Lien retour connexion
         st.markdown("---")
