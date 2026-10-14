@@ -8,18 +8,18 @@ en attente de relecture juridique : les mentions entre crochets restent à valid
 """
 import streamlit as st
 
-VERSION = "Projet du 09/10/2026, en cours de validation juridique"
+VERSION = "Projet du 14/10/2026, en cours de validation juridique"
 
 CGU_MD = """
 ### Article 1 — Objet et acceptation
 
-Les présentes conditions générales d'utilisation (« CGU ») régissent l'accès et l'utilisation du service en ligne « Superviseur IA Comptable » (le « Service »). Elles sont acceptées lors de la création du compte, par la case à cocher prévue à cet effet. Le Service est réservé aux professionnels agissant dans le cadre de leur activité ; il n'est pas destiné aux consommateurs.
+Les présentes conditions générales d'utilisation (« CGU ») régissent l'accès et l'utilisation du service en ligne « KontrolIA », accessible à l'adresse https://app.smdconsulting.pro (le « Service »). Elles sont acceptées lors de la création du compte, par la case à cocher prévue à cet effet. Le Service est réservé aux professionnels agissant dans le cadre de leur activité ; il n'est pas destiné aux consommateurs.
 
 ### Article 2 — Éditeur
 
 Le Service est édité par SMD Global Consulting LLC, société à responsabilité limitée de droit de l'État du Wyoming (États-Unis), identifiée auprès de l'administration fiscale américaine (IRS) sous le numéro EIN 30-1497639. Adresse de correspondance en France : 38 rue Christophe Colomb, Appt. 1878, 41000 Blois. Contact : contact@smdconsulting.pro. Directeur de la publication : Souleymane Diallo, gérant.
 
-Hébergement de l'application : Streamlit Community Cloud (Snowflake Inc., États-Unis). Hébergement de la base de données : Supabase, région Union européenne (Irlande).
+Hébergement de l'application et de la base de données : OVH SAS, 2 rue Kellermann, 59100 Roubaix, France (RCS Lille Métropole 424 761 419). Serveur situé dans le centre de données de Gravelines (France).
 
 ### Article 3 — Définitions
 
@@ -186,7 +186,7 @@ def afficher_document(doc: str):
         return False
     titre, texte = DOCUMENTS[doc]
     st.title(titre)
-    st.caption(f"Superviseur IA Comptable · SMD Global Consulting LLC · {VERSION}")
+    st.caption(f"KontrolIA · SMD Global Consulting LLC · {VERSION}")
     st.markdown(texte)
     autre = "confidentialite" if doc == "cgu" else "cgu"
     st.divider()
