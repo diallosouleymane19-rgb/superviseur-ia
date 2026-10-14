@@ -36,7 +36,7 @@ from auth import login, logout, is_connecte
 # =============================================================================
 
 st.set_page_config(
-    page_title="SMD Global Consulting LLC - Superviseur IA", 
+    page_title="KontrolIA · SMD Global Consulting LLC", 
     layout="wide", 
     page_icon="static/favicon.png",
     initial_sidebar_state="auto"
@@ -89,7 +89,7 @@ if not is_connecte():
         with col_marque, st.container(key="smd_panneau"):
             st.markdown(
                 "<img class='smd-logo' src='app/static/logo_smd.png' alt='SMD Global Consulting LLC'>"
-                "<h1 style='margin:0 0 .75rem'>Superviseur IA Comptable</h1>"
+                "<h1 style='margin:0 0 .75rem'>Kontrol<span style='color:#5FB8E6'>IA</span></h1>"
                 "<p class='smd-accroche'>Analyse et supervision comptable pour les cabinets, "
                 "conformes au PCG et aux exigences de la DGFiP.</p>"
                 "<ul class='smd-engagements'>"
@@ -432,4 +432,4 @@ elif page == "🔒 Confidentialité & Sécurité":
                 "[Politique de confidentialité complète](?doc=confidentialite)")
     st.markdown("### Politique de conservation (RGPD)")
     st.info("Les analyses sauvegardées sont automatiquement supprimées après **30 jours**.")
-    st.caption("**SMD Global Consulting LLC** — Superviseur IA Comptable © 2026")
+    st.caption("**KontrolIA** — conçu par SMD Global Consulting LLC © 2026")

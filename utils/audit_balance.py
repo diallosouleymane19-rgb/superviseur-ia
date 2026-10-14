@@ -305,7 +305,7 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise", exercice=""):
     rapport.append("")
     
     rapport.append("---")
-    rapport.append("*Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*")
+    rapport.append("*Rapport généré par SMD Global Consulting LLC - KontrolIA*")
     
     return "\n".join(rapport)
 

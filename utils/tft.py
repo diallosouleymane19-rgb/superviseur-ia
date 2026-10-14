@@ -314,7 +314,7 @@ def rapport_tft(data: dict, resultats: dict, exercices: list, entreprise: str) -
                  "existante ou par le financement externe.")
     if d['Trésorerie clôture'] < 0:
         r.append("- **Trésorerie de clôture négative** : besoin de financement à court terme.")
-    r += ["", "---", "*SMD Global Consulting LLC - Superviseur IA Comptable*"]
+    r += ["", "---", "*SMD Global Consulting LLC - KontrolIA*"]
     return "\n".join(r)
 
 

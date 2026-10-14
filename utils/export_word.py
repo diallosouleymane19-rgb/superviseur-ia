@@ -16,13 +16,13 @@ def marquer_docx_ia(doc, mention, modele="", date_iso=""):
     from docx.opc.constants import RELATIONSHIP_TYPE as RT
     from xml.sax.saxutils import escape
     cp = doc.core_properties
-    cp.author = "Superviseur IA Comptable - SMD Global Consulting LLC"
+    cp.author = "KontrolIA - SMD Global Consulting LLC"
     cp.category = "Contenu généré par IA"
     cp.keywords = "AI-generated; contenu généré par IA; Mistral AI; trainedAlgorithmicMedia"
     cp.comments = mention
     props = [("AIGenerated", "true"), ("AIProvider", "Mistral AI"), ("AIModel", modele or "non précisé"),
              ("AIGenerationDate", date_iso), ("DigitalSourceType", IPTC_IA),
-             ("AISystem", "Superviseur IA Comptable (SMD Global Consulting LLC)"), ("AIDisclosure", mention)]
+             ("AISystem", "KontrolIA (SMD Global Consulting LLC)"), ("AIDisclosure", mention)]
     corps = "".join(
         f'<property fmtid="{{D5CDD505-2E9C-101B-9397-08002B2CF9AE}}" pid="{i}" name="{n}">'
         f"<vt:lpwstr>{escape(v)}</vt:lpwstr></property>" for i, (n, v) in enumerate(props, start=2))
@@ -241,7 +241,7 @@ def document_smd():
     section.left_margin = section.right_margin = Cm(2.5)
     section.top_margin = section.bottom_margin = Cm(2.5)
     p = section.header.paragraphs[0]
-    run_header = p.add_run("SMD Global Consulting LLC | Superviseur IA Comptable")
+    run_header = p.add_run("SMD Global Consulting LLC | KontrolIA")
     run_header.font.color.rgb = RGBColor(31, 119, 180)
     run_header.font.bold = True
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -252,7 +252,7 @@ def document_smd():
 
 
 _SIGNATURE = re.compile(r"^\*?\s*((Rapport|Analyse)\s+généré(e)?\s+par\s+)?SMD Global Consulting LLC\s*[-–—]\s*"
-                        r"Superviseur IA Comptable\s*\*?$", re.I)
+                        r"(Superviseur IA Comptable|KontrolIA)\s*\*?$", re.I)
 
 
 def _sans_signature(texte):

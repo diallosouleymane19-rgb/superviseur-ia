@@ -177,7 +177,7 @@ def rapport_plan_financement(df_r, df_e, annees, entreprise):
     r.append("| Total emplois | " + " | ".join(nb_fr(v) for v in te) + " |")
     r.append("| **Solde annuel** | " + " | ".join(f"**{nb_fr(v)}**" for v in solde) + " |")
     r.append("| Solde cumulé | " + " | ".join(nb_fr(v) for v in cumul) + " |")
-    r += ["", "---", "*SMD Global Consulting LLC - Superviseur IA Comptable*"]
+    r += ["", "---", "*SMD Global Consulting LLC - KontrolIA*"]
     return "\n".join(r)
 
 def visuels_plan_financement(df_r, df_e, annees):

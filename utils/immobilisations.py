@@ -220,7 +220,7 @@ def generer_rapport_immobilisation(bien, tableau, mode, valeur_origine=None, dur
                        f"{nb_fr(row[_col_vnc(tableau)], 2)} | {statut} |")
     rapport.append(f"| **Total** | **{nb_fr(tableau['Dotation (€)'].sum(), 2)}** |  |  |  |")
     rapport += ["", "Écriture annuelle : débit 6811 (dotations aux amortissements), crédit 28xx (amortissements).",
-                "", "---", "*SMD Global Consulting LLC - Superviseur IA Comptable*"]
+                "", "---", "*SMD Global Consulting LLC - KontrolIA*"]
     return "\n".join(rapport)
 
 

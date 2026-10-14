@@ -107,7 +107,7 @@ def _mistral_configure():
 
 
 MAIL_DEMO = ("mailto:contact@smdconsulting.pro?subject=Demande%20de%20d%C3%A9mo%20personnalis%C3%A9e"
-             "&body=Bonjour%2C%0A%0AJe%20souhaite%20une%20d%C3%A9mo%20personnalis%C3%A9e%20du%20Superviseur%20IA%20Comptable.%0A%0A"
+             "&body=Bonjour%2C%0A%0AJe%20souhaite%20une%20d%C3%A9mo%20personnalis%C3%A9e%20de%20KontrolIA.%0A%0A"
              "Cabinet%20%2F%20entreprise%20%3A%0AT%C3%A9l%C3%A9phone%20%3A%0ADisponibilit%C3%A9s%20%3A%0A")
 
 
@@ -143,7 +143,7 @@ def page_accueil(aller_a):
 
     st.markdown(
         f"<div class='smd-entete'><div><h1>{'Bienvenue dans la démonstration' if role == 'demo' else 'Bienvenue à ' + escape(nom)}</h1>"
-        f"<p>Superviseur IA Comptable, référentiel PCG France</p></div>"
+        f"<p>KontrolIA, référentiel PCG France · conçu par SMD Global Consulting LLC</p></div>"
         f"<div class='smd-date'>{_date_fr(maintenant)}</div></div>",
         unsafe_allow_html=True,
     )

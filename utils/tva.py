@@ -441,7 +441,7 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
 
     # ── PIED DE PAGE ──
     footer = Table([[
-        _p("Généré par <b>SMD Global Consulting LLC</b> — Superviseur IA Comptable", 7, color=colors.grey),
+        _p("Généré par <b>SMD Global Consulting LLC</b> — KontrolIA", 7, color=colors.grey),
         _p("ATTENTION : Document d aide. La déclaration officielle doit être déposée sur impots.gouv.fr",
            7, color=colors.grey, align=TA_RIGHT),
     ]], colWidths=[9*cm, 9*cm])
@@ -664,7 +664,7 @@ def rapport_tva(res: dict, periode: str, entreprise: str, regime: str) -> str:
     if alertes:
         r += ["", "## CONTRÔLES DE COHÉRENCE", ""]
         r += [f"- {msg}" for _, msg in alertes]
-    r += ["", "---", "*SMD Global Consulting LLC - Superviseur IA Comptable*"]
+    r += ["", "---", "*SMD Global Consulting LLC - KontrolIA*"]
     return "\n".join(r)
 
 

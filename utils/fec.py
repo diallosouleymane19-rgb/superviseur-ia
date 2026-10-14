@@ -220,7 +220,7 @@ def rapport_controle_fec(score, niveau, resultats, analyse, anomalies):
     r += corps
     r += ["", "## Anomalies détectées", ""]
     r += ([f"- {a['type']} ({a['gravite']}) : {a['description']}" for a in anomalies] or ["Aucune anomalie majeure"])
-    r += ["", "---", "*Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*"]
+    r += ["", "---", "*Rapport généré par SMD Global Consulting LLC - KontrolIA*"]
     return "\n".join(r)
 
 

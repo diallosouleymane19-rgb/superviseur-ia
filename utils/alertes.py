@@ -218,7 +218,7 @@ def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
     rapport.append("- Croiser avec module Loi de Benford pour fraude")
     rapport.append("")
     rapport.append("---")
-    rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
+    rapport.append("*SMD Global Consulting LLC - KontrolIA*")
     
     return "\n".join(rapport)
 

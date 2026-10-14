@@ -35,7 +35,7 @@ def page_inscription(app_name: str = "pcg") -> None:
     - Choix de plan
     - Redirect Stripe Checkout si plan payant
     """
-    app_label = "Superviseur IA PCG France"
+    app_label = "KontrolIA"
 
     # ── En-tête ───────────────────────────────────────────────────────────────
     st.markdown(f"""

@@ -337,7 +337,7 @@ def analyse_benford_complete(df, col_montant, deb_cre=(None, None)):
     
     rapport.append("")
     rapport.append("---")
-    rapport.append("*Analyse générée par SMD Global Consulting LLC - Superviseur IA Comptable*")
+    rapport.append("*Analyse générée par SMD Global Consulting LLC - KontrolIA*")
     rapport.append("*Méthode : Loi de Benford - 1er chiffre significatif*")
     
     rapport_str = "\n".join(rapport)

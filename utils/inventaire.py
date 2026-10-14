@@ -233,7 +233,7 @@ def generer_rapport_inventaire(resultats, exercice):
         rapport.append(contenu)
 
     rapport.append("\n---")
-    rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
+    rapport.append("*SMD Global Consulting LLC - KontrolIA*")
     return "\n".join(rapport)
 
 

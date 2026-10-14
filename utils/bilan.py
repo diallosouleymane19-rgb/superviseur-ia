@@ -287,7 +287,7 @@ def generer_rapport_bilan(bilan, nom_entreprise="Entreprise", exercice=""):
     L += ["", "## ANALYSE", ""]
     L += [f"- [{i['type']}] {i['message']}" for i in bilan['analyse']]
     L += ["", "*Emprunts (16-17) considérés à plus d'un an : la balance ne donne pas l'échéance.*",
-          "", "---", "*SMD Global Consulting LLC - Superviseur IA Comptable*"]
+          "", "---", "*SMD Global Consulting LLC - KontrolIA*"]
     return "\n".join(L)
 
 

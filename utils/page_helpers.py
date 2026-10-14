@@ -82,7 +82,7 @@ def afficher_contenu_ia(texte: str, cle: str, modele: str = "", masques: int = 0
         st.markdown(
             f'<span hidden data-ai-generated="true" data-ai-provider="Mistral AI" '
             f'data-ai-model="{escape(m["modele"] or "non précisé")}" data-ai-generation-date="{m["date"]}" '
-            f'data-digital-source-type="{IPTC_IA}" data-ai-system="Superviseur IA Comptable"></span>',
+            f'data-digital-source-type="{IPTC_IA}" data-ai-system="KontrolIA"></span>',
             unsafe_allow_html=True)
         mention_ia()
         if masques:

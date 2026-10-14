@@ -72,7 +72,7 @@ def _rapport(resultats):
             if st_ != "OK":
                 L.append(f"- [{st_}] {m}")
         L.append("")
-    L.append("*Superviseur IA Comptable - SMD Global Consulting LLC*")
+    L.append("*KontrolIA - SMD Global Consulting LLC*")
     return "\n".join(L)
 
 

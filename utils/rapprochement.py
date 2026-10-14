@@ -263,7 +263,7 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
              "Écritures du compte 512 sans opération correspondante sur le relevé.")):
         rapport += _tableau_operations(resultats.get(cle), titre, explication)
     rapport.append("---")
-    rapport.append("*SMD Global Consulting LLC - Superviseur IA Comptable*")
+    rapport.append("*SMD Global Consulting LLC - KontrolIA*")
     
     return "\n".join(rapport)
 

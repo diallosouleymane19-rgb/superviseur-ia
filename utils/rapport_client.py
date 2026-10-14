@@ -209,7 +209,7 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
     
     rapport.append("---")
     rapport.append("")
-    rapport.append("*Rapport généré par SMD Global Consulting LLC - Superviseur IA Comptable*")
+    rapport.append("*Rapport généré par SMD Global Consulting LLC - KontrolIA*")
     rapport.append(f"*© {datetime.now().year} – Tous droits réservés*")
     
     return "\n".join(rapport)
