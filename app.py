@@ -153,7 +153,8 @@ afficher_quota_sidebar()
 
 # Indicateur mode démo
 if st.session_state.get("role") == "demo":
-    st.sidebar.warning("Mode démonstration : rien n'est sauvegardé.")
+    st.sidebar.markdown("<div class='smd-demo'>Mode démonstration : rien n'est sauvegardé.</div>",
+                        unsafe_allow_html=True)
 
 def _aller_a(nom_page):
     """Change la page affichée (menu et boutons d'accès rapide)."""

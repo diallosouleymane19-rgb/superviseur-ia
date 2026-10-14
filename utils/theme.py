@@ -43,6 +43,8 @@ h1, h2, h3, h4 { color: var(--smd-encre); letter-spacing: -0.005em; font-weight:
 [data-testid="stSidebarHeader"] { padding-top: 1.25rem; padding-bottom: .5rem; }
 [data-testid="stSidebarHeader"] { height: auto !important; }
 [data-testid="stSidebarHeader"] img { height: 2.4rem !important; width: auto !important; max-width: 100%; opacity: .9; }
+.smd-demo { background: #F2B544; color: #2B1D00; border-radius: 6px; padding: .55rem .75rem;
+  font-size: .9rem; font-weight: 500; margin: .25rem 0 .75rem; }
 /* Nom du produit : plus visible que la signature SMD */
 .smd-produit-menu { font-family: 'Source Serif', Georgia, serif; font-size: 2rem; font-weight: 700; color: #fff;
   line-height: 1.1; margin: .1rem 0 1rem; padding-bottom: .9rem; letter-spacing: -.01em;
