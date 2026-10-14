@@ -142,6 +142,8 @@ st.session_state.pop("ouvrir_inscription", None)   # connecté : ordre normal de
 # =============================================================================
 
 st.logo("static/logo_smd.png", size="large", icon_image="static/logo_smd_globe.png")
+st.sidebar.markdown("<div class='smd-produit-menu'>Kontrol<span>IA</span>"
+                    "<small>Analyse comptable · PCG France</small></div>", unsafe_allow_html=True)
 st.sidebar.markdown(f"<div class='smd-utilisateur'>{html.escape(st.session_state.get('user_email', 'Utilisateur'))}</div>",
                     unsafe_allow_html=True)
 

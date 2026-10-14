@@ -42,7 +42,17 @@ h1, h2, h3, h4 { color: var(--smd-encre); letter-spacing: -0.005em; font-weight:
 /* ── Menu latéral aux couleurs SMD ───────────────────────────────────────── */
 [data-testid="stSidebarHeader"] { padding-top: 1.25rem; padding-bottom: .5rem; }
 [data-testid="stSidebarHeader"] { height: auto !important; }
-[data-testid="stSidebarHeader"] img { height: 3.6rem !important; width: auto !important; max-width: 100%; }
+[data-testid="stSidebarHeader"] img { height: 2.4rem !important; width: auto !important; max-width: 100%; opacity: .9; }
+/* Nom du produit : plus visible que la signature SMD */
+.smd-produit-menu { font-family: 'Source Serif', Georgia, serif; font-size: 2rem; font-weight: 700; color: #fff;
+  line-height: 1.1; margin: .1rem 0 1rem; padding-bottom: .9rem; letter-spacing: -.01em;
+  border-bottom: 1px solid rgba(255,255,255,.15); }
+.smd-produit-menu span, .smd-produit span { color: #5FB8E6; }
+.smd-produit-menu small { display: block; font-family: 'IBM Plex Sans', sans-serif; font-size: .8rem;
+  font-weight: 400; color: #B9C8E3; letter-spacing: .02em; margin-top: .2rem; }
+.smd-produit { font-family: 'Source Serif', Georgia, serif; font-size: 1.3rem; font-weight: 700;
+  color: var(--smd-marine); margin-right: .5rem; }
+.smd-produit span { color: var(--smd-azur); }
 [data-testid="stSidebar"] hr { border-color: rgba(233,238,247,.18); margin: .9rem 0; }
 .smd-utilisateur { font-size: .82rem; color: #B9C6DE; margin: 0 0 .5rem; word-break: break-all; }
 .smd-role { border-left: 3px solid var(--smd-azur); padding: .15rem 0 .15rem .65rem; margin: 0 0 .5rem; }

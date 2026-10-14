@@ -143,7 +143,7 @@ def page_accueil(aller_a):
 
     st.markdown(
         f"<div class='smd-entete'><div><h1>{'Bienvenue dans la démonstration' if role == 'demo' else 'Bienvenue à ' + escape(nom)}</h1>"
-        f"<p>KontrolIA, référentiel PCG France · conçu par SMD Global Consulting LLC</p></div>"
+        f"<p><span class='smd-produit'>Kontrol<span>IA</span></span> référentiel PCG France · conçu par SMD Global Consulting LLC</p></div>"
         f"<div class='smd-date'>{_date_fr(maintenant)}</div></div>",
         unsafe_allow_html=True,
     )
