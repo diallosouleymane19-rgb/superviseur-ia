@@ -167,7 +167,7 @@ def page_accueil(aller_a):
         k["users"], k["analyses"] = 0, 0
     tuiles = [
         ("group", "Membres du cabinet" if role not in ("admin", "demo") else "Utilisateurs actifs", k["users"]),
-        ("analytics", "Analyses ce mois", k["analyses"]),
+        ("analytics", "Sauvegardes ce mois", k["analyses"]),
         ("data_usage", "Quota utilisé", k["quota"]),
         ("schedule", "Dernière connexion", k["last"]),
     ]
