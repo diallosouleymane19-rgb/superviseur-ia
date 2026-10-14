@@ -10,15 +10,44 @@ _JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche
 _MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
          "août", "septembre", "octobre", "novembre", "décembre"]
 
-# Boutons d'accès rapide : libellé d'action -> page du menu
+# Boutons d'accès rapide : libellé d'action, page du menu, icône
 ACCES_RAPIDE = [
-    ("Analyser une facture", "🧾 Analyse et comptabilisation de factures"),
-    ("Contrôler une balance", "📊 Contrôle de balance"),
-    ("Contrôler un FEC", "📂 Traitement FEC"),
-    ("Compte de résultat", "📈 Compte de Résultat"),
-    ("Bilan comptable", "📊 Bilan Comptable"),
-    ("Rapport client", "📋 Rapport Client"),
+    ("Analyser une facture", "🧾 Analyse et comptabilisation de factures", ":material/receipt_long:"),
+    ("Contrôler une balance", "📊 Contrôle de balance", ":material/balance:"),
+    ("Contrôler un FEC", "📂 Traitement FEC", ":material/description:"),
+    ("Compte de résultat", "📈 Compte de Résultat", ":material/trending_up:"),
+    ("Bilan comptable", "📊 Bilan Comptable", ":material/account_balance:"),
+    ("Rapport client", "📋 Rapport Client", ":material/summarize:"),
 ]
+
+# Modules par famille : titre, icône, [(libellé, page du menu)]
+MODULES = [
+    ("Analyse et contrôle", "fact_check", [
+        ("Factures (OCR)", "🧾 Analyse et comptabilisation de factures"),
+        ("Contrôle de balance", "📊 Contrôle de balance"),
+        ("Loi de Benford", "🛡 Loi de Benford"),
+        ("Alertes et anomalies", "⚠ Alertes & Anomalies"),
+        ("Cohérence des données", "✅ Cohérence des Données")]),
+    ("États financiers", "account_balance", [
+        ("Bilan", "📊 Bilan Comptable"),
+        ("Compte de résultat et SIG", "📈 Compte de Résultat"),
+        ("Flux de trésorerie", "💹 TFT Trésorerie"),
+        ("Plan de financement", "📐 Plan de Financement"),
+        ("Comparatif N / N-1", "📊 Comparatif N/N-1")]),
+    ("Gestion et clôture", "inventory_2", [
+        ("Immobilisations", "📦 Immobilisations"),
+        ("Inventaire et clôture", "📋 Inventaire & Clôture"),
+        ("Rapprochement bancaire", "🔄 Rapprochement Bancaire")]),
+    ("Reporting et fiscal", "summarize", [
+        ("FEC DGFiP", "📂 Traitement FEC"),
+        ("TVA CA3 / CA12", "🧾 Aide TVA CA3/CA12"),
+        ("Rapport client", "📋 Rapport Client"),
+        ("Veille fiscale", "📰 Veille Fiscale")]),
+]
+
+
+def _icone(nom):
+    return f"<span class='material-symbols-rounded smd-ico' aria-hidden='true'>{nom}</span>"
 
 
 def _date_fr(d):
@@ -136,37 +165,35 @@ def page_accueil(aller_a):
     k = _kpis(email, plan)
     if role == "demo":   # un prospect ne voit pas les chiffres réels de la plateforme
         k["users"], k["analyses"] = 0, 0
+    tuiles = [
+        ("group", "Membres du cabinet" if role not in ("admin", "demo") else "Utilisateurs actifs", k["users"]),
+        ("analytics", "Analyses ce mois", k["analyses"]),
+        ("data_usage", "Quota utilisé", k["quota"]),
+        ("schedule", "Dernière connexion", k["last"]),
+    ]
     st.markdown(
-        "<div class='smd-ligne'>"
-        f"<div><div class='lib'>{'Membres du cabinet' if role not in ('admin', 'demo') else 'Utilisateurs actifs'}</div><div class='val'>{escape(str(k['users']))}</div></div>"
-        f"<div><div class='lib'>Analyses ce mois</div><div class='val'>{escape(str(k['analyses']))}</div></div>"
-        f"<div><div class='lib'>Quota utilisé</div><div class='val'>{escape(str(k['quota']))}</div></div>"
-        f"<div><div class='lib'>Dernière connexion</div><div class='val'>{escape(str(k['last']))}</div></div>"
-        "</div>",
+        "<div class='smd-tuiles'>" + "".join(
+            f"<div class='smd-tuile'>{_icone(ico)}<div><div class='lib'>{escape(lib)}</div>"
+            f"<div class='val'>{escape(str(val))}</div></div></div>" for ico, lib, val in tuiles) + "</div>",
         unsafe_allow_html=True,
     )
 
     st.subheader("Accès rapide")
-    for ligne in (ACCES_RAPIDE[:3], ACCES_RAPIDE[3:]):
-        cols = st.columns(3)
-        for col, (libelle, cible) in zip(cols, ligne):
-            col.button(libelle, width="stretch", on_click=aller_a, args=(cible,),
-                       key=f"rapide_{cible}")
+    with st.container(key="smd_rapide"):
+        for ligne in (ACCES_RAPIDE[:3], ACCES_RAPIDE[3:]):
+            cols = st.columns(3)
+            for col, (libelle, cible, ico) in zip(cols, ligne):
+                col.button(libelle, icon=ico, width="stretch", on_click=aller_a, args=(cible,),
+                           key=f"rapide_{cible}")
 
     st.subheader("Modules disponibles")
-    groupes = [
-        ("Analyse et contrôle", ["Factures (OCR)", "Contrôle de balance", "Loi de Benford", "Alertes", "Cohérence des données"]),
-        ("États financiers", ["Bilan", "Compte de résultat et SIG", "TFT trésorerie", "Plan de financement", "Comparatif N/N-1"]),
-        ("Gestion et clôture", ["Immobilisations", "Inventaire et clôture", "Rapprochement bancaire"]),
-        ("Reporting et fiscal", ["FEC DGFiP", "TVA CA3/CA12", "Rapport client", "Veille fiscale"]),
-    ]
     cols = st.columns(4)
-    for col, (titre, items) in zip(cols, groupes):
-        col.markdown(
-            f"<div class='smd-modules'><h4>{titre}</h4><ul>"
-            + "".join(f"<li>{i}</li>" for i in items) + "</ul></div>",
-            unsafe_allow_html=True,
-        )
+    for n, (col, (titre, ico, items)) in enumerate(zip(cols, MODULES)):
+        with col.container(key=f"smd_famille_{n}"):
+            st.markdown(f"<div class='smd-famille'>{_icone(ico)}<span>{titre}</span></div>", unsafe_allow_html=True)
+            for j, (libelle, cible) in enumerate(items):
+                st.button(libelle, icon=":material/chevron_right:", type="tertiary", width="stretch",
+                          on_click=aller_a, args=(cible,), key=f"module_{n}_{j}")
 
     sb = "<span class='smd-pastille ok'></span>Base de données connectée" if k["sb_ok"] \
         else "<span class='smd-pastille ko'></span>Base de données non joignable"

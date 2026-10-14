@@ -116,20 +116,50 @@ h1, h2, h3, h4 { color: var(--smd-encre); letter-spacing: -0.005em; font-weight:
 .smd-echeance .delai { font-variant-numeric: tabular-nums; white-space: nowrap;
   border: 1px solid rgba(255,255,255,.45); border-radius: 999px; padding: .2rem .8rem; }
 
-/* Ligne de compteurs façon grand livre */
-.smd-ligne { display: grid; grid-template-columns: repeat(4, 1fr);
-  border-top: 1px solid var(--smd-filet); border-bottom: 1px solid var(--smd-filet);
-  margin-bottom: 2rem; }
-.smd-ligne > div { padding: .9rem 1rem; border-left: 1px solid var(--smd-filet); }
-.smd-ligne > div:first-child { border-left: none; padding-left: 0; }
-.smd-ligne .lib { color: var(--smd-ardoise); font-size: .85rem; }
-.smd-ligne .val { font-size: 1.5rem; font-weight: 600; color: var(--smd-encre);
-  font-variant-numeric: tabular-nums; }
+/* Tuiles de compteurs */
+.smd-ico { font-family: 'Material Symbols Rounded' !important; font-weight: normal; font-style: normal;
+  line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap;
+  font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased; }
+.smd-tuiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+.smd-tuile { display: flex; gap: .9rem; align-items: center; background: #fff;
+  border: 1px solid var(--smd-filet); border-top: 3px solid var(--smd-azur); border-radius: 8px;
+  padding: 1rem 1.1rem; box-shadow: 0 1px 2px rgba(14,30,58,.05); }
+.smd-tuile .smd-ico { font-size: 1.5rem; color: var(--smd-azur); background: #E6F3FB;
+  border-radius: 50%; padding: .55rem; }
+.smd-tuile .lib { color: var(--smd-ardoise); font-size: .85rem; }
+.smd-tuile .val { font-size: 1.45rem; font-weight: 600; color: var(--smd-encre); font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .smd-tuiles { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .smd-tuile .smd-ico { display: none; } .smd-tuile { padding: .8rem .9rem; }
+  .smd-tuile .val { font-size: 1.25rem; } }
 
-/* Listes de modules et statut */
-.smd-modules h4 { font-size: 1rem; margin: 0 0 .4rem; }
-.smd-modules ul { list-style: none; margin: 0 !important; padding: 0 !important; color: var(--smd-ardoise); }
-.smd-modules li { padding: .1rem 0 !important; margin: 0 !important; font-size: .95rem; }
+/* Accès rapide : cartes d'action */
+.st-key-smd_rapide .stButton > button {
+  min-height: 4.2rem; justify-content: flex-start; padding: .75rem 1.1rem; background: #fff;
+  border: 1px solid var(--smd-filet); border-left: 4px solid var(--smd-azur); border-radius: 8px;
+  color: var(--smd-encre); font-weight: 500; font-size: 1rem;
+  box-shadow: 0 1px 2px rgba(14,30,58,.05); transition: transform .15s, box-shadow .15s, background .15s; }
+.st-key-smd_rapide .stButton > button [data-testid="stIconMaterial"] { color: var(--smd-azur); font-size: 1.5rem; }
+.st-key-smd_rapide .stButton > button:hover { background: var(--smd-marine); color: #fff;
+  border-color: var(--smd-marine); transform: translateY(-2px); box-shadow: 0 6px 14px rgba(10,54,129,.18); }
+.st-key-smd_rapide .stButton > button:hover [data-testid="stIconMaterial"] { color: #fff; }
+
+/* Familles de modules : cartes avec en-tête marine */
+[class*="st-key-smd_famille_"] { background: #fff; border: 1px solid var(--smd-filet); border-radius: 8px;
+  overflow: hidden; gap: 0 !important; padding-bottom: .5rem; height: 100%; }
+.smd-famille { display: flex; align-items: center; gap: .6rem; background: var(--smd-marine); color: #fff;
+  padding: .8rem 1rem; font-family: 'Source Serif', Georgia, serif; font-size: 1.05rem; font-weight: 600;
+  margin-bottom: .6rem; }
+.smd-famille .smd-ico { color: #7CC4EA; font-size: 1.3rem; }
+[class*="st-key-smd_famille_"] .stButton > button { justify-content: flex-start; padding: .35rem 1rem;
+  color: var(--smd-ardoise); font-size: .95rem; min-height: 0; }
+[class*="st-key-smd_famille_"] .stButton > button > span { order: 2; margin-left: auto; }
+[class*="st-key-smd_famille_"] .stButton > button > div { order: 1; text-align: left; }
+[class*="st-key-smd_famille_"] .stButton > button [data-testid="stIconMaterial"] { color: #B8C4D6;
+  transition: color .15s, transform .15s; }
+[class*="st-key-smd_famille_"] .stButton > button:hover { color: var(--smd-marine); background: var(--smd-brume); }
+[class*="st-key-smd_famille_"] .stButton > button:hover [data-testid="stIconMaterial"] { color: var(--smd-azur);
+  transform: translateX(3px); }
+[class*="st-key-smd_famille_"] [data-testid="stElementContainer"]:has(.smd-famille) { margin-bottom: .4rem; }
 .smd-statut { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; color: var(--smd-ardoise);
   font-size: .9rem; border-top: 1px solid var(--smd-filet); padding-top: 1rem; margin-top: 1rem; }
 .smd-pastille { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%;
