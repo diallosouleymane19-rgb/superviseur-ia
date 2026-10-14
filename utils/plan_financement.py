@@ -7,6 +7,8 @@ from utils.sig_pcg import nb_fr
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 from utils.security import sanitize_filename
 import streamlit as st
+
+from utils.permissions import compter_analyse
 import pandas as pd
 from io import BytesIO
 from datetime import datetime
@@ -258,7 +260,7 @@ def page_plan_financement():
     with st.expander("Importer une balance PCG pour pré-remplir la CAF"):
         fichier = st.file_uploader("Balance (Excel, LibreOffice, CSV ou TXT)", type=TYPES_BALANCE,
                                     key="balance_plan")
-        if fichier:
+        if fichier and compter_analyse("Plan de financement", fichier.getvalue()):
             with st.spinner("Extraction en cours..."):
                 vals = _extraire_caf_bfr_pcg(fichier.read(), fichier.name)
             if vals:
@@ -332,6 +334,8 @@ def page_plan_financement():
 
     with col_ia:
         if st.button("Analyse IA du plan", type="primary", width="stretch"):
+            if not compter_analyse("Plan de financement IA"):
+                st.stop()
             with st.spinner("Analyse en cours..."):
                 analyse = _analyser_ia(df_r, df_e, annees, entreprise)
             st.markdown("### Analyse IA")

@@ -9,6 +9,8 @@ from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 from utils.page_helpers import champs_remplis
 from utils.security import sanitize_filename
 import streamlit as st
+
+from utils.permissions import compter_analyse
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -518,6 +520,8 @@ def page_tva():
         st.divider()
         if st.button("Calculer la déclaration TVA", type="primary", width="stretch") and \
                 champs_remplis(Période=periode):
+            if not compter_analyse("TVA"):
+                st.stop()
             res = _calculer_tva(data)
             _afficher_resultats(res, data, periode, entreprise, regime, siret, adresse)
 
@@ -567,6 +571,8 @@ def page_tva():
                     st.divider()
                     if st.button("Générer la déclaration CA3/CA12", type="primary",
                                  width="stretch", key="btn_import_decl") and champs_remplis(Période=periode):
+                        if not compter_analyse("TVA"):
+                            st.stop()
                         extrait_ajuste = {
                             "TVA collectée (44571)":            tva_col,
                             "TVA déductible ABS (44566)":       tva_abs,

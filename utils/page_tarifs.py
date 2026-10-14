@@ -232,7 +232,7 @@ def page_tarifs(app_name="pcg"):
         st.markdown("""
 **Puis-je changer de plan ?** Oui, à tout moment depuis le portail Stripe.
 
-**Qu'est-ce qu'une analyse ?** Chaque module IA utilise = 1 analyse (audit, Benford, bilan, rapport client...).
+**Qu'est-ce qu'une analyse ?** Chaque calcul lancé compte pour 1 analyse : générer un bilan, contrôler une balance ou un FEC, analyser un lot de factures, lancer une analyse IA… Réafficher un résultat déjà calculé ne compte pas.
 
 **Les données sont-elles sécurisées ?** Les fichiers déposés sont lus en mémoire et ne sont pas enregistrés. Seules les analyses que vous sauvegardez sont conservées, dans l'UE (Irlande), 30 jours maximum.
 

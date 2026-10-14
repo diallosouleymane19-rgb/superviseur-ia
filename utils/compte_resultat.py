@@ -354,6 +354,7 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
 
 def page_compte_resultat():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -396,6 +397,8 @@ def page_compte_resultat():
 
             if st.button("Générer le compte de résultat", type="primary", width="stretch") and \
                     champs_remplis(Exercice=exercice):
+                if not compter_analyse("Compte de résultat"):
+                    st.stop()
                 with st.spinner("Calcul des SIG en cours..."):
                     resultat = calculer_compte_resultat(df, type_entreprise)
 

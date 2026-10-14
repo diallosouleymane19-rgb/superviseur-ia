@@ -7,6 +7,7 @@ SMD Global Consulting LLC - PCG France
 from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 from utils.page_helpers import champ_exercice, champs_remplis
+from utils.permissions import compter_analyse
 from utils.security import sanitize_filename
 import streamlit as st
 import pandas as pd
@@ -347,6 +348,8 @@ def page_comparatif():
         return
     if label_n == label_n1:
         st.warning("Les exercices N et N-1 doivent être différents.")
+        return
+    if not compter_analyse("Comparatif N/N-1", file_n.getvalue(), file_n1.getvalue(), label_n, label_n1, type_entreprise):
         return
 
     # ── Parsing ──

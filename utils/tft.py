@@ -8,6 +8,8 @@ from utils.sig_pcg import nb_fr, nb_fr_signe
 from utils.formats import est_tableur, TYPES_BALANCE, TYPES_TABLEUR_CSV
 from utils.security import sanitize_filename
 import streamlit as st
+
+from utils.permissions import compter_analyse
 import pandas as pd
 import plotly.graph_objects as go
 from io import BytesIO
@@ -380,6 +382,8 @@ def page_tft():
         with col_ex:
             ex_import = st.selectbox("Exercice N", exercices, index=len(exercices) - 1, key="ex_import_tft")
         if f_n and f_n1 and st.button("Calculer le TFT", key="btn_extract_tft", type="primary"):
+            if not compter_analyse("TFT"):
+                st.stop()
             from utils.intelligent_parser import charger_balance_ou_fec
             with st.spinner("Extraction..."):
                 df_n, _, _ = charger_balance_ou_fec(f_n)
@@ -468,6 +472,8 @@ def page_tft():
         bouton_sauvegarde(type_analyse="Tableau des flux de trésorerie", resultat=rapport_w, key="save_tft")
     with col_ia:
         if st.button("Analyse IA", type="primary", width="stretch"):
+            if not compter_analyse("TFT IA"):
+                st.stop()
             with st.spinner("Analyse en cours..."):
                 analyse = _analyser_ia(resultats, exercices, entreprise)
             st.markdown("### Analyse IA")

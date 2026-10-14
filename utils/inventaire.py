@@ -249,6 +249,7 @@ def _dates_dans_l_ordre(elements_inverses) -> bool:
 
 def page_inventaire():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -324,6 +325,8 @@ def page_inventaire():
 
             if st.button("Calculer les dépréciations", type="primary", width="stretch", key="btn_prov_creances") and \
                     champs_remplis(**{m: None for m in manquants_cr}):
+                if not compter_analyse("Inventaire"):
+                    st.stop()
                 df_resultats, total = calculer_provision_creances(pd.DataFrame(clients_data), taux_91_180, taux_181_365,
                                                                   taux_plus_365)
                 st.markdown("## Résultats")
@@ -387,6 +390,8 @@ def page_inventaire():
             if st.button("Calculer la provision", type="primary", width="stretch", key="btn_prov_risque") and \
                     champs_remplis(**{"Nature du risque": libelle_risque, "Meilleure estimation": montant_risque,
                                       "Probabilité de la sortie de ressources": probabilite}):
+                if not compter_analyse("Inventaire"):
+                    st.stop()
                 compte = compte_prov.split(" — ")[0]
                 result = calculer_provision_risque(libelle_risque, montant_risque, probabilite, compte, nature)
 
@@ -462,6 +467,8 @@ def page_inventaire():
                 champs_remplis(**{"Date de clôture de l'exercice": date_cloture},
                                **{m: None for m in manquants_reg}) and \
                 _dates_dans_l_ordre(dates_inversees):
+            if not compter_analyse("Inventaire"):
+                st.stop()
             df_reg = calculer_regularisations(elements)
 
             st.markdown("## Résultats des régularisations")
@@ -495,6 +502,8 @@ def page_inventaire():
 
         if st.button("Calculer la variation", type="primary", width="stretch") and \
                 champs_remplis(**{"Stock début exercice": stock_debut, "Stock fin exercice": stock_fin}):
+            if not compter_analyse("Inventaire"):
+                st.stop()
             result = calculer_variation_stock(stock_debut, stock_fin, type_stock)
 
             col1, col2, col3 = st.columns(3)
@@ -527,6 +536,8 @@ def page_inventaire():
         exercice = champ_exercice(key="exercice_checklist")
 
         if st.button("Générer la check-list", type="primary", width="stretch") and champs_remplis(Exercice=exercice):
+            if not compter_analyse("Inventaire"):
+                st.stop()
             df_checklist = generer_checklist_cloture(exercice)
 
             # Résumé

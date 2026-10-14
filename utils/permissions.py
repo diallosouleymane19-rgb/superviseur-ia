@@ -80,6 +80,27 @@ def check_quota(action_type: str = "analyse", details: str = "") -> bool:
     return True
 
 
+def compter_analyse(module: str, *empreinte) -> bool:
+    """Décompte 1 analyse du quota pour un calcul lancé.
+    Avec une empreinte (fichiers déposés, paramètres), le même calcul n'est compté qu'une fois
+    par session : les réaffichages de Streamlit ne consomment rien.
+    Retourne False (avertissement affiché) si le quota est atteint."""
+    if empreinte:
+        import hashlib
+        h = hashlib.sha256()
+        for p in empreinte:
+            h.update(p if isinstance(p, (bytes, bytearray)) else str(p).encode("utf-8"))
+        cle = f"{module}:{h.hexdigest()}"
+        vus = st.session_state.setdefault("_analyses_comptees", set())
+        if cle in vus:
+            return True
+        ok = check_quota(module)
+        if ok:
+            vus.add(cle)
+        return ok
+    return check_quota(module)
+
+
 # ─── Sidebar : badge rôle ─────────────────────────────────────────────────────
 
 def afficher_badge_role() -> None:

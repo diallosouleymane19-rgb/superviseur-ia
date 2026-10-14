@@ -78,6 +78,7 @@ def _rapport(resultats):
 
 def page_analyse_facture():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from utils.page_helpers import banniere_demo, generer_bouton_word, sauvegarder_si_autorise
 
@@ -105,6 +106,8 @@ def page_analyse_facture():
                 "(colonnes Numéro, Date, Fournisseur, Montant HT, TVA, Montant TTC).")
         return
 
+    if not compter_analyse("Factures", *[f.getvalue() for f in fichiers]):
+        return
     pieces, infos = [], []
     for f in fichiers:
         p, i = lire_document(f.getvalue(), f.name)

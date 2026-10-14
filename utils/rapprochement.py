@@ -271,6 +271,7 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
 
 def page_rapprochement():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -330,6 +331,8 @@ def page_rapprochement():
                                      help="Écart maximum entre date relevé et écriture")
 
             if st.button("Lancer le rapprochement", type="primary", width="stretch"):
+                if not compter_analyse("Rapprochement"):
+                    st.stop()
                 with st.spinner("Matching intelligent en cours..."):
                     resultats = rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=tolerance)
 

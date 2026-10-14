@@ -283,6 +283,7 @@ def generer_rapport_coherence(resultat, nom_entreprise="Entreprise"):
 
 def page_coherence():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -330,6 +331,8 @@ def page_coherence():
             nom_entreprise = st.text_input("Nom de l'entreprise", value="Entreprise")
 
             if st.button("Vérifier la cohérence", type="primary", width="stretch"):
+                if not compter_analyse("Cohérence"):
+                    st.stop()
                 with st.spinner("Vérifications en cours..."):
                     resultat = verifier_coherence(df)
 

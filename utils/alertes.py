@@ -226,6 +226,7 @@ def generer_rapport_alertes(alertes, nom_entreprise="Entreprise"):
 
 def page_alertes():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -284,6 +285,8 @@ def page_alertes():
             nom_entreprise = st.text_input("Nom de l'entreprise", value="Entreprise")
 
             if st.button("Détecter les anomalies", type="primary", width="stretch"):
+                if not compter_analyse("Alertes"):
+                    st.stop()
                 with st.spinner("Analyse en cours..."):
                     alertes = detecter_alertes(df)
 

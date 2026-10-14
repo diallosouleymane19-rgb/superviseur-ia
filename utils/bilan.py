@@ -299,6 +299,7 @@ def generer_bilan(df, date_cloture):
 
 def page_bilan():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -336,6 +337,8 @@ def page_bilan():
 
             if st.button("Générer le bilan", type="primary", width="stretch") and \
                     champs_remplis(Exercice=exercice, **{"Date de clôture": date_cloture}):
+                if not compter_analyse("Bilan"):
+                    st.stop()
                 with st.spinner("Calcul en cours..."):
                     bilan = calculer_bilan(df, date_cloture.strftime('%d/%m/%Y'))
 

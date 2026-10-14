@@ -384,6 +384,7 @@ def detecter_anomalies_fec(df):
 
 def page_fec():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -434,6 +435,8 @@ def page_fec():
             st.divider()
 
             if st.button("Lancer la validation DGFiP complète", type="primary", width="stretch"):
+                if not compter_analyse("FEC"):
+                    st.stop()
                 with st.spinner("Validation en cours selon Article A.47 A-1 du LPF..."):
                     resultats = valider_fec(df)
 

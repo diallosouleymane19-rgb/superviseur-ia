@@ -372,6 +372,7 @@ def visuels_benford(fig, rapport, score_risque):
 
 def page_benford():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -435,6 +436,8 @@ def page_benford():
                    + (" Moins de 100 : résultat seulement indicatif." if 30 <= n_val < 100 else ""))
 
         if st.button("Lancer l'analyse Benford", type="primary", width="stretch"):
+            if not compter_analyse("Loi de Benford"):
+                st.stop()
             with st.spinner("Analyse statistique en cours..."):
                 try:
                     fig, rapport, score_risque = analyse_benford_complete(df, col_choix, deb_cre)

@@ -249,6 +249,7 @@ def obtenir_contenu_enrichi():
 
 def page_veille_fiscale():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -285,6 +286,8 @@ def page_veille_fiscale():
         # La liste et les analyses IA sont gardées en mémoire de session : un clic sur « Analyser avec IA »
         # recharge la page, et sans cela la liste disparaissait avant que l'analyse ne s'affiche.
         if st.button("Actualiser la veille France", type="primary", width="stretch"):
+            if not compter_analyse("Veille fiscale"):
+                st.stop()
             with st.spinner("Récupération des actualités fiscales françaises..."):
                 try:
                     st.session_state["veille_fr"] = obtenir_veille_fiscale() or []
@@ -318,6 +321,8 @@ def page_veille_fiscale():
                             st.markdown(resume)
 
                         if st.button("Analyser avec IA", key=f"ia_{idx}"):
+                            if not compter_analyse("Veille fiscale IA"):
+                                st.stop()
                             with st.spinner("Analyse IA..."):
                                 prompt = f"""En tant qu'expert fiscal français, analyse cette actualité :
 
@@ -358,6 +363,8 @@ def page_veille_fiscale():
         )
 
         if st.button("Obtenir une réponse IA", type="primary", width="stretch") and question:
+            if not compter_analyse("Veille fiscale IA"):
+                st.stop()
             with st.spinner("Analyse fiscale en cours..."):
                 prompt = f"""En tant qu'expert en fiscalité française (CGI, BOFiP, LPF), réponds à cette question professionnelle :
 

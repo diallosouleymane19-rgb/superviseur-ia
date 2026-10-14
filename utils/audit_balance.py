@@ -313,6 +313,7 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise", exercice=""):
 
 def page_audit_balance():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -417,6 +418,8 @@ def page_audit_balance():
                 exercice = champ_exercice()
 
             if st.button("Lancer le contrôle", type="primary", width="stretch") and champs_remplis(Exercice=exercice):
+                if not compter_analyse("Contrôle de balance"):
+                    st.stop()
                 with st.spinner("Contrôle en cours..."):
                     audit = auditer_balance(df)
 

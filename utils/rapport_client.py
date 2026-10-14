@@ -218,6 +218,7 @@ def generer_rapport_client(nom_client, siret, periode, exercice, donnees, observ
 
 def page_rapport_client():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -338,6 +339,8 @@ def page_rapport_client():
 
     if st.button("Générer le rapport client", type="primary", width="stretch") and \
             champs_remplis(**{"Nom du client": nom_client, "Exercice": exercice}):
+        if not compter_analyse("Rapport client"):
+            st.stop()
         from utils.rapport_client import generer_rapport_client, analyser_donnees_client
 
         df_analyse = df if df is not None else pd.DataFrame()

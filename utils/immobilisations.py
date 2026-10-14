@@ -273,6 +273,7 @@ def generer_ecritures_amortissement(nom_bien, tableau, exercice_courant=None):
 
 def page_immobilisations():
     import streamlit as st
+    from utils.permissions import compter_analyse
     import pandas as pd
     from datetime import datetime
     from utils.page_helpers import (
@@ -323,6 +324,8 @@ def page_immobilisations():
         if st.button("Générer le tableau", type="primary", width="stretch") and champs_remplis(**{
                 "Désignation du bien": nom_bien, "Valeur d'origine": valeur_origine,
                 "Date d'acquisition / mise en service": date_acquisition}):
+            if not compter_analyse("Immobilisations"):
+                st.stop()
             with st.spinner("Calcul en cours..."):
                 from datetime import datetime
                 date_acq = datetime.combine(date_acquisition, datetime.min.time())
@@ -427,6 +430,8 @@ def page_immobilisations():
         if st.button("Calculer la cession", type="primary", width="stretch") and champs_remplis(**{
                 "Valeur d'origine": valeur_origine_c, "Amortissements cumulés": amort_cumule,
                 "Prix de cession": prix_cession, "Date de cession": date_cession}):
+            if not compter_analyse("Cession"):
+                st.stop()
             with st.spinner("Calcul en cours..."):
                 result = calculer_cession(valeur_origine_c, amort_cumule, prix_cession, date_cession, taux_is)
 
@@ -471,7 +476,7 @@ def page_immobilisations():
             help="Colonnes attendues : Désignation, Valeur, Date acquisition, Durée, Amort. cumulé"
         )
 
-        if uploaded_file:
+        if uploaded_file and compter_analyse("Parc d'immobilisations", uploaded_file.getvalue()):
             df, erreur = charger_fichier(uploaded_file)
             if erreur:
                 st.error(f"Erreur : {erreur}", icon=":material/error:")
