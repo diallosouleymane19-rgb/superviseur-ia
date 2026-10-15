@@ -422,7 +422,7 @@ elif page == "🔒 Confidentialité & Sécurité":
                    "et ne sont pas enregistrés sur nos serveurs.", icon=":material/check_circle:")
     with col2:
         st.success("### Sauvegardes limitées\n\nSeules les analyses que vous choisissez de sauvegarder sont conservées, "
-                   "dans une base hébergée dans l'UE (Irlande), puis supprimées automatiquement après 30 jours.", icon=":material/check_circle:")
+                   "dans une base hébergée en France (OVH, Gravelines), puis supprimées automatiquement après 30 jours.", icon=":material/check_circle:")
     with col3:
         st.info("### IA signalée\n\nLes analyses IA sont rédigées par Mistral AI (France) et signalées comme telles. "
                 "Avant l'envoi, les identifiants (SIREN, SIRET, n° de TVA, IBAN, e-mails, téléphones, nom de "

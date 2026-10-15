@@ -134,6 +134,7 @@ Aucune décision produisant des effets juridiques n'est prise de façon entière
 | Journal des actions et décompte des quotas | 12 mois |
 | Invitations de collaborateurs | 30 jours après leur expiration, soit 60 jours au plus après l'envoi |
 | Factures et données de facturation | 10 ans (obligation légale) |
+| Copies de sauvegarde de la base | Faites chaque nuit pour restaurer la base en cas d'incident, conservées 15 jours au plus sur le serveur, puis effacées. Une donnée supprimée peut y subsister pendant ce délai. |
 
 ### Article 5 — Destinataires et sous-traitants
 
@@ -143,8 +144,7 @@ Les données ne sont ni vendues ni louées. Elles sont accessibles à l'Éditeur
 
 | Prestataire | Rôle | Localisation des données |
 | --- | --- | --- |
-| Supabase | Base de données (comptes, analyses sauvegardées, journal) | Union européenne (Irlande) |
-| Streamlit Community Cloud (Snowflake Inc.) | Hébergement et exécution de l'application | Non publiée par le prestataire [À VÉRIFIER] |
+| OVH SAS | Hébergement de l'application et de la base de données (comptes, analyses sauvegardées, journal) | France (Gravelines) |
 | Mistral AI | Rédaction des textes des Fonctions IA ; reçoit les données utiles à l'analyse demandée, identifiants masqués (article 8) | France ; utilisation pour l'entraînement des modèles désactivée depuis le 07/10/2026 |
 | Stripe | Paiement des abonnements | [À VÉRIFIER selon le contrat Stripe] |
 

@@ -234,7 +234,7 @@ def page_tarifs(app_name="pcg"):
 
 **Qu'est-ce qu'une analyse ?** Chaque calcul lancé compte pour 1 analyse : générer un bilan, contrôler une balance ou un FEC, analyser un lot de factures, lancer une analyse IA… Réafficher un résultat déjà calculé ne compte pas.
 
-**Les données sont-elles sécurisées ?** Les fichiers déposés sont lus en mémoire et ne sont pas enregistrés. Seules les analyses que vous sauvegardez sont conservées, dans l'UE (Irlande), 30 jours maximum.
+**Les données sont-elles sécurisées ?** Les fichiers déposés sont lus en mémoire et ne sont pas enregistrés. Seules les analyses que vous sauvegardez sont conservées, en France (OVH), 30 jours maximum.
 
 **Essai gratuit ?** Plan Gratuit : 10 analyses/mois sans carte bancaire.
 
