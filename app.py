@@ -435,5 +435,6 @@ elif page == "🔒 Confidentialité & Sécurité":
     st.markdown("[Conditions générales d'utilisation](?doc=cgu) · "
                 "[Politique de confidentialité complète](?doc=confidentialite)")
     st.markdown("### Politique de conservation (RGPD)")
-    st.info("Les analyses sauvegardées sont automatiquement supprimées après **30 jours**.")
+    st.info("Les analyses sauvegardées sont automatiquement supprimées après **30 jours**. "
+            "Les copies de sauvegarde de la base, faites chaque nuit, sont effacées après **15 jours** au plus.")
     st.caption("**KontrolIA** — conçu par SMD Global Consulting LLC © 2026")
