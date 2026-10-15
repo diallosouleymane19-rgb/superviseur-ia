@@ -45,6 +45,11 @@ def login(email: str, password: str) -> bool:
     2. st.secrets (AUTH_EMAIL / AUTH_PASSWORD) — admin SMD fallback
     """
     email = email.strip().lower()
+    from utils.securite_connexion import est_bloque, noter_echec, effacer_echecs
+    st.session_state["login_bloque"] = False
+    if est_bloque(email):              # trop d'essais récents : refus, même avec le bon mot de passe
+        st.session_state["login_bloque"] = True
+        return False
 
     # ── Étape 1 : base RBAC ──────────────────────────────────────────────────
     try:
@@ -66,6 +71,7 @@ def login(email: str, password: str) -> bool:
                 log_action(email, "login", app="pcg")
             except Exception:
                 pass
+            effacer_echecs(email)
             return True
     except Exception:
         pass
@@ -82,6 +88,7 @@ def login(email: str, password: str) -> bool:
                     nom     = st.secrets.get("AUTH_NOM", "SMD Global Consulting LLC"),
                     plan    = "enterprise",
                 )
+                effacer_echecs(email)
                 return True
         # Compte secondaire optionnel
         if "AUTH_EMAIL_2" in st.secrets:
@@ -94,10 +101,12 @@ def login(email: str, password: str) -> bool:
                     nom     = st.secrets.get("AUTH_NOM_2", "Utilisateur"),
                     plan    = "pro",
                 )
+                effacer_echecs(email)
                 return True
     except Exception:
         pass
 
+    noter_echec(email)
     return False
 
 
@@ -113,7 +122,7 @@ def is_connecte() -> bool:
             delta = datetime.now() - datetime.fromisoformat(login_time)
             if delta.total_seconds() > 28800:  # 8 heures
                 logout()
-                st.warning("⏰ Session expirée. Veuillez vous reconnecter.")
+                st.warning("Session expirée. Veuillez vous reconnecter.")
                 return False
         except Exception:
             pass

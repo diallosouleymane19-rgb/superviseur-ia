@@ -22,6 +22,7 @@ except Exception:                  # pragma: no cover
 
 ACTIONS = {
     "login": "Connexion",
+    "LOGIN_ECHEC": "Échec de connexion",
     "INSCRIPTION": "Inscription",
     "ANALYSE": "Analyse lancée",
     "SAUVEGARDE_ANALYSE": "Sauvegarde d'analyse",

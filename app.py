@@ -112,6 +112,9 @@ if not is_connecte():
             if envoye:
                 if login(email, password):
                     st.rerun()
+                elif st.session_state.get("login_bloque"):
+                    st.error("Trop de tentatives de connexion pour cette adresse. Réessayez dans 15 minutes.",
+                             icon=":material/lock:")
                 else:
                     st.error("Email ou mot de passe incorrect. Vérifiez la saisie ou demandez un accès.")
 

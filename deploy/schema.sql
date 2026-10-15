@@ -127,3 +127,11 @@ CREATE TABLE IF NOT EXISTS demo_requests (
     expires_at  timestamptz,
     created_at  timestamptz NOT NULL DEFAULT now()
 );
+
+-- Échecs de connexion récents (blocage 15 min après 5 échecs ; purgés après 1 jour)
+CREATE TABLE IF NOT EXISTS login_echecs (
+    id         bigserial PRIMARY KEY,
+    email      text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS login_echecs_email_idx ON login_echecs (email, created_at);

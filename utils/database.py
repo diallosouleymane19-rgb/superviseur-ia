@@ -288,6 +288,11 @@ def purger_si_necessaire(intervalle_s: int = 3600) -> bool:
     purger_journaux()
     purger_comptes_inactifs()
     purger_invitations()
+    try:
+        from utils.securite_connexion import purger_anciens
+        purger_anciens()
+    except Exception:
+        pass
     return True
 
 
