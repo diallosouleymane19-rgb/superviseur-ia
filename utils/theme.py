@@ -183,6 +183,11 @@ h1, h2, h3, h4 { color: var(--smd-encre); letter-spacing: -0.005em; font-weight:
 .st-key-smd_panneau .smd-logo { height: 4.2rem; width: auto; margin: 0 0 1.75rem -.25rem; display: block; }
 .st-key-smd_panneau h1 { color: #FFFFFF !important; }
 .st-key-smd_panneau .smd-accroche { color: #C9D6EC; }
+.st-key-smd_panneau .smd-slogan { font-family: 'Source Serif', Georgia, serif; font-size: 1.3rem;
+  font-style: italic; color: #FFFFFF; margin: 0 0 1rem; }
+/* Pas d'icône de lien à côté des titres */
+[data-testid="stHeaderActionElements"], .stMarkdown h1 a[href^="#"], .stMarkdown h2 a[href^="#"],
+.stMarkdown h3 a[href^="#"] { display: none !important; }
 .st-key-smd_panneau .smd-engagements li { color: #FFFFFF; border-top-color: rgba(233,238,247,.2); }
 .st-key-smd_panneau .smd-engagements li::before { border-color: #5FB3E6; }
 .st-key-smd_panneau .smd-engagements span { color: #B9C6DE; }

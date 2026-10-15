@@ -89,7 +89,8 @@ if not is_connecte():
         with col_marque, st.container(key="smd_panneau"):
             st.markdown(
                 "<img class='smd-logo' src='app/static/logo_smd.png' alt='SMD Global Consulting LLC'>"
-                "<h1 style='margin:0 0 .75rem'>Kontrol<span style='color:#5FB8E6'>IA</span></h1>"
+                "<h1 style='margin:0 0 .5rem'>Kontrol<span style='color:#5FB8E6'>IA</span></h1>"
+                "<p class='smd-slogan'>« Vous décidez, votre assistant KontrolIA vérifie »</p>"
                 "<p class='smd-accroche'>Analyse et supervision comptable pour les cabinets, "
                 "conformes au PCG et aux exigences de la DGFiP.</p>"
                 "<ul class='smd-engagements'>"
