@@ -69,6 +69,13 @@ if _doc_legal:
     if afficher_document(_doc_legal):
         st.stop()
 
+# Lien « mot de passe oublié » reçu par e-mail : ?reset=<jeton>
+_jeton_reset = st.query_params.get("reset")
+if _jeton_reset:
+    from utils.mot_de_passe_oublie import page_reinitialisation
+    page_reinitialisation(_jeton_reset)
+    st.stop()
+
 # =============================================================================
 # AUTHENTIFICATION
 # =============================================================================
@@ -117,6 +124,8 @@ if not is_connecte():
                              icon=":material/lock:")
                 else:
                     st.error("Email ou mot de passe incorrect. Vérifiez la saisie ou demandez un accès.")
+            from utils.mot_de_passe_oublie import formulaire_demande
+            formulaire_demande()
 
             if st.button("Essayer la démonstration", width="stretch", key="btn_demo"):
                 st.session_state.update({

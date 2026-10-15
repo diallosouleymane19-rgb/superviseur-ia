@@ -23,6 +23,8 @@ except Exception:                  # pragma: no cover
 ACTIONS = {
     "login": "Connexion",
     "LOGIN_ECHEC": "Échec de connexion",
+    "MDP_DEMANDE": "Demande de nouveau mot de passe",
+    "MDP_REINITIALISE": "Mot de passe réinitialisé",
     "INSCRIPTION": "Inscription",
     "ANALYSE": "Analyse lancée",
     "SAUVEGARDE_ANALYSE": "Sauvegarde d'analyse",

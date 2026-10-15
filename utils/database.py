@@ -291,6 +291,9 @@ def purger_si_necessaire(intervalle_s: int = 3600) -> bool:
     try:
         from utils.securite_connexion import purger_anciens
         purger_anciens()
+        from utils.db_supabase import get_supabase as _sb
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+        _sb().table("password_resets").delete().lt("expires_at", (_dt.now(_tz.utc) - _td(days=1)).isoformat()).execute()
     except Exception:
         pass
     return True

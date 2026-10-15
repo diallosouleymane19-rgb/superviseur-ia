@@ -135,3 +135,12 @@ CREATE TABLE IF NOT EXISTS login_echecs (
     created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS login_echecs_email_idx ON login_echecs (email, created_at);
+
+-- Liens « mot de passe oublié » : seule l'empreinte SHA-256 du jeton est stockée ; valables 1 heure, à usage unique
+CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash text PRIMARY KEY,
+    email      text NOT NULL,
+    expires_at timestamptz NOT NULL,
+    used_at    timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
