@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS users (
     quota_month            text DEFAULT '',
     stripe_customer_id     text DEFAULT '',
     stripe_subscription_id text DEFAULT '',
-    last_login             timestamptz
+    last_login             timestamptz,
+    last_seen              timestamptz
 );
 CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);
 CREATE INDEX IF NOT EXISTS users_tenant_id_idx ON users (tenant_id);

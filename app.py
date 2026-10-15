@@ -148,6 +148,10 @@ st.sidebar.markdown("<div class='smd-produit-menu'>Kontrol<span>IA</span>"
 st.sidebar.markdown(f"<div class='smd-utilisateur'>{html.escape(st.session_state.get('user_email', 'Utilisateur'))}</div>",
                     unsafe_allow_html=True)
 
+# Dernière activité de l'utilisateur (page Supervision), au plus toutes les 5 minutes
+from utils.page_supervision import noter_activite
+noter_activite()
+
 # Badge rôle + plan + quota
 afficher_badge_role()
 afficher_quota_sidebar()
@@ -192,6 +196,8 @@ MENU = [
         ("💳 Tarifs & Abonnement", "Abonnement", ":material/credit_card:"),
         ("🔒 Confidentialité & Sécurité", "Confidentialité et sécurité", ":material/shield:")]),
 ]
+if st.session_state.get("role") == "admin":   # supervision de la plateforme : administrateur seulement
+    MENU.append(("Administration", [("🛰 Supervision", "Supervision", ":material/monitoring:")]))
 PAGES = [pid for _, items in MENU for pid, _, _ in items]
 if st.session_state.get("nav_page") not in PAGES:
     st.session_state["nav_page"] = "🏠 Accueil"
@@ -397,6 +403,10 @@ elif page == "🔌 Connecteurs ERP":
 
 # 13b. TARIFS & ABONNEMENT
 # -----------------------------------------------------------------------------
+
+elif page == "🛰 Supervision":
+    from utils.page_supervision import page_supervision
+    page_supervision()
 
 elif page == "👥 Mon cabinet":
     from utils.page_cabinet import page_cabinet

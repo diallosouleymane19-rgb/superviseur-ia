@@ -97,8 +97,19 @@ def compter_analyse(module: str, *empreinte) -> bool:
         ok = check_quota(module)
         if ok:
             vus.add(cle)
+            _journaliser_analyse(module)
         return ok
-    return check_quota(module)
+    ok = check_quota(module)
+    if ok:
+        _journaliser_analyse(module)
+    return ok
+
+
+def _journaliser_analyse(module: str) -> None:
+    """Trace l'analyse lancée dans le journal (page Supervision). Rien en démonstration."""
+    email = st.session_state.get("user_email", "")
+    if email and st.session_state.get("role") != "demo":
+        log_action(email, "ANALYSE", resource=module, details=module)
 
 
 # ─── Sidebar : badge rôle ─────────────────────────────────────────────────────

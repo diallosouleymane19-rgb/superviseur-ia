@@ -128,6 +128,8 @@ def creer_user_rbac(email: str, password: str, nom: str = "",
         }).execute()
         if invitation:
             marquer_acceptee(invitation["id"])
+        log_action(email, "INSCRIPTION", details=f"{'Collaborateur invité' if invitation else 'Responsable'}"
+                                                 f" · cabinet {cabinet or '—'} · plan {plan}")
         return {"ok": True, "tenant_id": tenant_id, "invite": bool(invitation),
                 "cabinet": cabinet}
     except Exception as e:
