@@ -219,7 +219,7 @@ def page_inscription(app_name: str = "pcg") -> None:
             ("⚖", "PCG France",
              "Analyses selon le Plan comptable général français."),
             ("🛡", "Données sécurisées",
-             "Fichiers lus en mémoire, non enregistrés. Analyses sauvegardées à votre demande : 30 jours, dans l'UE."),
+             "Fichiers lus en mémoire, non enregistrés. Analyses sauvegardées à votre demande : 30 jours, en France (OVH)."),
             ("📊", "Rapports professionnels",
              "KPIs, alertes colorées, tableaux structurés prêts pour vos clients."),
             ("🔔", "Veille fiscale automatique",

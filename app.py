@@ -95,7 +95,7 @@ if not is_connecte():
                 "au quotidien : contrôles, états financiers et TVA selon le PCG et les exigences de la DGFiP.</p>"
                 "<ul class='smd-engagements'>"
                 "<li>Fichiers non enregistrés <span>: lus en mémoire le temps de l'analyse</span></li>"
-                "<li>Sauvegardes limitées <span>: à votre demande, dans l'UE, supprimées après 30 jours</span></li>"
+                "<li>Sauvegardes limitées <span>: à votre demande, en France (OVH), supprimées après 30 jours</span></li>"
                 "<li>IA signalée <span>: tout texte rédigé par l'IA (Mistral AI) est identifié</span></li>"
                 "<li>Non utilisées pour entraîner l'IA <span>: option désactivée chez Mistral depuis le 07/10/2026</span></li>"
                 "</ul>",
