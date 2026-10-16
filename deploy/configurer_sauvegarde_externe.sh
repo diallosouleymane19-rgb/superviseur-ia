@@ -16,7 +16,11 @@ command -v gpg >/dev/null || apt-get install -y -qq gnupg
 echo "2/4 Clés de l'utilisateur Object Storage (copiez-collez : rien ne s'affiche, c'est normal)"
 read -rsp "  Clé d'accès (Access key) : " AK; echo
 read -rsp "  Clé secrète (Secret key) : " SK; echo
+# Copier-coller depuis un fichier : on retire espaces, guillemets, virgules et retours chariot éventuels
+nettoyer() { printf '%s' "$1" | tr -d ' \t\r\n"'"'"',' ; }
+AK="$(nettoyer "$AK")"; SK="$(nettoyer "$SK")"
 [ -n "$AK" ] && [ -n "$SK" ] || { echo "Clé vide : rien n'est enregistré."; exit 1; }
+echo "  Clé d'accès : ${#AK} caractères, commence par ${AK:0:4}… ; clé secrète : ${#SK} caractères."
 cat > sauvegarde_externe.env <<EOF
 S3_BUCKET=$BUCKET
 S3_REGION=$REGION
