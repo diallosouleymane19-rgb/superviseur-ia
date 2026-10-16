@@ -16,3 +16,5 @@ fi
 mv "$fichier.tmp" "$fichier"
 find sauvegardes -name 'smd_*.sql.gz' -mtime +14 -delete
 echo "$(date '+%F %T') OK : $fichier ($(du -h "$fichier" | cut -f1))"
+# Copie chiffrée hors du serveur (si configurée) ; un échec ici n'annule pas la sauvegarde locale
+./sauvegarde_externe.sh || echo "$(date '+%F %T') ÉCHEC copie externe (la sauvegarde locale est faite)" >&2

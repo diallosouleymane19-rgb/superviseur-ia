@@ -37,3 +37,4 @@ Thumbs.db
 # Fichiers temporaires d'upload
 uploads/
 tmp/
+deploy/.phrase_sauvegarde
