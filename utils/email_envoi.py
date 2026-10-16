@@ -36,6 +36,25 @@ def email_configure() -> bool:
     return all(_secret(k) for k in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"))
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _serveur_joignable(hote: str, port: int) -> bool:
+    """Test de connexion (5 s), gardé 10 minutes. Faux si l'hébergeur bloque la sortie vers le serveur d'envoi."""
+    import socket
+    try:
+        socket.create_connection((hote, port), 5).close()
+        return True
+    except Exception as e:
+        logging.error("Serveur d'envoi %s:%s injoignable (%s)", hote, port, type(e).__name__)
+        return False
+
+
+def envoi_possible() -> bool:
+    """Paramétré ET serveur d'envoi joignable : sinon on propose l'adresse de contact au lieu d'un faux envoi."""
+    if not email_configure():
+        return False
+    return _serveur_joignable(str(_secret("SMTP_HOST")), int(_secret("SMTP_PORT", 465)))
+
+
 def envoyer_email(destinataire: str, sujet: str, texte: str) -> bool:
     """Envoie un e-mail en texte brut. Retourne True si le serveur l'a accepté."""
     if not email_configure():

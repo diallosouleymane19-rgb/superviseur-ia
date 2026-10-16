@@ -40,8 +40,8 @@ def _table_prete() -> bool:
 
 
 def disponible() -> bool:
-    from utils.email_envoi import email_configure
-    return email_configure() and _table_prete()
+    from utils.email_envoi import envoi_possible
+    return _table_prete() and envoi_possible()
 
 
 def _empreinte(jeton: str) -> str:
