@@ -70,13 +70,10 @@ def calculer_amortissement_degressif(valeur_origine, duree_ans, date_acquisition
     if date_calcul is None:
         date_calcul = datetime.now()
     
-    # Coefficients fiscaux français
-    coefficients = {3: 1.25, 4: 1.25, 5: 1.75, 6: 1.75, 7: 2.25, 10: 2.25}
-    coeff = 2.25
-    for duree_seuil, c in sorted(coefficients.items()):
-        if duree_ans <= duree_seuil:
-            coeff = c
-            break
+    # Coefficients fiscaux (CGI, art. 39 A) : 1,25 pour 3 et 4 ans ; 1,75 pour 5 et 6 ans ; 2,25 au-delà
+    if duree_ans < 3:
+        raise ValueError("Amortissement dégressif impossible pour une durée inférieure à 3 ans (CGI, art. 39 A)")
+    coeff = 1.25 if duree_ans <= 4 else 1.75 if duree_ans <= 6 else 2.25
     
     taux_degressif = (100 / duree_ans) * coeff
     
@@ -134,49 +131,17 @@ def calculer_cession(valeur_origine, amort_cumule, prix_cession, date_cession, t
     type_resultat = "Plus-value" if resultat_cession > 0 else "Moins-value"
     impot_estime = max(resultat_cession * taux_is / 100, 0) if resultat_cession > 0 else 0
     
-    # Écritures comptables
-    ecritures = []
-    
-    # Sortie du bien
-    ecritures.append({
-        'Compte': '28xx',
-        'Libellé': 'Amortissements cumulés',
-        'Débit': round(amort_cumule, 2),
-        'Crédit': 0
-    })
-    ecritures.append({
-        'Compte': '512',
-        'Libellé': 'Banque (prix de cession)',
-        'Débit': round(prix_cession, 2),
-        'Crédit': 0
-    })
-    
-    if resultat_cession >= 0:
-        ecritures.append({
-            'Compte': '2xxx',
-            'Libellé': 'Immobilisation (valeur origine)',
-            'Débit': 0,
-            'Crédit': round(valeur_origine, 2)
-        })
-        ecritures.append({
-            'Compte': '775',
-            'Libellé': 'Produit de cession',
-            'Débit': 0,
-            'Crédit': round(prix_cession, 2)
-        })
-    else:
-        ecritures.append({
-            'Compte': '675',
-            'Libellé': 'Valeur nette comptable cédée',
-            'Débit': round(vnc, 2),
-            'Crédit': 0
-        })
-        ecritures.append({
-            'Compte': '2xxx',
-            'Libellé': 'Immobilisation (valeur origine)',
-            'Débit': 0,
-            'Crédit': round(valeur_origine, 2)
-        })
+    # Écritures comptables (PCG) : le prix de cession en 775, la sortie du bien en 675 (VNC) et 28 ;
+    # la plus- ou moins-value résulte de la différence 775 - 675.
+    ecritures = [
+        {'Compte': '512', 'Libellé': 'Banque (prix de cession)', 'Débit': round(prix_cession, 2), 'Crédit': 0},
+        {'Compte': '775', 'Libellé': "Produit de cession d'éléments d'actif", 'Débit': 0,
+         'Crédit': round(prix_cession, 2)},
+        {'Compte': '28xx', 'Libellé': 'Amortissements cumulés', 'Débit': round(amort_cumule, 2), 'Crédit': 0},
+        {'Compte': '675', 'Libellé': "Valeur comptable de l'élément cédé (VNC)", 'Débit': round(vnc, 2), 'Crédit': 0},
+        {'Compte': '2xxx', 'Libellé': 'Immobilisation (valeur origine)', 'Débit': 0,
+         'Crédit': round(valeur_origine, 2)},
+    ]
     
     return {
         'valeur_origine': valeur_origine,
@@ -324,6 +289,10 @@ def page_immobilisations():
         if st.button("Générer le tableau", type="primary", width="stretch") and champs_remplis(**{
                 "Désignation du bien": nom_bien, "Valeur d'origine": valeur_origine,
                 "Date d'acquisition / mise en service": date_acquisition}):
+            if mode == "Dégressif" and duree_ans < 3:
+                st.error("L'amortissement dégressif n'est possible que pour une durée d'au moins 3 ans "
+                         "(CGI, art. 39 A). Choisissez le mode linéaire.", icon=":material/error:")
+                st.stop()
             if not compter_analyse("Immobilisations"):
                 st.stop()
             with st.spinner("Calcul en cours..."):

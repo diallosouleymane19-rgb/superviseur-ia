@@ -66,8 +66,9 @@ def calculer_compte_resultat(df, type_entreprise='Mixte'):
         dict: Compte de résultat structuré avec SIG et ratios
     """
     # Normaliser les colonnes
-    if 'CompteNum' not in df.columns:
-        return {'erreur': 'Colonne CompteNum manquante'}
+    from utils.sig_pcg import erreur_comptes
+    if erreur_comptes(df):
+        return {'erreur': erreur_comptes(df)}
     
     # Conversion numerique
     df = df.copy()
@@ -196,6 +197,8 @@ def calculer_compte_resultat(df, type_entreprise='Mixte'):
         "Charges de personnel": k['masse_salariale'],
         "Excédent brut d'exploitation (EBE)": ebe,
         "Résultat d'exploitation": k['resultat_exploitation'],
+        **({"Quotes-parts de résultat sur opérations faites en commun": k['quotes_parts']}
+           if k['quotes_parts'] else {}),
         "Résultat financier": k['resultat_financier'],
         "Résultat courant avant impôts": k['resultat_courant'],
         "Résultat exceptionnel": k['resultat_exceptionnel'],

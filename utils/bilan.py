@@ -98,9 +98,9 @@ def calculer_bilan(df, date_cloture=None):
     """Bilan PCG à partir d'une balance ou d'un FEC (colonnes CompteNum, Debit, Credit).
     Chaque compte est classé selon son préfixe et le sens de son solde (ex. 401 débiteur -> autres créances,
     512 créditeur -> concours bancaires). Contrôle : total actif = total passif et FRNG - BFR = TN."""
-    if 'CompteNum' not in df.columns:
-        return {'erreur': 'Colonne CompteNum manquante'}
-    from utils.sig_pcg import _preparer
+    from utils.sig_pcg import _preparer, erreur_comptes
+    if erreur_comptes(df):
+        return {'erreur': erreur_comptes(df)}
     d = _preparer(df)
     d = d[d["_cpt"].str.match(r"^\d")]
     total_debit, total_credit = round(float(d["_d"].sum()), 2), round(float(d["_c"].sum()), 2)

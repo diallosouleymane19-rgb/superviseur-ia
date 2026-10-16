@@ -29,13 +29,14 @@ TAUX_TVA = {
 }
 
 RUBRIQUES_CA3 = {
-    "Ventes soumises à 20%": {"taux": 0.20, "ligne_ca3": "A1", "compte_pcg": "70x"},
-    "Ventes soumises à 10%": {"taux": 0.10, "ligne_ca3": "A2", "compte_pcg": "70x"},
-    "Ventes soumises à 5,5%": {"taux": 0.055, "ligne_ca3": "A3", "compte_pcg": "70x"},
-    "Ventes soumises à 2,1%": {"taux": 0.021, "ligne_ca3": "A4", "compte_pcg": "70x"},
-    "Acquisitions intracommunautaires (20%)": {"taux": 0.20, "ligne_ca3": "B1", "compte_pcg": "401/445"},
-    "Autoliquidation achats (20%)": {"taux": 0.20, "ligne_ca3": "B2", "compte_pcg": "401/445"},
-    "Ventes exonérées / exports": {"taux": 0.0, "ligne_ca3": "E1", "compte_pcg": "70x"},
+    # ligne_ca3 : ligne de base hors taxe ; ligne_taux : ligne de TVA brute (formulaire n° 3310-CA3-SD)
+    "Ventes soumises à 20%": {"taux": 0.20, "ligne_ca3": "A1", "ligne_taux": "08", "compte_pcg": "70x"},
+    "Ventes soumises à 10%": {"taux": 0.10, "ligne_ca3": "A1", "ligne_taux": "9B", "compte_pcg": "70x"},
+    "Ventes soumises à 5,5%": {"taux": 0.055, "ligne_ca3": "A1", "ligne_taux": "09", "compte_pcg": "70x"},
+    "Ventes soumises à 2,1%": {"taux": 0.021, "ligne_ca3": "A1", "ligne_taux": "T6", "compte_pcg": "70x"},
+    "Acquisitions intracommunautaires (20%)": {"taux": 0.20, "ligne_ca3": "B2", "ligne_taux": "08", "compte_pcg": "4452"},
+    "Autoliquidation achats (20%)": {"taux": 0.20, "ligne_ca3": "B4", "ligne_taux": "08", "compte_pcg": "4452"},
+    "Ventes exonérées / exports": {"taux": 0.0, "ligne_ca3": "E1", "ligne_taux": "", "compte_pcg": "70x"},
 }
 
 COMPTES_TVA_PCG = {
@@ -44,7 +45,8 @@ COMPTES_TVA_PCG = {
     "44571 — TVA collectée": "TVA collectée",
     "44551 — TVA à décaisser": "Solde TVA à payer",
     "44567 — Crédit de TVA": "Crédit de TVA reportable",
-    "44563 — TVA intracommunautaire": "TVA intracommunautaire déductible",
+    "445662 — TVA intracommunautaire": "TVA intracommunautaire déductible",
+    "44563 — TVA transférée": "TVA transférée par d'autres entreprises",
 }
 
 # ─────────────────────────────────────────────
@@ -87,7 +89,7 @@ def _calculer_tva_depuis_balance_extrait(extrait: dict) -> dict:
     tva_collectee  = extrait.get("TVA collectée (44571)", 0) or 0.0
     tva_ded_abs    = extrait.get("TVA déductible ABS (44566)", 0) or 0.0
     tva_ded_immo   = extrait.get("TVA déductible immos (44562)", 0) or 0.0
-    tva_ded_intra  = extrait.get("TVA intracommunautaire (44563)", 0) or 0.0
+    tva_ded_intra  = extrait.get("TVA intracommunautaire (445662)", 0) or 0.0
     credit_reporte = extrait.get("Crédit TVA (44567)", 0) or 0.0
 
     tva_deductible = tva_ded_abs + tva_ded_immo + tva_ded_intra
@@ -131,15 +133,17 @@ def _extraire_tva_depuis_balance(df: pd.DataFrame) -> dict:
                                  errors='coerce').fillna(0) if col_cred else 0
     df['_solde'] = df['_deb'] - df['_cred']
 
-    def _somme(prefixes):
+    def _somme(prefixes, exclus=()):
         mask = df['_num'].str.startswith(tuple(prefixes), na=False)
+        if exclus:
+            mask &= ~df['_num'].str.startswith(tuple(exclus), na=False)
         return abs(df.loc[mask, '_solde'].sum())
 
     return {
         "TVA collectée (44571)":          _somme(['44571']),
-        "TVA déductible ABS (44566)":     _somme(['44566']),
+        "TVA déductible ABS (44566)":     _somme(['44566', '44563'], ['445662']),  # 44563 : TVA transférée
         "TVA déductible immos (44562)":   _somme(['44562']),
-        "TVA intracommunautaire (44563)": _somme(['44563']),
+        "TVA intracommunautaire (445662)": _somme(['445662']),
         "Crédit TVA (44567)":             _somme(['44567']),
         "TVA à décaisser (44551)":        _somme(['44551']),
         "Chiffre d'affaires HT (70x)":    _somme(['70']),
@@ -163,6 +167,42 @@ def _verifier_coherence(res: dict) -> list:
         alertes.append(("success", f"Crédit de TVA de {nb_fr(res['credit_genere'], 0)} € — remboursement possible si > 760 € (régime réel normal)"))
     return alertes
 
+def ecriture_liquidation(res: dict) -> list:
+    """Écriture de liquidation de la TVA (PCG) : [(compte, libellé, débit, crédit)], équilibrée."""
+    det = res.get("tva_collectee_detail", {})
+    tva_4452 = sum(det[k]["tva"] for k in ("Acquisitions intracommunautaires (20%)", "Autoliquidation achats (20%)")
+                   if k in det)
+    lignes = []
+    if res["tva_collectee"] - tva_4452:
+        lignes.append(("44571", "TVA collectée", res["tva_collectee"] - tva_4452, 0.0))
+    if tva_4452:
+        lignes.append(("4452", "TVA due intracommunautaire / autoliquidée", tva_4452, 0.0))
+    if res.get("credit_genere", 0) > 0:
+        lignes.append(("44567", "Crédit de TVA à reporter", res["credit_genere"], 0.0))
+    for compte, lib, cle in (("44562", "TVA déductible sur immobilisations", "tva_ded_immo"),
+                             ("44566", "TVA déductible sur autres biens et services", "tva_ded_abs"),
+                             ("445662", "TVA déductible intracommunautaire", "tva_ded_intra"),
+                             ("44567", "Crédit de TVA de la période précédente imputé", "credit_reporte")):
+        if res.get(cle, 0):
+            lignes.append((compte, lib, 0.0, res[cle]))
+    if res.get("a_payer", 0) > 0:
+        lignes.append(("44551", "TVA à décaisser", 0.0, res["a_payer"]))
+    return lignes
+
+
+def texte_ecriture_liquidation(res: dict, periode: str) -> str:
+    """Écriture de liquidation puis, si TVA due, règlement, en texte à colonnes (débit / crédit)."""
+    def ligne(compte, lib, d, c):
+        return f"{compte:<7} {lib:<46} {nb_fr(d, 2) if d else '':>12} {nb_fr(c, 2) if c else '':>12}"
+    entete = f"{'Compte':<7} {'Libellé':<46} {'Débit':>12} {'Crédit':>12}"
+    t = [f"Liquidation de la TVA {periode} (montants en euros)", entete]
+    t += [ligne(*l) for l in ecriture_liquidation(res)]
+    if res.get("a_payer", 0) > 0:
+        t += ["", f"Règlement de la TVA {periode}", entete,
+              ligne("44551", "TVA à décaisser", res["a_payer"], 0), ligne("512", "Banque", 0, res["a_payer"])]
+    return "\n".join(t)
+
+
 # ─────────────────────────────────────────────
 # EXPORT EXCEL
 # ─────────────────────────────────────────────
@@ -180,6 +220,8 @@ def _export_excel_tva(res: dict, data: dict, periode: str, entreprise: str) -> b
         rows_decl.append({"Rubrique": "TOTAL TVA COLLECTÉE", "Base HT (€)": "", "Taux": "", "TVA collectée (€)": res["tva_collectee"]})
         rows_decl.append({"Rubrique": "TVA déductible ABS",  "Base HT (€)": "", "Taux": "", "TVA collectée (€)": -res["tva_ded_abs"]})
         rows_decl.append({"Rubrique": "TVA déductible immos","Base HT (€)": "", "Taux": "", "TVA collectée (€)": -res["tva_ded_immo"]})
+        rows_decl.append({"Rubrique": "TVA déductible intracommunautaire", "Base HT (€)": "", "Taux": "",
+                          "TVA collectée (€)": -res["tva_ded_intra"]})
         rows_decl.append({"Rubrique": "Crédit TVA reporté",  "Base HT (€)": "", "Taux": "", "TVA collectée (€)": -res["credit_reporte"]})
         rows_decl.append({"Rubrique": "SOLDE TVA",           "Base HT (€)": "", "Taux": "", "TVA collectée (€)": res["solde"]})
         pd.DataFrame(rows_decl).to_excel(writer, sheet_name="Déclaration TVA", index=False)
@@ -324,6 +366,9 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
     elements.append(id_t)
     elements.append(Spacer(1, 0.3*cm))
 
+    # Numéros de lignes du formulaire n° 3310-CA3-SD ; le CA12 (n° 3517-S) a sa propre numérotation
+    L = (lambda code: code) if is_ca3 else (lambda code: "")
+
     # ── I. BASES HT ──
     elements.append(section_header("I. OPÉRATIONS RÉALISÉES — BASES HORS TAXE"))
     elements.append(Spacer(1, 0.05*cm))
@@ -333,16 +378,15 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
             return res["tva_collectee_detail"][k]["base_ht"]
         return data.get(k, 0) or 0
 
-    for num, lib, key in [
-        ("A1", "Opérations imposables à 20% — taux normal",           "Ventes soumises à 20%"),
-        ("A2", "Opérations imposables à 10% — taux intermédiaire",    "Ventes soumises à 10%"),
-        ("A3", "Opérations imposables à 5,5% — taux réduit",          "Ventes soumises à 5,5%"),
-        ("A4", "Opérations imposables à 2,1% — taux super-réduit",    "Ventes soumises à 2,1%"),
-        ("B1", "Acquisitions intracommunautaires (20%)",               "Acquisitions intracommunautaires (20%)"),
-        ("B2", "Autoliquidation — Achats à 20%",                      "Autoliquidation achats (20%)"),
-        ("E1", "Opérations exonérées / Exportations hors UE",         "Ventes exonérées / exports"),
+    base_a1 = sum(get_base(k) for k in ("Ventes soumises à 20%", "Ventes soumises à 10%",
+                                         "Ventes soumises à 5,5%", "Ventes soumises à 2,1%"))
+    for num, lib, val in [
+        (L("A1"), "Ventes, prestations de services", base_a1),
+        (L("B2"), "Acquisitions intracommunautaires", get_base("Acquisitions intracommunautaires (20%)")),
+        (L("B4"), "Achats de biens ou de prestations de services auprès d'un assujetti non établi en France "
+                  "(autoliquidation)", get_base("Autoliquidation achats (20%)")),
+        (L("E1"), "Exportations hors UE et opérations non imposables", get_base("Ventes exonérées / exports")),
     ]:
-        val = get_base(key)
         elements.append(ligne(num, lib, f"{nb_fr(val, 2)} €" if val else "—"))
     elements.append(Spacer(1, 0.3*cm))
 
@@ -355,9 +399,8 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
             return res["tva_collectee_detail"][k]["tva"]
         return 0
 
-    tva20 = (get_tva("Ventes soumises à 20%")
-             + get_tva("Acquisitions intracommunautaires (20%)")
-             + get_tva("Autoliquidation achats (20%)"))
+    tva_intra = get_tva("Acquisitions intracommunautaires (20%)")
+    tva20 = get_tva("Ventes soumises à 20%") + tva_intra + get_tva("Autoliquidation achats (20%)")
     tva10 = get_tva("Ventes soumises à 10%")
     tva55 = get_tva("Ventes soumises à 5,5%")
     tva21 = get_tva("Ventes soumises à 2,1%")
@@ -365,44 +408,47 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
         tva20 = res["tva_collectee"]
 
     for num, lib, val in [
-        ("08", "TVA au taux normal 20%",           tva20),
-        ("09", "TVA au taux intermédiaire 10%",    tva10),
-        ("10", "TVA au taux réduit 5,5%",          tva55),
-        ("11", "TVA au taux super-réduit 2,1%",    tva21),
+        (L("08"), "Taux normal 20 %",                      tva20),
+        (L("9B"), "Taux réduit 10 %",                      tva10),
+        (L("09"), "Taux réduit 5,5 %",                     tva55),
+        (L("T6"), "Taux de 2,1 % (France continentale)",   tva21),
     ]:
         elements.append(ligne(num, lib, f"{nb_fr(val, 2)} €" if val else "—"))
-    elements.append(ligne("16", "TOTAL TVA BRUTE", f"{nb_fr(res['tva_collectee'], 2)} €", gras=True))
+    elements.append(ligne(L("16"), "TOTAL DE LA TVA BRUTE DUE", f"{nb_fr(res['tva_collectee'], 2)} €", gras=True))
+    if tva_intra:
+        elements.append(ligne(L("17"), "Dont TVA sur acquisitions intracommunautaires", f"{nb_fr(tva_intra, 2)} €"))
     elements.append(Spacer(1, 0.3*cm))
 
     # ── III. TVA DÉDUCTIBLE ──
     elements.append(section_header("III. TVA DÉDUCTIBLE"))
     elements.append(Spacer(1, 0.05*cm))
+    total_23 = res["tva_deductible"] + res["credit_reporte"]
     for num, lib, val in [
-        ("19", "TVA déductible sur immobilisations — compte 44562",          res["tva_ded_immo"]),
-        ("20", "TVA déductible sur autres biens et services — compte 44566", res["tva_ded_abs"]),
-        ("21", "TVA intracommunautaire déductible — compte 44563",           res["tva_ded_intra"]),
-        ("22", "Crédit de TVA période précédente — compte 44567",            res["credit_reporte"]),
+        (L("19"), "Biens constituant des immobilisations — compte 44562",             res["tva_ded_immo"]),
+        (L("20"), "Autres biens et services — comptes 44566 (dont 445662 intracommunautaire)",
+         res["tva_ded_abs"] + res["tva_ded_intra"]),
+        (L("22"), "Report du crédit de la précédente déclaration — compte 44567",     res["credit_reporte"]),
     ]:
         elements.append(ligne(num, lib, f"{nb_fr(val, 2)} €" if val else "—"))
-    elements.append(ligne("23", "TOTAL TVA DÉDUCTIBLE", f"{nb_fr(res['tva_deductible'], 2)} €", gras=True))
+    elements.append(ligne(L("23"), "TOTAL TVA DÉDUCTIBLE", f"{nb_fr(total_23, 2)} €", gras=True))
     elements.append(Spacer(1, 0.3*cm))
 
     # ── IV. RÉSULTAT ──
     elements.append(section_header("IV. RÉSULTAT DE LA DÉCLARATION"))
     elements.append(Spacer(1, 0.1*cm))
     if res["a_payer"] > 0:
-        res_color, res_bg, res_num = rouge, colors.HexColor('#FFF0F0'), "25"
-        res_lib = "TVA A DÉCAISSER — Compte 44551"
+        res_color, res_bg, res_num = rouge, colors.HexColor('#FFF0F0'), L("TD / 28")
+        res_lib = "TVA NETTE DUE — compte 44551 TVA à décaisser"
         res_val = f"{nb_fr(res['a_payer'], 2)} €"
     else:
-        res_color, res_bg, res_num = vert, colors.HexColor('#F0FFF0'), "26"
-        res_lib = "CRÉDIT DE TVA — Compte 44567"
+        res_color, res_bg, res_num = vert, colors.HexColor('#F0FFF0'), L("25 / 27")
+        res_lib = "CRÉDIT DE TVA À REPORTER — compte 44567"
         res_val = f"{nb_fr(res['credit_genere'], 2)} €"
     res_t = Table([[
         _p(f"<b>{res_num}</b>", 8, color=colors.grey, align=TA_CENTER),
         _p(f"<b>{res_lib}</b>", 11, bold=True, color=res_color),
         _p(f"<b>{res_val}</b>", 13, bold=True, color=res_color, align=TA_RIGHT),
-    ]], colWidths=[1.2*cm, 12.8*cm, 4*cm])
+    ]], colWidths=[1.6*cm, 12.4*cm, 4*cm])
     res_t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), res_bg),
         ('BOX', (0, 0), (-1, -1), 1.5, res_color),
@@ -414,21 +460,18 @@ def _generer_pdf_ca3_ca12(res: dict, data: dict, periode: str, entreprise: str,
     if res.get("credit_genere", 0) >= 760:
         elements.append(Spacer(1, 0.2*cm))
         elements.append(_p(
-            "Info : Crédit supérieur à 760 EUR — Remboursement possible sur demande (CA3 réel normal)",
+            "Info : crédit d'au moins 760 € — remboursement possible sur demande (formulaire n° 3519)",
             7.5, color=vert))
+    if not is_ca3:
+        elements.append(Spacer(1, 0.2*cm))
+        elements.append(_p("Reportez ces montants sur les lignes correspondantes du formulaire n° 3517-S (CA12).",
+                           7.5, color=colors.grey))
     elements.append(Spacer(1, 0.3*cm))
 
     # ── V. ÉCRITURE COMPTABLE ──
     elements.append(section_header("V. ÉCRITURE COMPTABLE À PASSER"))
     elements.append(Spacer(1, 0.1*cm))
-    if res["a_payer"] > 0:
-        ecr = (f"Débit  44551 TVA à décaisser     {res['a_payer']:>12,.2f} EUR\n"
-               f"  Crédit  512  Banque             {res['a_payer']:>12,.2f} EUR\n"
-               f"  Libellé : Règlement TVA {periode}")
-    else:
-        ecr = (f"Débit  44567 Crédit de TVA        {res['credit_genere']:>12,.2f} EUR\n"
-               f"  Crédit 44551 TVA à décaisser    {res['credit_genere']:>12,.2f} EUR\n"
-               f"  Libellé : Report crédit TVA {periode}")
+    ecr = texte_ecriture_liquidation(res, periode).replace("\n", "<br/>").replace(" ", "&nbsp;")
     ecr_t = Table([[_p(f"<font name='Courier' size='8'>{ecr}</font>", 8)]],
                   colWidths=[18*cm])
     ecr_t.setStyle(TableStyle([
@@ -504,7 +547,7 @@ def page_tva():
         with col_b:
             st.markdown("**Opérations particulières**")
             data["Acquisitions intracommunautaires (20%)"] = st.number_input("Acquisitions intracom. 20% — Base HT (€)", min_value=0.0, step=100.0, format="%.2f")
-            data["Autoliquidation achats (20%)"]           = st.number_input("Autoliquidation achats 20% — Base HT (€)", min_value=0.0, step=100.0, format="%.2f")
+            data["Autoliquidation achats (20%)"]           = st.number_input("Achats à un assujetti non établi en France (autoliquidation) 20% — Base HT (€)", min_value=0.0, step=100.0, format="%.2f")
 
         st.divider()
         st.markdown("### TVA déductible")
@@ -514,7 +557,7 @@ def page_tva():
         with col_d2:
             data["TVA déductible sur immobilisations"]   = st.number_input("TVA ded. Immos — 44562 (€)", min_value=0.0, step=10.0, format="%.2f")
         with col_d3:
-            data["TVA intracommunautaire déductible"]    = st.number_input("TVA intracom. ded. — 44563 (€)", min_value=0.0, step=10.0, format="%.2f")
+            data["TVA intracommunautaire déductible"]    = st.number_input("TVA intracom. déd. — 445662 (€)", min_value=0.0, step=10.0, format="%.2f")
         data["Crédit de TVA période précédente"] = st.number_input("Crédit TVA période précédente — 44567 (€)", min_value=0.0, step=10.0, format="%.2f")
 
         st.divider()
@@ -561,8 +604,8 @@ def page_tva():
                                                    value=float(extrait.get("TVA déductible immos (44562)", 0)),
                                                    min_value=0.0, step=10.0, format="%.2f", key="imp_tva_immo")
                     with col2:
-                        tva_intra = st.number_input("TVA intracommunautaire — 44563 (€)",
-                                                    value=float(extrait.get("TVA intracommunautaire (44563)", 0)),
+                        tva_intra = st.number_input("TVA intracommunautaire déductible — 445662 (€)",
+                                                    value=float(extrait.get("TVA intracommunautaire (445662)", 0)),
                                                     min_value=0.0, step=10.0, format="%.2f", key="imp_tva_intra")
                         credit_r  = st.number_input("Crédit TVA reporté — 44567 (€)",
                                                     value=float(extrait.get("Crédit TVA (44567)", 0)),
@@ -577,7 +620,7 @@ def page_tva():
                             "TVA collectée (44571)":            tva_col,
                             "TVA déductible ABS (44566)":       tva_abs,
                             "TVA déductible immos (44562)":     tva_immo,
-                            "TVA intracommunautaire (44563)":   tva_intra,
+                            "TVA intracommunautaire (445662)":  tva_intra,
                             "Crédit TVA (44567)":               credit_r,
                         }
                         res = _calculer_tva_depuis_balance_extrait(extrait_ajuste)
@@ -648,7 +691,7 @@ def rapport_tva(res: dict, periode: str, entreprise: str, regime: str) -> str:
         r.append("")
     lignes = [("44566", "TVA déductible sur autres biens et services", res.get("tva_ded_abs", 0)),
               ("44562", "TVA déductible sur immobilisations", res.get("tva_ded_immo", 0)),
-              ("44563", "TVA intracommunautaire déductible", res.get("tva_ded_intra", 0))]
+              ("445662", "TVA intracommunautaire déductible", res.get("tva_ded_intra", 0))]
     lignes = [l for l in lignes if l[2] > 0]
     r += ["## TVA DÉDUCTIBLE", ""]
     if lignes:
@@ -723,7 +766,7 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
     rows_ded = []
     if res["tva_ded_abs"]    > 0: rows_ded.append({"Compte": "44566", "Nature": "TVA déductible sur ABS",             "Montant (€)": f"{nb_fr(res['tva_ded_abs'], 2)}"})
     if res["tva_ded_immo"]   > 0: rows_ded.append({"Compte": "44562", "Nature": "TVA déductible sur immos",           "Montant (€)": f"{nb_fr(res['tva_ded_immo'], 2)}"})
-    if res["tva_ded_intra"]  > 0: rows_ded.append({"Compte": "44563", "Nature": "TVA intracom. déductible",           "Montant (€)": f"{nb_fr(res['tva_ded_intra'], 2)}"})
+    if res["tva_ded_intra"]  > 0: rows_ded.append({"Compte": "445662", "Nature": "TVA intracom. déductible",           "Montant (€)": f"{nb_fr(res['tva_ded_intra'], 2)}"})
     if res["credit_reporte"] > 0: rows_ded.append({"Compte": "44567", "Nature": "Crédit TVA période précédente",      "Montant (€)": f"{nb_fr(res['credit_reporte'], 2)}"})
     if rows_ded:
         st.dataframe(pd.DataFrame(rows_ded), width="stretch", hide_index=True)
@@ -752,18 +795,7 @@ def _afficher_resultats(res: dict, data: dict, periode: str, entreprise: str,
 
     st.divider()
     st.markdown("### Écriture comptable à passer (PCG)")
-    if res["a_payer"] > 0:
-        st.code(f"""
-Débit  44551 — TVA à décaisser      {nb_fr(res['a_payer'], 2):>14} €
-  Crédit 512 — Banque                        {nb_fr(res['a_payer'], 2):>14} €
-  → Règlement TVA {periode}
-""", language="text")
-    else:
-        st.code(f"""
-Débit  44567 — Crédit de TVA        {nb_fr(res['credit_genere'], 2):>14} €
-  Crédit 44551 — TVA à décaisser             {nb_fr(res['credit_genere'], 2):>14} €
-  → Report crédit TVA {periode}
-""", language="text")
+    st.code(texte_ecriture_liquidation(res, periode), language="text")
 
     # ── Export Word ──
     st.divider()

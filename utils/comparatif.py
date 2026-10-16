@@ -387,6 +387,9 @@ def page_comparatif():
     if 'erreur' in cdr_n1:
         st.error(f"CdR N-1 : {cdr_n1['erreur']}")
         return
+    if 'erreur' in bilan_n or 'erreur' in bilan_n1:
+        st.error(f"Bilan : {bilan_n.get('erreur') or bilan_n1.get('erreur')}", icon=":material/error:")
+        return
 
     # ═══════════════════════════════════════════
     # SECTION 1 — COMPTE DE RÉSULTAT

@@ -25,6 +25,7 @@ TFT_STRUCTURE = {
             ("Dotations aux amortissements et provisions (nettes de reprises)", "+"),
             ("Plus-values de cessions nettes d'impôts", "-"),
             ("Moins-values de cessions nettes d'impôts", "+"),
+            ("Quote-part des subventions d'investissement virée au résultat", "-"),
             ("Variation des stocks (augmentation -)", "±"),
             ("Variation des créances d'exploitation (augmentation -)", "±"),
             ("Variation des dettes d'exploitation (augmentation +)", "±"),
@@ -51,6 +52,7 @@ TFT_STRUCTURE = {
         "lignes": [
             ("Augmentation de capital en numéraire", "+"),
             ("Remboursements de capital", "-"),
+            ("Subventions d'investissement reçues", "+"),
             ("Émission d'emprunts", "+"),
             ("Remboursements d'emprunts", "-"),
             ("Dividendes versés aux actionnaires", "-"),
@@ -107,7 +109,9 @@ def _extraire_tft(df_n, df_n1) -> dict:
     tresorerie = lambda d: db(d, ["50", "51", "53", "54"], ["519"])   # hors concours bancaires
     resultat_n1 = c(d1, ["7"]) - db(d1, ["6"])
     reserves_var = var_c(["106", "11", "12"])
-    dividendes = resultat_n1 - reserves_var                   # résultat N-1 non mis en réserve
+    dividendes = resultat_n1 - reserves_var - var_c(["457"])  # résultat N-1 non mis en réserve, hors dividendes restant à payer (457)
+    quote_part_subv = c(dn, ["777"])                          # produit sans encaissement
+    subventions_recues = var_c(["13"]) + quote_part_subv      # 139 (virée au résultat) est inclus dans le compte 13
 
     capital_var = var_c(["101", "104", "108", "109"])
     emprunts_var = var_c(["16", "17", "455"])               # 455 : comptes courants d'associés
@@ -124,6 +128,7 @@ def _extraire_tft(df_n, df_n1) -> dict:
         "Dotations aux amortissements et provisions (nettes de reprises)": dotations,
         "Plus-values de cessions nettes d'impôts": -plus_value if plus_value > 0 else 0.0,
         "Moins-values de cessions nettes d'impôts": -plus_value if plus_value < 0 else 0.0,
+        "Quote-part des subventions d'investissement virée au résultat": -quote_part_subv,
         "Variation des stocks (augmentation -)": -var_d(["3"], ["39"]),          # brut : dépréciations dans les dotations
         "Variation des créances d'exploitation (augmentation -)": -var_d(["409", "411", "413", "416", "417", "418"]),  # brut
         "Variation des dettes d'exploitation (augmentation +)": var_c(["401", "403", "408", "419", "42", "43", "445", "447"]),
@@ -136,12 +141,17 @@ def _extraire_tft(df_n, df_n1) -> dict:
         "Cessions d'immobilisations corporelles": prix_cession,
         "Augmentation de capital en numéraire": max(capital_var, 0.0),
         "Remboursements de capital": min(capital_var, 0.0),
+        "Subventions d'investissement reçues": subventions_recues,
         "Émission d'emprunts": max(emprunts_var, 0.0),
         "Remboursements d'emprunts": min(emprunts_var, 0.0),
         "Dividendes versés aux actionnaires": -dividendes,
         "Variation des concours bancaires courants": var_c(["519"]),
     }
     alertes = []
+    from utils.sig_pcg import erreur_comptes
+    for lib, d_ in (("N", df_n), ("N-1", df_n1)):
+        if erreur_comptes(d_):
+            alertes.append(f"Balance {lib} : {erreur_comptes(d_)}")
     if prix_cession or db(dn, ["675"]):
         alertes.append("Cessions détectées : la valeur brute sortie est reconstituée (VNC + amortissements cédés). "
                        "À rapprocher du tableau des immobilisations.")

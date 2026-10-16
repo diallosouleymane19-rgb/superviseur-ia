@@ -113,8 +113,9 @@ def detecter_alertes(df):
             'count': int(debits_negatifs + credits_negatifs)
         })
     
-    # 8. Debit ET Credit simultanes
-    debit_credit = ((df['_debit'] > 0) & (df['_credit'] > 0)).sum()
+    # 8. Debit ET Credit simultanes : anormal sur une ligne d'écriture (FEC), normal dans une balance (mouvements)
+    est_fec = 'EcritureNum' in df.columns or 'JournalCode' in df.columns
+    debit_credit = ((df['_debit'] > 0) & (df['_credit'] > 0)).sum() if est_fec else 0
     if debit_credit > 0:
         alertes.append({
             'niveau': 'WARNING',
@@ -124,9 +125,10 @@ def detecter_alertes(df):
         })
     
     # 9. Montants tres eleves
-    if len(df) > 0 and 'Debit' in df.columns:
-        seuil = df['_debit'].quantile(0.95)
-        tres_eleves = (df['_debit'] > seuil * 10).sum()
+    positifs = df.loc[df['_debit'] > 0, '_debit']
+    if len(positifs) >= 20:                 # seuil P95 calculé sur les débits non nuls
+        seuil = positifs.quantile(0.95)
+        tres_eleves = (positifs > seuil * 10).sum()
         if tres_eleves > 0:
             alertes.append({
                 'niveau': 'INFO',
@@ -255,10 +257,8 @@ def page_alertes():
 
         **INFO**
         - Écritures montant nul
-        - Montants très répétés
         - Écritures week-end
         - Montants très élevés (>10x P95)
-        - Charges créditrices
         """)
 
     uploaded_file = st.file_uploader(

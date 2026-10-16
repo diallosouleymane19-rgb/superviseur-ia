@@ -68,6 +68,8 @@ def detecter_ligne_entete(df_raw, max_lignes=30):
     
     for idx in range(min(max_lignes, len(df_raw))):
         ligne = df_raw.iloc[idx].fillna('').astype(str).str.lower()
+        if _ligne_de_donnees(df_raw.iloc[idx]):
+            continue          # une ligne qui commence par un numéro de compte n'est pas un en-tête
         contenu_ligne = ' '.join(ligne.values)
         
         score = 0
@@ -85,6 +87,49 @@ def detecter_ligne_entete(df_raw, max_lignes=30):
             meilleure_ligne = idx
     
     return meilleure_ligne if meilleur_score >= 3 else None
+
+
+def _ligne_de_donnees(ligne):
+    """Vrai si la première cellule remplie est un numéro de compte (ex. 401000) : ligne de données."""
+    import re
+    for v in ligne.values:
+        t = str(v).strip()
+        if t and t.lower() != 'nan':
+            return bool(re.fullmatch(r"\d+[A-Za-z0-9]*", t.replace(".0", "") if t.endswith(".0") else t))
+    return False
+
+
+def _est_numerique(serie):
+    """Colonne de montants : au moins 30 % de cellules remplies, dont 90 % lisibles comme nombres."""
+    t = serie.astype(str).str.strip().replace({"nan": "", "None": ""})
+    remplies = t[t != ""]
+    if len(remplies) < max(len(serie) * 0.3, 1):
+        return False
+    n = pd.to_numeric(remplies.str.replace(" ", "").str.replace("\u00a0", "").str.replace(",", "."),
+                      errors="coerce").notna().mean()
+    return n >= 0.9
+
+
+def mapper_sans_entete(df, info):
+    """Balance sans ligne d'en-tête : colonnes reconnues d'après leur contenu.
+    Compte = 1re colonne de numéros ; libellé = 1re colonne de texte ; montants = colonnes numériques dans l'ordre.
+    Avec 4 ou 6 colonnes de montants (mouvements puis soldes, éventuellement précédés des à-nouveaux),
+    les deux dernières (soldes débiteur / créditeur) sont retenues ; le solde net de chaque compte est le même."""
+    import re
+    mapping, utilisees = {}, set()
+    for col in df.columns:
+        if df[col].astype(str).str.strip().str.match(r"^\d{2,}").mean() > 0.5:
+            mapping[col] = 'CompteNum'; utilisees.add(col); break
+    numeriques = [c for c in df.columns if c not in utilisees and _est_numerique(df[c])]
+    for col in df.columns:
+        if col not in utilisees and col not in numeriques and df[col].astype(str).str.len().mean() > 3:
+            mapping[col] = 'CompteLib'; utilisees.add(col); break
+    if len(numeriques) >= 2:
+        paire = numeriques[-2:] if len(numeriques) % 2 == 0 else numeriques[:2]
+        mapping[paire[0]], mapping[paire[1]] = 'Debit', 'Credit'
+    info['colonnes_mappees'] = mapping
+    info['sans_entete'] = True
+    return df.rename(columns=mapping)
 
 
 def identifier_colonne(nom_colonne, type_colonne):
@@ -244,6 +289,17 @@ def parser_balance_intelligent(fichier):
     info['format_detecte'] = detecter_format(df_raw)
     
     ligne_entete = detecter_ligne_entete(df_raw)
+    premiere = next((i for i in range(len(df_raw)) if df_raw.iloc[i].notna().any()), 0)
+    if ligne_entete is None and len(df_raw) and _ligne_de_donnees(df_raw.iloc[premiere]):
+        # Fichier sans en-tête (export brut) : toutes les lignes sont des données
+        df_donnees = df_raw.dropna(how='all').reset_index(drop=True)
+        df_donnees.columns = [f"col_{i}" for i in range(df_donnees.shape[1])]
+        df_propre = mapper_sans_entete(df_donnees, info)
+        info['ligne_entete'] = None
+        info['colonnes_manquantes'] = [c for c in ('CompteNum', 'Debit', 'Credit') if c not in df_propre.columns]
+        df_propre = nettoyer_balance(df_propre)
+        info['nb_lignes_donnees'] = len(df_propre)
+        return df_propre, info
     if ligne_entete is None:
         ligne_entete = 0
     info['ligne_entete'] = ligne_entete
@@ -285,13 +341,41 @@ def parser_balance_intelligent(fichier):
 
 
 def nettoyer_balance(df):
-    """Supprime lignes de totaux et regroupements"""
+    """Supprime les lignes de totaux et de sous-totaux (regroupements par classe ou par racine de compte)."""
     if 'CompteNum' in df.columns:
         df = df[df['CompteNum'].notna()]
         df = df[df['CompteNum'].astype(str).str.strip() != '']
         df = df[~df['CompteNum'].astype(str).str.startswith('**')]
         df = df[~df['CompteNum'].astype(str).str.lower().str.startswith('total')]
+        if 'CompteLib' in df.columns:
+            lib = df['CompteLib'].astype(str).str.strip().str.lower()
+            df = df[~(lib.str.startswith('**') | lib.str.match(r"^(sous[- ]?)?total"))]
+        df = _sans_sous_totaux(df)
     return df.reset_index(drop=True)
+
+
+def _sans_sous_totaux(df):
+    """Retire un compte « racine » (ex. 70, 707) quand d'autres comptes plus longs commencent par lui
+    et que ses montants sont exactement la somme des leurs : c'est une ligne de sous-total."""
+    if not {'Debit', 'Credit'} <= set(df.columns) or len(df) > 20000:
+        return df
+    cpt = df['CompteNum'].astype(str).str.strip()
+    num = lambda s: pd.to_numeric(s.astype(str).str.replace(" ", "").str.replace("\u00a0", "")
+                                  .str.replace(",", "."), errors="coerce").fillna(0)
+    d, c = num(df['Debit']), num(df['Credit'])
+    garder = pd.Series(True, index=df.index)
+    comptes = sorted(set(cpt), key=len, reverse=True)   # les sous-totaux les plus fins d'abord
+    for racine in comptes:
+        if not racine[:1].isdigit():
+            continue
+        enfants = (cpt.str.startswith(racine)) & (cpt.str.len() > len(racine)) & garder
+        if not enfants.any():
+            continue
+        lignes = cpt == racine
+        # enfants « directs » : ceux qui ne sont pas eux-mêmes des sous-totaux déjà retirés
+        if abs(d[lignes].sum() - d[enfants].sum()) < 0.01 and abs(c[lignes].sum() - c[enfants].sum()) < 0.01:
+            garder &= ~lignes
+    return df[garder]
 
 
 def _lire_texte_brut(fichier):

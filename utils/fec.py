@@ -29,6 +29,25 @@ COLONNES_FEC_OBLIGATOIRES = [
 ]
 
 
+def normaliser_debit_credit(df):
+    """Le FEC peut présenter les montants en Debit / Credit ou en Montant + Sens (D/C ou +1/-1)
+    (article A.47 A-1 du LPF). Retourne une copie avec des colonnes Debit et Credit."""
+    if df is None or ("Debit" in df.columns and "Credit" in df.columns) \
+            or not {"Montant", "Sens"} <= set(df.columns):
+        return df
+    d = df.copy()
+    sens = d["Sens"].astype(str).str.strip().str.upper()
+    debit = sens.isin(["D", "+1", "1"])
+    d["Debit"] = d["Montant"].where(debit, "0")
+    d["Credit"] = d["Montant"].where(~debit, "0")
+    d.attrs["format_montant_sens"] = True
+    return d
+
+
+def _num(serie):
+    return pd.to_numeric(serie.astype(str).str.replace(" ", "").str.replace(",", "."), errors="coerce").fillna(0)
+
+
 def lire_fec(fichier):
     """
     Lit un fichier FEC en testant différents séparateurs et encodages
@@ -42,7 +61,7 @@ def lire_fec(fichier):
                 fichier.seek(0)
                 df = pd.read_csv(fichier, sep=sep, encoding=enc, dtype=str)
                 if len(df.columns) >= 15:
-                    return df, sep, enc
+                    return normaliser_debit_credit(df), sep, enc
             except Exception:
                 continue
 
@@ -71,11 +90,15 @@ def valider_fec(df):
     resultats = {}
     points = 0
     points_max = 0
-    
-    # 1. VERIFICATION STRUCTURE (18 colonnes obligatoires)
+    format_sens = {"Montant", "Sens"} <= set(df.columns)
+    df = normaliser_debit_credit(df)
+
+    # 1. VERIFICATION STRUCTURE (18 colonnes obligatoires ; Montant + Sens peuvent remplacer Debit + Credit)
     points_max += 20
     colonnes_presentes = set(df.columns)
     colonnes_attendues = set(COLONNES_FEC_OBLIGATOIRES)
+    if format_sens:
+        colonnes_presentes |= {"Debit", "Credit"}
     colonnes_manquantes = colonnes_attendues - colonnes_presentes
     
     if not colonnes_manquantes:
@@ -110,7 +133,7 @@ def valider_fec(df):
     points_max += 10
     if 'EcritureDate' in df.columns:
         try:
-            echantillon = df['EcritureDate'].head(100)
+            echantillon = df['EcritureDate'].astype(str).str.strip()
             dates_test = pd.to_datetime(echantillon, format='%Y%m%d', errors='coerce')
             taux_valide = (dates_test.notna().sum() / len(echantillon)) * 100 if len(echantillon) > 0 else 0
         
@@ -131,29 +154,32 @@ def valider_fec(df):
                 "message": "Format de date non valide"
             }
     
-    # 4. VERIFICATION EQUILIBRE DEBIT/CREDIT
+    # 4. VERIFICATION EQUILIBRE DEBIT/CREDIT : total et chaque écriture (JournalCode + EcritureNum)
     points_max += 25
     if 'Debit' in df.columns and 'Credit' in df.columns:
         try:
-            df_calc = df.copy()
-            df_calc['Debit_num'] = pd.to_numeric(df_calc['Debit'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-            df_calc['Credit_num'] = pd.to_numeric(df_calc['Credit'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-            
-            total_debit = df_calc['Debit_num'].sum()
-            total_credit = df_calc['Credit_num'].sum()
+            d_num, c_num = _num(df['Debit']), _num(df['Credit'])
+            total_debit, total_credit = d_num.sum(), c_num.sum()
             ecart = abs(total_debit - total_credit)
-            
-            if ecart < 0.01:
+            cles = [c for c in ('JournalCode', 'EcritureNum') if c in df.columns]
+            desequilibrees = 0
+            if 'EcritureNum' in cles:
+                soldes = (d_num - c_num).groupby([df[c].astype(str) for c in cles]).sum().round(2)
+                desequilibrees = int((soldes.abs() >= 0.01).sum())
+            if ecart < 0.01 and not desequilibrees:
                 resultats['Équilibre Débit/Crédit'] = {
                     "valide": True,
-                    "message": f"Équilibre parfait : {_eur(total_debit)}"
+                    "message": f"Équilibre parfait : {_eur(total_debit)}" +
+                               (", chaque écriture est équilibrée" if 'EcritureNum' in cles else "")
                 }
                 points += 25
             else:
-                resultats['Équilibre Débit/Crédit'] = {
-                    "valide": False,
-                    "message": f"Écart de {_eur(ecart)} détecté"
-                }
+                msg = []
+                if ecart >= 0.01:
+                    msg.append(f"Écart total de {_eur(ecart)}")
+                if desequilibrees:
+                    msg.append(f"{desequilibrees} écriture(s) non équilibrée(s) (débit ≠ crédit par numéro d'écriture)")
+                resultats['Équilibre Débit/Crédit'] = {"valide": False, "message": " ; ".join(msg)}
         except Exception as e:
             resultats['Équilibre Débit/Crédit'] = {
                 "valide": False,

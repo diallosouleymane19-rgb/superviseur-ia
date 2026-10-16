@@ -17,41 +17,46 @@ from utils.page_helpers import (
 )
 
 
+def _sans_accents(t):
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", str(t)) if unicodedata.category(c) != "Mn")
+
+
 def detecter_colonnes(df):
-    """Détecte automatiquement les colonnes Debit/Credit/Compte"""
+    """Détecte automatiquement les colonnes Debit/Credit/Compte (« Débit », « Crédit » acceptés)"""
     colonnes = {}
     
     # Detection Compte
     for col in df.columns:
-        col_lower = str(col).lower()
+        col_lower = _sans_accents(col).lower()
         if any(x in col_lower for x in ['compte', 'numero', 'comptenum', 'account']):
             colonnes['compte'] = col
             break
     
     # Detection Libelle
     for col in df.columns:
-        col_lower = str(col).lower()
+        col_lower = _sans_accents(col).lower()
         if any(x in col_lower for x in ['libelle', 'intitule', 'designation', 'nom', 'lib']):
             colonnes['libelle'] = col
             break
     
     # Detection Debit
     for col in df.columns:
-        col_lower = str(col).lower()
+        col_lower = _sans_accents(col).lower()
         if 'debit' in col_lower or 'debet' in col_lower:
             colonnes['debit'] = col
             break
     
     # Detection Credit
     for col in df.columns:
-        col_lower = str(col).lower()
+        col_lower = _sans_accents(col).lower()
         if 'credit' in col_lower:
             colonnes['credit'] = col
             break
     
     # Detection Solde
     for col in df.columns:
-        col_lower = str(col).lower()
+        col_lower = _sans_accents(col).lower()
         if 'solde' in col_lower or 'balance' in col_lower:
             colonnes['solde'] = col
             break

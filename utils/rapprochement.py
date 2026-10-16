@@ -118,6 +118,15 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
     rapproches = []
     non_rapproches_releve = []
     df_e['_utilise'] = False
+
+    # Sens : sur le relevé, un encaissement est au crédit ; dans le compte 512, au débit. Les deux sont donc
+    # positifs dans _montant. Si le relevé suit la convention inverse (montant unique signé autrement),
+    # on la détecte d'après le nombre de montants concordants dans chaque sens.
+    mr = df_r['_montant'].round(2)
+    me = set(df_e['_montant'].round(2))
+    meme_sens = int(mr[mr != 0].isin(me).sum())
+    sens_inverse = int((-mr[mr != 0]).isin(me).sum())
+    sens = -1 if sens_inverse > meme_sens else 1
     
     for idx_r, row_r in df_r.iterrows():
         montant_r = row_r['_montant']
@@ -133,7 +142,7 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
         for idx_e, row_e in df_e[~df_e['_utilise']].iterrows():
             montant_e = row_e['_montant']
             
-            if abs(abs(montant_r) - abs(montant_e)) > 0.01:
+            if abs(sens * montant_r - montant_e) > 0.01:      # même montant ET même sens (encaissement / décaissement)
                 continue
             
             score = 0.6

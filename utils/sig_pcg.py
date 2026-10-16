@@ -32,6 +32,17 @@ def pct_fr(x):
     return nb_fr(x, 1) + " %"
 
 
+def erreur_comptes(df):
+    """Message d'erreur si le fichier ne contient aucun numéro de compte exploitable, sinon None.
+    Évite d'afficher « balance équilibrée » sur un fichier dont les colonnes ont été mal reconnues."""
+    if df is None or "CompteNum" not in df.columns:
+        return "Colonne des numéros de compte (CompteNum) introuvable"
+    if not df["CompteNum"].astype(str).str.strip().str.match(r"^\d{2,}").any():
+        return ("Aucun numéro de compte reconnu dans le fichier : vérifiez que la colonne des comptes contient "
+                "des numéros du plan comptable (ex. 401000) et que l'en-tête est sur la première ligne utile.")
+    return None
+
+
 def _preparer(df):
     d = df.copy()
     for col, cible in (("Debit", "_d"), ("Credit", "_c")):
@@ -81,10 +92,12 @@ def calculer_sig(df):
     charges_personnel = dbt(["64"])
     ebe = valeur_ajoutee + subventions - impots_taxes - charges_personnel
 
-    resultat_exploitation = (ebe + c(["75"]) + c(["781"]) + c(["791"])
-                             - dbt(["65"]) - dbt(["681"]))
+    resultat_exploitation = (ebe + c(["75"], ["755"]) + c(["781"]) + c(["791"])
+                             - dbt(["65"], ["655"]) - dbt(["681"]))
+    # Quotes-parts de résultat sur opérations faites en commun : entre exploitation et courant (PCG)
+    quotes_parts = c(["755"]) - dbt(["655"])
     resultat_financier = c(["76"]) + c(["786"]) + c(["796"]) - dbt(["66"]) - dbt(["686"])
-    resultat_courant = resultat_exploitation + resultat_financier
+    resultat_courant = resultat_exploitation + quotes_parts + resultat_financier
     resultat_exceptionnel = c(["77"]) + c(["787"]) + c(["797"]) - dbt(["67"]) - dbt(["687"])
     participation_impots = dbt(["69"])
     resultat_net = resultat_courant + resultat_exceptionnel - participation_impots
@@ -118,6 +131,7 @@ def calculer_sig(df):
         "valeur_ajoutee": valeur_ajoutee,
         "ebe": ebe,
         "resultat_exploitation": resultat_exploitation,
+        "quotes_parts": quotes_parts,
         "resultat_financier": resultat_financier,
         "resultat_courant": resultat_courant,
         "resultat_exceptionnel": resultat_exceptionnel,
