@@ -151,7 +151,7 @@ def _email_de_l_abonnement(sub) -> str:
 # Le n° de TVA et l'immatriculation du vendeur s'ajoutent dans les paramètres du compte Stripe.
 MENTIONS_FACTURE = (
     "Nature : prestation de services.\n"
-    "Conditions de paiement : à réception de facture, par prélèvement sur le moyen de paiement enregistré. "
+    "Conditions de paiement : à la réception de facture, par prélèvement sur le moyen de paiement enregistré. "
     "Pas d'escompte pour paiement anticipé.\n"
     "Retard de paiement : pénalités au taux de trois fois le taux d'intérêt légal et indemnité forfaitaire "
     "pour frais de recouvrement de 40 € (art. L441-10 et D441-5 du Code de commerce)."
