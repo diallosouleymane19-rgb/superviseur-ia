@@ -157,6 +157,16 @@ MENTIONS_FACTURE = (
 )
 
 
+def _mentions_facture() -> str:
+    """Pied de facture : identité du vendeur (secret STRIPE_MENTIONS_VENDEUR : siège, EIN…) puis mentions B2B."""
+    try:
+        import streamlit as st
+        vendeur = str(st.secrets.get("STRIPE_MENTIONS_VENDEUR", "")).strip()
+    except Exception:
+        vendeur = os.getenv("STRIPE_MENTIONS_VENDEUR", "").strip()
+    return (vendeur + "\n" if vendeur else "") + MENTIONS_FACTURE
+
+
 def _taux_tva_id():
     """Taux de TVA 20 % créé par scripts/stripe_initialiser.py (None s'il n'existe pas encore)."""
     try:
@@ -237,7 +247,7 @@ def creer_checkout_session(
         raise DejaAbonne("Un abonnement est déjà en cours : changez de plan depuis le portail Stripe.")
     price_id = _price_id(app, plan, billing)
     try:   # mentions légales en pied de facture (aussi pour les clients créés avant cette version)
-        stripe.Customer.modify(customer_id, invoice_settings={"footer": MENTIONS_FACTURE},
+        stripe.Customer.modify(customer_id, invoice_settings={"footer": _mentions_facture()},
                                preferred_locales=["fr-FR"])   # factures et reçus en français
     except Exception:
         pass
@@ -298,7 +308,7 @@ def creer_portal_session(email: str, app: str = "pcg") -> str:
     params = dict(customer=customer_id, return_url=f"{app_url}/?stripe=portal_return", locale="fr")
     try:   # factures en français, y compris pour les clients créés avant cette version
         stripe.Customer.modify(customer_id, preferred_locales=["fr-FR"],
-                               invoice_settings={"footer": MENTIONS_FACTURE})
+                               invoice_settings={"footer": _mentions_facture()})
     except Exception:
         pass
     config = _portal_config_id()
