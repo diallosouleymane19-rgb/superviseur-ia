@@ -228,7 +228,13 @@ def page_tarifs(app_name="pcg"):
                                            type="primary", icon=":material/lock:", width="stretch")
                             st.caption("Après le paiement, revenez sur cet onglet et actualisez la page : "
                                        "le nouveau plan s'affiche en quelques secondes.")
-                        except Exception:
+                        except Exception as e:
+                            from utils.stripe_billing import DejaAbonne
+                            if isinstance(e, DejaAbonne):
+                                st.info("Vous avez déjà un abonnement : pour changer de plan, utilisez "
+                                        "« Gérer mon abonnement Stripe » en haut de cette page.",
+                                        icon=":material/info:")
+                                continue
                             logging.exception("Paiement Stripe")
                             st.error("Le paiement en ligne ne répond pas. Réessayez plus tard ou écrivez à contact@smdconsulting.pro.")
 

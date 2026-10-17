@@ -107,6 +107,23 @@ def _plan_de_l_abonnement(sub) -> str:
     return (sub.get("metadata") or {}).get("plan", "starter")
 
 
+def abonnements_actifs(customer_id: str) -> list:
+    """Abonnements actifs (ou en essai) d'un client Stripe, en dict."""
+    if not customer_id:
+        return []
+    out = []
+    for statut in ("active", "trialing", "past_due"):
+        out += [_d(x) for x in stripe.Subscription.list(customer=customer_id, status=statut, limit=10).data]
+    return out
+
+
+def _autre_abonnement_actif(customer_id: str, sauf: str):
+    try:
+        return next((x for x in abonnements_actifs(customer_id) if x["id"] != sauf), None)
+    except Exception:
+        return None
+
+
 def _email_de_l_abonnement(sub) -> str:
     email = (sub.get("metadata") or {}).get("email", "")
     if not email and sub.get("customer"):
@@ -136,6 +153,10 @@ def _taux_tva_id():
     except Exception:
         pass
     return None
+
+
+class DejaAbonne(Exception):
+    """Le client a déjà un abonnement actif : pas de second abonnement."""
 
 
 # ─── Customer ─────────────────────────────────────────────────────────────────
@@ -196,9 +217,12 @@ def creer_checkout_session(
     if plan not in PRICING or billing not in ("monthly", "annual"):
         raise ValueError(f"Plan '{plan}' ou facturation '{billing}' inconnus")
 
-    price_id  = _price_id(app, plan, billing)
     app_url   = _get_app_url()
     customer_id = get_or_create_customer(email, nom, app)
+    if abonnements_actifs(customer_id):
+        # Un seul abonnement par cabinet : le changement de plan passe par le portail Stripe
+        raise DejaAbonne("Un abonnement est déjà en cours : changez de plan depuis le portail Stripe.")
+    price_id = _price_id(app, plan, billing)
     try:   # mentions légales en pied de facture (aussi pour les clients créés avant cette version)
         stripe.Customer.modify(customer_id, invoice_settings={"footer": MENTIONS_FACTURE})
     except Exception:
@@ -302,8 +326,15 @@ def traiter_webhook(payload: bytes, sig_header: str) -> dict:
                 log_action(email, "ABONNEMENT", details=f"Plan {plan} ({status})", app=app)
             elif event_type == "customer.subscription.deleted" or status in ("canceled", "unpaid",
                                                                               "incomplete_expired"):
-                mettre_a_jour_plan(email, "free")
-                log_action(email, "ABONNEMENT", details=f"Retour au plan Gratuit ({status or 'résilié'})", app=app)
+                autre = _autre_abonnement_actif(sub.get("customer", ""), sub["id"])
+                if autre:   # un autre abonnement reste actif : c'est lui qui fixe le plan
+                    plan = _plan_de_l_abonnement(autre)
+                    mettre_a_jour_plan(email, plan)
+                    mettre_a_jour_stripe(email, sub.get("customer", ""), autre["id"])
+                    log_action(email, "ABONNEMENT", details=f"Abonnement résilié ; plan {plan} conservé", app=app)
+                else:
+                    mettre_a_jour_plan(email, "free")
+                    log_action(email, "ABONNEMENT", details=f"Retour au plan Gratuit ({status or 'résilié'})", app=app)
             # past_due / incomplete : on attend la relance de paiement de Stripe, le plan est conservé
         except Exception as e:
             return {"error": f"Erreur mise à jour plan: {e}"}
