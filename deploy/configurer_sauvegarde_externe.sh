@@ -25,7 +25,12 @@ if ! [[ "$AK" =~ ^[0-9a-f]{32}$ ]]; then
   echo "  Rien n'est enregistré. Copiez la clé d'accès dans OVH JUSTE AVANT de la coller ici, puis relancez."
   exit 1
 fi
-if [ ${#SK} -lt 20 ] || [[ "$SK" == *sudo* ]] || [[ "$SK" == */* ]] || [ "$SK" = "$AK" ]; then
+if [ "$SK" = "$AK" ]; then
+  echo "  La clé secrète collée est IDENTIQUE à la clé d'accès (presse-papiers non changé). Rien n'est enregistré."
+  echo "  Copiez la clé secrète dans OVH juste avant de la coller, puis relancez."
+  exit 1
+fi
+if [ ${#SK} -lt 20 ] || [[ "$SK" == *sudo* ]] || [[ "$SK" == */* ]]; then
   echo "  La clé secrète collée ne ressemble pas à une clé OVH (${#SK} caractères). Rien n'est enregistré."
   exit 1
 fi
