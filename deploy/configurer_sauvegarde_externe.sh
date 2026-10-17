@@ -20,6 +20,15 @@ read -rsp "  Clé secrète (Secret key) : " SK; echo
 nettoyer() { printf '%s' "$1" | tr -d ' \t\r\n"'"'"',' ; }
 AK="$(nettoyer "$AK")"; SK="$(nettoyer "$SK")"
 [ -n "$AK" ] && [ -n "$SK" ] || { echo "Clé vide : rien n'est enregistré."; exit 1; }
+if ! [[ "$AK" =~ ^[0-9a-f]{32}$ ]]; then
+  echo "  La clé d'accès collée n'a pas le format OVH (32 caractères 0-9 et a-f) : ${#AK} caractères, commence par ${AK:0:4}…"
+  echo "  Rien n'est enregistré. Copiez la clé d'accès dans OVH JUSTE AVANT de la coller ici, puis relancez."
+  exit 1
+fi
+if [ ${#SK} -lt 20 ] || [[ "$SK" == *sudo* ]] || [[ "$SK" == */* ]] || [ "$SK" = "$AK" ]; then
+  echo "  La clé secrète collée ne ressemble pas à une clé OVH (${#SK} caractères). Rien n'est enregistré."
+  exit 1
+fi
 echo "  Clé d'accès : ${#AK} caractères, commence par ${AK:0:4}… ; clé secrète : ${#SK} caractères."
 cat > sauvegarde_externe.env <<EOF
 S3_BUCKET=$BUCKET
