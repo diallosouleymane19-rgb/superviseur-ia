@@ -150,21 +150,27 @@ def _email_de_l_abonnement(sub) -> str:
 # Mentions de facture B2B (Code de commerce, art. L441-9, L441-10 et D441-5), en pied de chaque facture Stripe.
 # Le n° de TVA et l'immatriculation du vendeur s'ajoutent dans les paramètres du compte Stripe.
 MENTIONS_FACTURE = (
-    "Prestation de services. Paiement à réception de facture, prélevé sur le moyen de paiement enregistré. "
-    "Pas d'escompte pour paiement anticipé. En cas de retard : pénalités au taux de trois fois le taux "
-    "d'intérêt légal et indemnité forfaitaire pour frais de recouvrement de 40 € (art. L441-10 et D441-5 "
-    "du Code de commerce)."
+    "Nature : prestation de services.\n"
+    "Conditions de paiement : à réception de facture, par prélèvement sur le moyen de paiement enregistré. "
+    "Pas d'escompte pour paiement anticipé.\n"
+    "Retard de paiement : pénalités au taux de trois fois le taux d'intérêt légal et indemnité forfaitaire "
+    "pour frais de recouvrement de 40 € (art. L441-10 et D441-5 du Code de commerce)."
 )
 
 
+def _bloc_vendeur(vendeur: str) -> str:
+    """Identité du vendeur, une information par ligne (le secret sépare les éléments par « — »)."""
+    return "\n".join(p.strip() for p in vendeur.split(" — ") if p.strip())
+
+
 def _mentions_facture() -> str:
-    """Pied de facture : identité du vendeur (secret STRIPE_MENTIONS_VENDEUR : siège, EIN…) puis mentions B2B."""
+    """Pied de facture : identité du vendeur (secret STRIPE_MENTIONS_VENDEUR : siège, EIN…), ligne vide, mentions B2B."""
     try:
         import streamlit as st
         vendeur = str(st.secrets.get("STRIPE_MENTIONS_VENDEUR", "")).strip()
     except Exception:
         vendeur = os.getenv("STRIPE_MENTIONS_VENDEUR", "").strip()
-    return (vendeur + "\n" if vendeur else "") + MENTIONS_FACTURE
+    return (_bloc_vendeur(vendeur) + "\n\n" if vendeur else "") + MENTIONS_FACTURE
 
 
 def _taux_tva_id():
