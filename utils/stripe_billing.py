@@ -347,7 +347,11 @@ def gerer_retour_stripe() -> None:
 
         if params.get("stripe") == "success":
             plan = params.get("plan", "")
-            st.success(f"Abonnement **{plan.capitalize()}** activé ! Bienvenue dans la plateforme SMD.", icon=":material/check_circle:")
+            libelle = PRICING.get(plan, {}).get("label", plan.capitalize())
+            st.success(f"Paiement accepté : abonnement **{libelle}** KontrolIA. "
+                       + ("Il est actif sur votre compte." if st.session_state.get("authenticated")
+                          else "Connectez-vous pour en profiter (activation en quelques secondes)."),
+                       icon=":material/check_circle:")
             st.balloons()
             # Nettoyer les query params
             st.query_params.clear()
