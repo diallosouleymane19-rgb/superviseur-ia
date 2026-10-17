@@ -60,11 +60,7 @@ def produits_et_prix():
 
 
 def portail(prix_par_produit, app_url):
-    for c in stripe.billing_portal.Configuration.list(active=True, limit=20).data:
-        if _d(c).get("metadata", {}).get("app") == "kontrolia":
-            stripe.billing_portal.Configuration.modify(c.id, active=False)
-    stripe.billing_portal.Configuration.create(
-        metadata={"app": "kontrolia"},
+    params = dict(
         business_profile={"headline": "KontrolIA — SMD Global Consulting LLC",
                           "privacy_policy_url": f"{app_url}/?doc=confidentialite",
                           "terms_of_service_url": f"{app_url}/?doc=cgu"},
@@ -79,6 +75,12 @@ def portail(prix_par_produit, app_url):
                                     "products": [{"product": p, "prices": ids}
                                                  for p, ids in prix_par_produit.items()]},
         })
+    existante = next((c for c in stripe.billing_portal.Configuration.list(active=True, limit=20).data
+                      if _d(c).get("metadata", {}).get("app") == "kontrolia"), None)
+    if existante:   # mise à jour sur place (la configuration par défaut ne peut pas être désactivée)
+        stripe.billing_portal.Configuration.modify(existante.id, **params)
+    else:
+        stripe.billing_portal.Configuration.create(metadata={"app": "kontrolia"}, **params)
     info("2/3 Portail client configuré (changement de plan, résiliation en fin de période, factures).")
 
 
