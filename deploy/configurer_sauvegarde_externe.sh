@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Configuration unique de la copie externe des sauvegardes (Object Storage OVH, Roubaix).
-#   sudo bash /opt/superviseur/deploy/configurer_sauvegarde_externe.sh
+#   sudo bash /opt/superviseur/deploy/configurer_sauvegarde_externe.sh [clé_d_accès]
 # Les clés S3 sont saisies au clavier (rien ne s'affiche) et restent sur le serveur.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -14,7 +14,12 @@ command -v rclone >/dev/null || { apt-get update -qq && apt-get install -y -qq r
 command -v gpg >/dev/null || apt-get install -y -qq gnupg
 
 echo "2/4 Clés de l'utilisateur Object Storage (copiez-collez : rien ne s'affiche, c'est normal)"
-read -rsp "  Clé d'accès (Access key) : " AK; echo
+# La clé d'accès (identifiant, non secret) peut être passée en argument : seule la clé secrète est alors à coller
+if [ -n "${1:-}" ]; then
+  AK="$1"; echo "  Clé d'accès : fournie en argument"
+else
+  read -rsp "  Clé d'accès (Access key) : " AK; echo
+fi
 read -rsp "  Clé secrète (Secret key) : " SK; echo
 # Copier-coller depuis un fichier : on retire espaces, guillemets, virgules et retours chariot éventuels
 nettoyer() { printf '%s' "$1" | tr -d ' \t\r\n"'"'"',' ; }
