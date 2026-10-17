@@ -117,6 +117,19 @@ def abonnements_actifs(customer_id: str) -> list:
     return out
 
 
+RANG_PLAN = {"starter": 1, "pro": 2, "enterprise": 3}
+
+
+def _meilleur_abonnement(customer_id: str, sub: dict) -> dict:
+    """Abonnement actif au plan le plus élevé (celui de l'événement s'il n'y en a pas d'autre)."""
+    try:
+        tous = {x["id"]: x for x in abonnements_actifs(customer_id)}
+    except Exception:
+        tous = {}
+    tous[sub["id"]] = sub
+    return max(tous.values(), key=lambda x: RANG_PLAN.get(_plan_de_l_abonnement(x), 0))
+
+
 def _autre_abonnement_actif(customer_id: str, sauf: str):
     try:
         return next((x for x in abonnements_actifs(customer_id) if x["id"] != sauf), None)
@@ -320,10 +333,13 @@ def traiter_webhook(payload: bytes, sig_header: str) -> dict:
         try:
             from utils.auth_rbac import mettre_a_jour_plan, mettre_a_jour_stripe, log_action
             if event_type != "customer.subscription.deleted" and status in ("active", "trialing"):
-                plan = _plan_de_l_abonnement(sub)
+                # Plusieurs abonnements possibles (ancien en fin de période + nouveau) : le plus élevé s'applique
+                meilleur = _meilleur_abonnement(sub.get("customer", ""), sub)
+                plan = _plan_de_l_abonnement(meilleur)
                 mettre_a_jour_plan(email, plan)
-                mettre_a_jour_stripe(email, sub.get("customer", ""), sub["id"])
-                log_action(email, "ABONNEMENT", details=f"Plan {plan} ({status})", app=app)
+                mettre_a_jour_stripe(email, sub.get("customer", ""), meilleur["id"])
+                fin = " ; résiliation en fin de période" if sub.get("cancel_at_period_end") else ""
+                log_action(email, "ABONNEMENT", details=f"Plan {plan} ({status}{fin})", app=app)
             elif event_type == "customer.subscription.deleted" or status in ("canceled", "unpaid",
                                                                               "incomplete_expired"):
                 autre = _autre_abonnement_actif(sub.get("customer", ""), sub["id"])
