@@ -237,7 +237,8 @@ def creer_checkout_session(
         raise DejaAbonne("Un abonnement est déjà en cours : changez de plan depuis le portail Stripe.")
     price_id = _price_id(app, plan, billing)
     try:   # mentions légales en pied de facture (aussi pour les clients créés avant cette version)
-        stripe.Customer.modify(customer_id, invoice_settings={"footer": MENTIONS_FACTURE})
+        stripe.Customer.modify(customer_id, invoice_settings={"footer": MENTIONS_FACTURE},
+                               preferred_locales=["fr-FR"])   # factures et reçus en français
     except Exception:
         pass
     taux = _taux_tva_id()
@@ -266,6 +267,7 @@ def creer_checkout_session(
             }
         },
         allow_promotion_codes = True,
+        locale            = "fr",
     )
     return session.url
 
@@ -293,7 +295,12 @@ def creer_portal_session(email: str, app: str = "pcg") -> str:
     app_url     = _get_app_url()
     customer_id = get_or_create_customer(email, app=app)
 
-    params = dict(customer=customer_id, return_url=f"{app_url}/?stripe=portal_return")
+    params = dict(customer=customer_id, return_url=f"{app_url}/?stripe=portal_return", locale="fr")
+    try:   # factures en français, y compris pour les clients créés avant cette version
+        stripe.Customer.modify(customer_id, preferred_locales=["fr-FR"],
+                               invoice_settings={"footer": MENTIONS_FACTURE})
+    except Exception:
+        pass
     config = _portal_config_id()
     if config:
         params["configuration"] = config
