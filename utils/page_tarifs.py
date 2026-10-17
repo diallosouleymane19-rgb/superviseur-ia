@@ -134,6 +134,13 @@ def _card_html(plan_key, plan, price, period, is_current):
 def page_tarifs(app_name="pcg"):
     """Page Tarifs & Abonnement."""
     user_email  = st.session_state.get("user_email", "")
+    # Plan relu en base : il change quand Stripe confirme un paiement (webhook), pendant la session
+    try:
+        u = get_user(user_email) if user_email else None
+        if u and u.get("plan"):
+            st.session_state["plan"] = u["plan"]
+    except Exception:
+        pass
     plan_actuel = st.session_state.get("plan", "free")
 
     st.title("Abonnement")
@@ -161,10 +168,8 @@ def page_tarifs(app_name="pcg"):
             try:
                 from utils.stripe_billing import creer_portal_session
                 url = creer_portal_session(user_email, app_name)
-                st.markdown(
-                    "<meta http-equiv='refresh' content='0;url=" + url + "'>",
-                    unsafe_allow_html=True
-                )
+                st.link_button("Ouvrir le portail Stripe (nouvel onglet)", url, type="primary",
+                               icon=":material/open_in_new:")
             except Exception:
                 logging.exception("Portail Stripe")
                 st.error("Le portail de paiement ne répond pas. Réessayez plus tard ou écrivez à contact@smdconsulting.pro.")
@@ -218,10 +223,10 @@ def page_tarifs(app_name="pcg"):
                                 billing=billing_key,
                                 nom=st.session_state.get("nom", ""),
                             )
-                            st.markdown(
-                                "<meta http-equiv='refresh' content='0;url=" + url + "'>",
-                                unsafe_allow_html=True
-                            )
+                            st.link_button("Payer sur Stripe (paiement sécurisé, nouvel onglet)", url,
+                                           type="primary", icon=":material/lock:", width="stretch")
+                            st.caption("Après le paiement, revenez sur cet onglet et actualisez la page : "
+                                       "le nouveau plan s'affiche en quelques secondes.")
                         except Exception:
                             logging.exception("Paiement Stripe")
                             st.error("Le paiement en ligne ne répond pas. Réessayez plus tard ou écrivez à contact@smdconsulting.pro.")

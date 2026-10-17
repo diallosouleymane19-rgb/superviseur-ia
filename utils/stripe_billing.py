@@ -5,9 +5,15 @@ Intégration Stripe Billing : checkout, customer portal, webhooks.
 Superviseur IA PCG France (mode test par défaut).
 """
 
+import json
 import os
 import stripe
 from datetime import datetime
+
+
+def _d(obj):
+    """Objet Stripe -> dict Python (depuis stripe-python 13, un StripeObject n'est plus un dict)."""
+    return obj.to_dict() if hasattr(obj, "to_dict") else (obj or {})
 
 
 # ─── Configuration ────────────────────────────────────────────────────────────
@@ -59,18 +65,9 @@ def _init_stripe():
     stripe.api_key = key
 
 
-# ─── Catalogue des plans (Price IDs Stripe) ──────────────────────────────────
-# Ces IDs sont à remplacer par vos vrais Price IDs créés dans le Dashboard Stripe.
-# En mode test, créez les produits sur https://dashboard.stripe.com/test/products
-
-STRIPE_PRICES = {
-    # PCG France
-    "pcg": {
-        "starter":    {"monthly": "price_pcg_starter_monthly",    "annual": "price_pcg_starter_annual"},
-        "pro":        {"monthly": "price_pcg_pro_monthly",        "annual": "price_pcg_pro_annual"},
-        "enterprise": {"monthly": "price_pcg_enterprise_monthly", "annual": "price_pcg_enterprise_annual"},
-    },
-}
+# ─── Catalogue des plans ──────────────────────────────────────────────────────
+# Les prix Stripe sont retrouvés par leur « lookup key » (ex. pcg_pro_monthly) : aucun identifiant
+# à recopier. Ils sont créés par scripts/stripe_initialiser.py (mode test puis mode réel).
 
 # Tarifs en centimes EUR
 PRICING = {
@@ -78,6 +75,46 @@ PRICING = {
     "pro":        {"monthly": 7900,  "annual": 75900,  "label": "Pro",        "quota": 200},
     "enterprise": {"monthly": 19900, "annual": 190900, "label": "Entreprise", "quota": -1},
 }
+
+
+def cle_prix(app: str, plan: str, billing: str) -> str:
+    return f"{app}_{plan}_{billing}"
+
+
+def plan_depuis_cle(cle: str):
+    """'pcg_pro_annual' -> 'pro' ; None si la clé n'est pas une des nôtres."""
+    parties = (cle or "").split("_")
+    return parties[1] if len(parties) == 3 and parties[1] in PRICING else None
+
+
+def _price_id(app: str, plan: str, billing: str) -> str:
+    cle = cle_prix(app, plan, billing)
+    prix = stripe.Price.list(lookup_keys=[cle], active=True, limit=1).data
+    if not prix:
+        raise RuntimeError(f"Prix Stripe introuvable ({cle}) : lancez scripts/stripe_initialiser.py")
+    return prix[0].id
+
+
+def _plan_de_l_abonnement(sub) -> str:
+    """Plan d'après le prix réellement souscrit (suit les changements faits dans le portail Stripe)."""
+    try:
+        for item in sub["items"]["data"]:
+            plan = plan_depuis_cle(item["price"].get("lookup_key"))
+            if plan:
+                return plan
+    except Exception:
+        pass
+    return (sub.get("metadata") or {}).get("plan", "starter")
+
+
+def _email_de_l_abonnement(sub) -> str:
+    email = (sub.get("metadata") or {}).get("email", "")
+    if not email and sub.get("customer"):
+        try:
+            email = _d(stripe.Customer.retrieve(sub["customer"])).get("email") or ""
+        except Exception:
+            email = ""
+    return email.lower().strip()
 
 
 # ─── Customer ─────────────────────────────────────────────────────────────────
@@ -135,20 +172,23 @@ def creer_checkout_session(
     """
     _init_stripe()
 
-    if plan not in STRIPE_PRICES.get(app, {}):
-        raise ValueError(f"Plan '{plan}' non disponible pour l'app '{app}'")
+    if plan not in PRICING or billing not in ("monthly", "annual"):
+        raise ValueError(f"Plan '{plan}' ou facturation '{billing}' inconnus")
 
-    price_id  = STRIPE_PRICES[app][plan][billing]
+    price_id  = _price_id(app, plan, billing)
     app_url   = _get_app_url()
     customer_id = get_or_create_customer(email, nom, app)
 
     session = stripe.checkout.Session.create(
         customer          = customer_id,
-        payment_method_types = ["card"],
+        # Facture B2B : adresse de facturation et n° de TVA intracommunautaire du client
+        billing_address_collection = "required",
+        tax_id_collection = {"enabled": True},
+        customer_update   = {"name": "auto", "address": "auto"},
         mode              = "subscription",
         line_items        = [{"price": price_id, "quantity": 1}],
-        success_url       = f"{app_url}?stripe=success&plan={plan}&app={app}",
-        cancel_url        = f"{app_url}?stripe=cancel",
+        success_url       = f"{app_url}/?stripe=success&plan={plan}&app={app}",
+        cancel_url        = f"{app_url}/?stripe=cancel",
         metadata          = {
             "email": email,
             "plan":  plan,
@@ -168,6 +208,18 @@ def creer_checkout_session(
 
 # ─── Customer Portal ──────────────────────────────────────────────────────────
 
+def _portal_config_id():
+    """Configuration du portail créée par scripts/stripe_initialiser.py (évite l'erreur
+    « default configuration has not been created » du mode test)."""
+    try:
+        for c in stripe.billing_portal.Configuration.list(active=True, limit=20).data:
+            if _d(c).get("metadata", {}).get("app") == "kontrolia":
+                return c.id
+    except Exception:
+        pass
+    return None
+
+
 def creer_portal_session(email: str, app: str = "pcg") -> str:
     """
     Crée une session Customer Portal Stripe pour gérer l'abonnement.
@@ -177,10 +229,11 @@ def creer_portal_session(email: str, app: str = "pcg") -> str:
     app_url     = _get_app_url()
     customer_id = get_or_create_customer(email, app=app)
 
-    session = stripe.billing_portal.Session.create(
-        customer   = customer_id,
-        return_url = f"{app_url}?stripe=portal_return",
-    )
+    params = dict(customer=customer_id, return_url=f"{app_url}/?stripe=portal_return")
+    config = _portal_config_id()
+    if config:
+        params["configuration"] = config
+    session = stripe.billing_portal.Session.create(**params)
     return session.url
 
 
@@ -195,7 +248,8 @@ def traiter_webhook(payload: bytes, sig_header: str) -> dict:
     webhook_secret = _get_webhook_secret()
 
     try:
-        event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+        stripe.Webhook.construct_event(payload, sig_header, webhook_secret)   # vérifie la signature
+        event = json.loads(payload)                                           # contenu en dict simple
     except stripe.error.SignatureVerificationError:
         return {"error": "Signature webhook invalide"}
     except Exception as e:
@@ -203,39 +257,29 @@ def traiter_webhook(payload: bytes, sig_header: str) -> dict:
 
     event_type = event["type"]
 
-    # ── Abonnement créé ou activé ─────────────────────────────────────────────
-    if event_type in ("customer.subscription.created", "customer.subscription.updated"):
-        sub  = event["data"]["object"]
-        meta = sub.get("metadata", {})
-        email = meta.get("email", "")
-        plan  = meta.get("plan", "starter")
-        app   = meta.get("app", "pcg")
-        sub_id = sub["id"]
+    # ── Abonnement créé, modifié (changement de plan dans le portail), suspendu ou annulé ──
+    if event_type in ("customer.subscription.created", "customer.subscription.updated",
+                      "customer.subscription.deleted"):
+        sub    = event["data"]["object"]
+        app    = (sub.get("metadata") or {}).get("app", "pcg")
+        email  = _email_de_l_abonnement(sub)
         status = sub.get("status", "")
-
-        if email and status in ("active", "trialing"):
-            try:
-                from utils.auth_rbac import mettre_a_jour_plan, mettre_a_jour_stripe, log_action
+        if not email:
+            return {"error": "Abonnement sans e-mail : impossible de retrouver le compte"}
+        try:
+            from utils.auth_rbac import mettre_a_jour_plan, mettre_a_jour_stripe, log_action
+            if event_type != "customer.subscription.deleted" and status in ("active", "trialing"):
+                plan = _plan_de_l_abonnement(sub)
                 mettre_a_jour_plan(email, plan)
-                mettre_a_jour_stripe(email, sub.get("customer", ""), sub_id)
-                log_action(email, f"plan_upgraded:{plan}", app=app)
-            except Exception as e:
-                return {"error": f"Erreur mise à jour plan: {e}"}
-
-    # ── Abonnement annulé ou suspendu ─────────────────────────────────────────
-    elif event_type in ("customer.subscription.deleted",):
-        sub   = event["data"]["object"]
-        meta  = sub.get("metadata", {})
-        email = meta.get("email", "")
-        app   = meta.get("app", "pcg")
-
-        if email:
-            try:
-                from utils.auth_rbac import mettre_a_jour_plan, log_action
+                mettre_a_jour_stripe(email, sub.get("customer", ""), sub["id"])
+                log_action(email, "ABONNEMENT", details=f"Plan {plan} ({status})", app=app)
+            elif event_type == "customer.subscription.deleted" or status in ("canceled", "unpaid",
+                                                                              "incomplete_expired"):
                 mettre_a_jour_plan(email, "free")
-                log_action(email, "plan_cancelled:free", app=app)
-            except Exception as e:
-                return {"error": f"Erreur rétrogradation plan: {e}"}
+                log_action(email, "ABONNEMENT", details=f"Retour au plan Gratuit ({status or 'résilié'})", app=app)
+            # past_due / incomplete : on attend la relance de paiement de Stripe, le plan est conservé
+        except Exception as e:
+            return {"error": f"Erreur mise à jour plan: {e}"}
 
     # ── Paiement échoué ───────────────────────────────────────────────────────
     elif event_type == "invoice.payment_failed":
@@ -269,19 +313,20 @@ def get_abonnement_actuel(email: str) -> dict | None:
         if not subs.data:
             return None
 
-        sub   = subs.data[0]
+        sub   = _d(subs.data[0])
         item  = sub["items"]["data"][0]
         price = item["price"]
 
         return {
             "subscription_id": sub["id"],
             "status":          sub["status"],
-            "plan":            sub["metadata"].get("plan", "unknown"),
+            "plan":            _plan_de_l_abonnement(sub),
             "amount":          price["unit_amount"],
             "currency":        price["currency"],
             "interval":        price["recurring"]["interval"],
+            # Depuis l'API Stripe 2025, la fin de période est portée par la ligne d'abonnement
             "current_period_end": datetime.fromtimestamp(
-                sub["current_period_end"]
+                sub.get("current_period_end") or item.get("current_period_end")
             ).strftime("%d/%m/%Y"),
             "cancel_at_period_end": sub.get("cancel_at_period_end", False),
         }

@@ -1,0 +1,111 @@
+# -*- coding: utf-8 -*-
+"""
+Prépare le compte Stripe de KontrolIA (à lancer une fois en mode test, puis une fois en mode réel) :
+  1. produits et prix des plans Starter, Pro, Entreprise (mensuel et annuel), retrouvés par « lookup key » ;
+  2. configuration du portail client (changer de plan, résilier, carte, factures) ;
+  3. point de réception des événements (webhook) sur https://<APP_URL>/webhook/stripe.
+
+Idempotent : ce qui existe déjà est réutilisé. Le webhook est recréé à chaque lancement, car Stripe ne
+montre son secret qu'à la création.
+Sortie standard : uniquement la ligne STRIPE_WEBHOOK_SECRET à ajouter à secrets.toml (rien d'autre).
+Messages pour l'utilisateur : sur la sortie d'erreur.
+Lancement (serveur) : sudo bash deploy/configurer_stripe.sh
+"""
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import stripe  # noqa: E402
+
+from utils.stripe_billing import PRICING, cle_prix, _d, _get_app_url, _get_stripe_key  # noqa: E402
+
+APP = "pcg"
+EVENEMENTS = ["customer.subscription.created", "customer.subscription.updated",
+              "customer.subscription.deleted", "invoice.payment_failed"]
+
+
+def info(msg):
+    print(msg, file=sys.stderr)
+
+
+def produits_et_prix():
+    prix_par_produit = {}
+    for plan, p in PRICING.items():
+        cles = {b: cle_prix(APP, plan, b) for b in ("monthly", "annual")}
+        existants = {x.lookup_key: x for x in stripe.Price.list(lookup_keys=list(cles.values()), active=True).data}
+        produit = None
+        if existants:
+            produit = next(iter(existants.values())).product
+        else:
+            produit = stripe.Product.create(name=f"KontrolIA {p['label']}",
+                                            metadata={"app": "kontrolia", "plan": plan}).id
+        ids = []
+        for billing, cle in cles.items():
+            if cle in existants:
+                prix = existants[cle]
+                if prix.unit_amount != p[billing]:
+                    info(f"  ATTENTION : {cle} existe à {prix.unit_amount / 100:.2f} € au lieu de "
+                         f"{p[billing] / 100:.2f} € (non modifié).")
+            else:
+                prix = stripe.Price.create(
+                    product=produit, currency="eur", unit_amount=p[billing], lookup_key=cle,
+                    recurring={"interval": "month" if billing == "monthly" else "year"},
+                    nickname=f"{p['label']} {'mensuel' if billing == 'monthly' else 'annuel'}")
+                info(f"  Prix créé : {cle} = {p[billing] / 100:.2f} €")
+            ids.append(prix.id)
+        prix_par_produit[produit] = ids
+    info(f"1/3 Produits et prix prêts ({len(prix_par_produit)} plans payants).")
+    return prix_par_produit
+
+
+def portail(prix_par_produit, app_url):
+    for c in stripe.billing_portal.Configuration.list(active=True, limit=20).data:
+        if _d(c).get("metadata", {}).get("app") == "kontrolia":
+            stripe.billing_portal.Configuration.modify(c.id, active=False)
+    stripe.billing_portal.Configuration.create(
+        metadata={"app": "kontrolia"},
+        business_profile={"headline": "KontrolIA — SMD Global Consulting LLC",
+                          "privacy_policy_url": f"{app_url}/?doc=confidentialite",
+                          "terms_of_service_url": f"{app_url}/?doc=cgu"},
+        default_return_url=f"{app_url}/?stripe=portal_return",
+        features={
+            "customer_update": {"enabled": True, "allowed_updates": ["email", "address", "tax_id"]},
+            "invoice_history": {"enabled": True},
+            "payment_method_update": {"enabled": True},
+            "subscription_cancel": {"enabled": True, "mode": "at_period_end"},
+            "subscription_update": {"enabled": True, "default_allowed_updates": ["price"],
+                                    "proration_behavior": "create_prorations",
+                                    "products": [{"product": p, "prices": ids}
+                                                 for p, ids in prix_par_produit.items()]},
+        })
+    info("2/3 Portail client configuré (changement de plan, résiliation en fin de période, factures).")
+
+
+def webhook(app_url):
+    url = f"{app_url}/webhook/stripe"
+    for w in stripe.WebhookEndpoint.list(limit=100).data:
+        if w.url == url:
+            stripe.WebhookEndpoint.delete(w.id)
+    w = stripe.WebhookEndpoint.create(url=url, enabled_events=EVENEMENTS, description="KontrolIA")
+    info(f"3/3 Webhook créé : {url}")
+    return w.secret
+
+
+def main():
+    cle = _get_stripe_key()
+    if not cle:
+        sys.exit("STRIPE_SECRET_KEY absent de secrets.toml")
+    stripe.api_key = cle
+    app_url = _get_app_url().rstrip("/")
+    if not app_url.startswith("https://"):
+        sys.exit(f"APP_URL doit être l'adresse publique en https (actuellement « {app_url} »)")
+    info(f"Compte Stripe en mode {'TEST' if cle.startswith(('sk_test_', 'rk_test_')) else 'RÉEL'} — {app_url}")
+    prix = produits_et_prix()
+    portail(prix, app_url)
+    secret = webhook(app_url)
+    print(f'STRIPE_WEBHOOK_SECRET = "{secret}"')
+
+
+if __name__ == "__main__":
+    main()

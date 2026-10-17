@@ -17,7 +17,7 @@ bcrypt>=4.1.0
 reportlab
 supabase>=2.4.0
 psycopg[binary,pool]>=3.2,<4
-stripe>=8.0.0
+stripe>=16,<17
 fastapi>=0.110.0
 uvicorn>=0.27.0
 pymupdf>=1.24.0
