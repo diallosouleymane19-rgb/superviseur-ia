@@ -92,6 +92,19 @@ def webhook(app_url):
     return w.secret
 
 
+def taux_tva():
+    """Taux de TVA française 20 %, ajouté aux prix HT sur chaque facture d'abonnement."""
+    for t in stripe.TaxRate.list(active=True, limit=100).data:
+        if _d(t).get("metadata", {}).get("app") == "kontrolia":
+            info(f"0/3 Taux de TVA déjà présent : {t.percentage} % (hors taxe, ajouté au prix).")
+            return t.id
+    t = stripe.TaxRate.create(display_name="TVA", description="TVA France 20 %", jurisdiction="FR",
+                              country="FR", percentage=20, inclusive=False, tax_type="vat",
+                              metadata={"app": "kontrolia"})
+    info("0/3 Taux de TVA créé : 20 % ajouté aux prix HT.")
+    return t.id
+
+
 def main():
     cle = _get_stripe_key()
     if not cle:
@@ -101,8 +114,12 @@ def main():
     if not app_url.startswith("https://"):
         sys.exit(f"APP_URL doit être l'adresse publique en https (actuellement « {app_url} »)")
     info(f"Compte Stripe en mode {'TEST' if cle.startswith(('sk_test_', 'rk_test_')) else 'RÉEL'} — {app_url}")
+    taux_tva()
     prix = produits_et_prix()
     portail(prix, app_url)
+    if "--sans-webhook" in sys.argv:          # mise à jour sans changer le secret du webhook
+        info("3/3 Webhook inchangé.")
+        return
     secret = webhook(app_url)
     print(f'STRIPE_WEBHOOK_SECRET = "{secret}"')
 

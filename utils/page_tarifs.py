@@ -94,7 +94,7 @@ def _card_html(plan_key, plan, price, period, is_current):
     else:
         prix = (
             "<div style=\"font-size:28px;font-weight:900;color:#1a1a1a;margin:6px 0 2px\">"
-            + f"{price:,}".replace(",", "&#8239;") + "&nbsp;€"
+            + f"{price:,}".replace(",", "&#8239;") + "&nbsp;€&nbsp;<span style=\"font-size:13px;font-weight:600\">HT</span>"
             + "<span style=\"font-size:13px;color:#888;font-weight:400\">&nbsp;"
             + period + "</span></div>"
         )
@@ -183,6 +183,7 @@ def page_tarifs(app_name="pcg"):
         label_visibility="collapsed"
     )
     billing_key = "annual" if "Annuelle" in billing_choice else "monthly"
+    st.caption("Prix hors taxes : TVA française de 20 % en sus.")
     if billing_key == "annual":
         st.caption("Économisez 2 mois avec la facturation annuelle.")
 

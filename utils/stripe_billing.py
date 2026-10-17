@@ -117,6 +117,27 @@ def _email_de_l_abonnement(sub) -> str:
     return email.lower().strip()
 
 
+# Mentions de facture B2B (Code de commerce, art. L441-9, L441-10 et D441-5), en pied de chaque facture Stripe.
+# Le n° de TVA et l'immatriculation du vendeur s'ajoutent dans les paramètres du compte Stripe.
+MENTIONS_FACTURE = (
+    "Prestation de services. Paiement à réception de facture, prélevé sur le moyen de paiement enregistré. "
+    "Pas d'escompte pour paiement anticipé. En cas de retard : pénalités au taux de trois fois le taux "
+    "d'intérêt légal et indemnité forfaitaire pour frais de recouvrement de 40 € (art. L441-10 et D441-5 "
+    "du Code de commerce)."
+)
+
+
+def _taux_tva_id():
+    """Taux de TVA 20 % créé par scripts/stripe_initialiser.py (None s'il n'existe pas encore)."""
+    try:
+        for t in stripe.TaxRate.list(active=True, limit=100).data:
+            if _d(t).get("metadata", {}).get("app") == "kontrolia":
+                return t.id
+    except Exception:
+        pass
+    return None
+
+
 # ─── Customer ─────────────────────────────────────────────────────────────────
 
 def get_or_create_customer(email: str, nom: str = "", app: str = "pcg") -> str:
@@ -178,6 +199,11 @@ def creer_checkout_session(
     price_id  = _price_id(app, plan, billing)
     app_url   = _get_app_url()
     customer_id = get_or_create_customer(email, nom, app)
+    try:   # mentions légales en pied de facture (aussi pour les clients créés avant cette version)
+        stripe.Customer.modify(customer_id, invoice_settings={"footer": MENTIONS_FACTURE})
+    except Exception:
+        pass
+    taux = _taux_tva_id()
 
     session = stripe.checkout.Session.create(
         customer          = customer_id,
@@ -195,6 +221,7 @@ def creer_checkout_session(
             "app":   app,
         },
         subscription_data = {
+            **({"default_tax_rates": [taux]} if taux else {}),
             "metadata": {
                 "email": email,
                 "plan":  plan,
