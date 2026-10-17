@@ -76,7 +76,7 @@ def _card_html(plan_key, plan, price, period, is_current):
     color = plan["color"]
     border = "2px solid " + color if is_current else "1px solid " + color + "40"
     bg = color + "15" if is_current else "#fafafa"
-    quota_str = "Illimite" if plan["quota"] == -1 else str(plan["quota"]) + "/mois"
+    quota_str = "Analyses illimitées" if plan["quota"] == -1 else str(plan["quota"]) + " analyses / mois"
 
     # Badge
     badge = ""
@@ -94,7 +94,7 @@ def _card_html(plan_key, plan, price, period, is_current):
     else:
         prix = (
             "<div style=\"font-size:28px;font-weight:900;color:#1a1a1a;margin:6px 0 2px\">"
-            "EUR " + str(price)
+            + f"{price:,}".replace(",", "&#8239;") + "&nbsp;€"
             + "<span style=\"font-size:13px;color:#888;font-weight:400\">&nbsp;"
             + period + "</span></div>"
         )
@@ -122,7 +122,7 @@ def _card_html(plan_key, plan, price, period, is_current):
         + plan["label"] + "</div>"
         + prix
         + "<div style=\"font-size:12px;color:#888;margin-bottom:10px\">"
-        + quota_str + " analyses</div>"
+        + quota_str + "</div>"
         + "<hr style=\"border:none;border-top:1px solid #e5e7eb;margin:8px 0\">"
         + feats
         + current_banner
