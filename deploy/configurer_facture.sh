@@ -21,4 +21,6 @@ cat secrets.toml.tmp > secrets.toml && rm -f secrets.toml.tmp
 docker compose up -d --force-recreate app > /dev/null 2>&1
 echo "  Pied de facture enregistré :"
 echo "  $TEXTE"
-echo "✅ Appliqué aux prochaines factures (et aux clients existants à leur prochain passage par l'abonnement)."
+sleep 8
+docker compose exec -T app python scripts/stripe_pied_facture.py || echo "  ATTENTION : clients Stripe non mis à jour (relancer scripts/stripe_pied_facture.py)."
+echo "✅ Appliqué aux prochaines factures de tous les clients (les factures déjà émises ne changent pas)."
