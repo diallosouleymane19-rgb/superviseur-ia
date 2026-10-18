@@ -475,6 +475,9 @@ def page_rapprochement():
                 solde_compta = st.number_input("Solde comptable du compte de banque à la même date (€)", value=None,
                                                step=0.01, format="%.2f", placeholder="ex. 11 933,00",
                                                help="Solde du 512 dans votre balance ou grand livre. Débiteur = positif.")
+            if solde_releve is None or solde_compta is None:
+                st.caption("Sans ces deux soldes, le rapprochement des opérations est fait, mais l'état de "
+                           "rapprochement (soldes rectifiés et écart) n'est pas établi, ni à l'écran ni dans le rapport Word.")
 
             if st.button("Lancer le rapprochement", type="primary", width="stretch"):
                 if not compter_analyse("Rapprochement"):
