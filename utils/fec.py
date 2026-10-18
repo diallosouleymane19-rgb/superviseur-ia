@@ -248,8 +248,8 @@ def visuels_fec(df, score, niveau, anomalies):
     ton = "bon" if score >= 90 else "neutre" if score >= 75 else "mauvais"
     compte = lambda g: len([a for a in anomalies if a['gravite'] == g])
     ind = [{"libelle": "Conformité DGFiP", "valeur": f"{nb_fr(score, 1)} %", "detail": niveau, "ton": ton},
-           {"libelle": "Écritures (lignes)", "valeur": nb_fr(len(df))}]
-    for col, lib in (('EcritureNum', "Pièces"), ('CompteNum', "Comptes"), ('JournalCode', "Journaux")):
+           {"libelle": "Lignes", "valeur": nb_fr(len(df))}]
+    for col, lib in (('EcritureNum', "Écritures"), ('CompteNum', "Comptes"), ('JournalCode', "Journaux")):
         if col in df.columns:
             ind.append({"libelle": lib, "valeur": nb_fr(df[col].nunique())})
     ind += [{"libelle": "Anomalies élevées", "valeur": str(compte('Élevée')), "ton": "mauvais" if compte('Élevée') else "bon",
@@ -286,12 +286,12 @@ def analyser_fec(df):
     
     # 1. STATISTIQUES GENERALES
     rapport.append("### 1. STATISTIQUES GÉNÉRALES")
-    rapport.append(f"- **Nombre total d'écritures** : {nb_fr(len(df), 0)}")
+    rapport.append(f"- **Nombre de lignes** : {nb_fr(len(df), 0)}")
     rapport.append(f"- **Nombre de colonnes** : {len(df.columns)}")
     
     if 'EcritureNum' in df.columns:
         nb_pieces = df['EcritureNum'].nunique()
-        rapport.append(f"- **Nombre de pièces comptables** : {nb_fr(nb_pieces, 0)}")
+        rapport.append(f"- **Nombre d'écritures** (numéros d'écriture) : {nb_fr(nb_pieces, 0)}")
     
     if 'CompteNum' in df.columns:
         nb_comptes = df['CompteNum'].nunique()
@@ -317,7 +317,7 @@ def analyser_fec(df):
             rapport.append(f"- **Total Crédit** : {_eur(total_credit)}")
             rapport.append(f"- **Volume total** : {_eur(volume_total)}")
             rapport.append(f"- **Écart D/C** : {_eur(abs(total_debit - total_credit))}")
-            rapport.append(f"- **Montant moyen écriture** : {_eur(volume_total / len(df))}")
+            rapport.append(f"- **Montant moyen par ligne** : {_eur(volume_total / len(df))}")
         except Exception as e:
             rapport.append(f"*Erreur calcul : {e}*")
     
@@ -327,7 +327,7 @@ def analyser_fec(df):
         repartition = df['JournalCode'].value_counts().head(10)
         for journal, count in repartition.items():
             pct = (count / len(df)) * 100
-            rapport.append(f"- **{journal}** : {nb_fr(count, 0)} écritures ({nb_fr(pct, 1)} %)")
+            rapport.append(f"- **{journal}** : {nb_fr(count, 0)} lignes ({nb_fr(pct, 1)} %)")
     
     # 4. ANALYSE PERIODE
     if 'EcritureDate' in df.columns:
@@ -337,7 +337,7 @@ def analyser_fec(df):
             if len(dates) > 0:
                 rapport.append(f"- **Date début** : {dates.min().strftime('%d/%m/%Y')}")
                 rapport.append(f"- **Date fin** : {dates.max().strftime('%d/%m/%Y')}")
-                rapport.append(f"- **Durée** : {(dates.max() - dates.min()).days} jours")
+                rapport.append(f"- **Durée** : {(dates.max() - dates.min()).days + 1} jours")
         except Exception:
             rapport.append("*Format de dates non standard*")
     
@@ -431,14 +431,14 @@ def page_fec():
             st.info("Pour une facture, utilisez la page **Analyse et comptabilisation de factures**, "
                     "puis exportez les écritures au format FEC.")
         else:
-            st.success(f"FEC chargé : **{nb_fr(len(df), 0)} écritures** | Séparateur : `{sep}` | Encodage : `{enc}`", icon=":material/check_circle:")
+            st.success(f"FEC chargé : **{nb_fr(len(df), 0)} lignes** | Séparateur : `{sep}` | Encodage : `{enc}`", icon=":material/check_circle:")
 
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("Écritures", f"{nb_fr(len(df), 0)}")
+                st.metric("Lignes", f"{nb_fr(len(df), 0)}")
             with col2:
                 if 'EcritureNum' in df.columns:
-                    st.metric("Pièces", f"{nb_fr(df['EcritureNum'].nunique(), 0)}")
+                    st.metric("Écritures", f"{nb_fr(df['EcritureNum'].nunique(), 0)}")
             with col3:
                 if 'CompteNum' in df.columns:
                     st.metric("Comptes", f"{df['CompteNum'].nunique()}")
