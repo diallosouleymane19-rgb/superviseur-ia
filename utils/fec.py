@@ -364,7 +364,7 @@ def detecter_anomalies_fec(df):
                 'type': 'Libellé manquant',
                 'gravite': 'Moyenne',
                 'count': int(sans_libelle),
-                'description': f"{sans_libelle} écritures sans libellé"
+                'description': f"{sans_libelle} ligne{'s' if sans_libelle > 1 else ''} sans libellé"
             })
     
     # Montants nuls Debit ET Credit
@@ -380,7 +380,7 @@ def detecter_anomalies_fec(df):
                     'type': 'Écritures montants nuls',
                     'gravite': 'Faible',
                     'count': int(ecritures_nulles),
-                    'description': f"{ecritures_nulles} écritures avec Débit=0 et Crédit=0"
+                    'description': f"{ecritures_nulles} ligne{'s' if ecritures_nulles > 1 else ''} avec débit et crédit à zéro"
                 })
         except:
             pass
@@ -392,7 +392,7 @@ def detecter_anomalies_fec(df):
             'type': 'Doublons exacts',
             'gravite': 'Élevée',
             'count': int(duplicates),
-            'description': f"{duplicates} lignes en doublons exacts détectées"
+            'description': f"{duplicates} ligne{'s' if duplicates > 1 else ''} en double exact (même journal, numéro, compte, libellé et montant)"
         })
     
     return anomalies
