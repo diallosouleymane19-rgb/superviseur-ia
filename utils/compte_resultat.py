@@ -143,6 +143,7 @@ def calculer_compte_resultat(df, type_entreprise='Mixte'):
     achats_marchandises = df[df['_racine_3'] == '607']['_debit'].sum() - df[df['_racine_3'] == '607']['_credit'].sum()
     achats_mp = df[df['_racine_3'] == '601']['_debit'].sum() - df[df['_racine_3'] == '601']['_credit'].sum()
     var_stocks = df[df['_racine_3'] == '603']['_debit'].sum() - df[df['_racine_3'] == '603']['_credit'].sum()
+    rrr_obtenus = df[df['_racine_3'] == '609']['_debit'].sum() - df[df['_racine_3'] == '609']['_credit'].sum()
     
     charges_60 = df[df['_sous_classe'] == '60']['_debit'].sum() - df[df['_sous_classe'] == '60']['_credit'].sum()
     charges_61 = df[df['_sous_classe'] == '61']['_debit'].sum() - df[df['_sous_classe'] == '61']['_credit'].sum()
@@ -162,7 +163,8 @@ def calculer_compte_resultat(df, type_entreprise='Mixte'):
         'Achats marchandises (607)': achats_marchandises,
         'Achats matières premières (601)': achats_mp,
         'Variation stocks (603)': var_stocks,
-        'Autres achats (60)': charges_60 - achats_marchandises - achats_mp - var_stocks,
+        'Rabais, remises, ristournes obtenus (609)': rrr_obtenus,
+        'Autres achats (60)': charges_60 - achats_marchandises - achats_mp - var_stocks - rrr_obtenus,
         'Services extérieurs (61)': charges_61,
         'Autres services extérieurs (62)': charges_62,
         'Impôts et taxes (63)': charges_63,
@@ -348,6 +350,7 @@ def generer_rapport_compte_resultat(resultat, nom_entreprise="Entreprise", exerc
             rapport.append("| Rubrique | Montant |")
             rapport.append("|----------|--------:|")
             rapport += [f"| {k} | {eur_fr(v, 2)} |" for k, v in lignes]
+            rapport.append(f"| **Total des {cle}** | **{eur_fr(sum(v for _, v in lignes), 2)}** |")
             rapport.append("")
 
     rapport.append("---")
