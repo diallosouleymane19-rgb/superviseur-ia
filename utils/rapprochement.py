@@ -432,8 +432,8 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire", etat=
         rapport += _tableau_operations(resultats.get(cle), titre, explication)
     if regularisations is not None and not regularisations.empty:
         rapport += ["---", "", "## ÉCRITURES DE RÉGULARISATION PROPOSÉES", "",
-                    "*Opérations du relevé non comptabilisées. Proposition à vérifier sur les pièces avant saisie ; "
-                    "le compte 471000 est à affecter.*", "",
+                    "*Opérations du relevé non comptabilisées. Proposition à vérifier sur les pièces avant saisie"
+                    + (" ; le compte 471000 est à affecter." if (regularisations["Compte"] == "471000").any() else ".") + "*", "",
                     "| Date | Compte | Intitulé | Libellé | Débit (€) | Crédit (€) |",
                     "|------|--------|----------|---------|----------:|-----------:|"]
         for _, l in regularisations.iterrows():
@@ -599,7 +599,8 @@ def page_rapprochement():
                     if not regul.empty:
                         st.markdown("### Écritures de régularisation proposées")
                         st.caption("Opérations du relevé absentes de la comptabilité. Contrepartie proposée d'après le libellé ; "
-                                   "à vérifier sur les pièces avant saisie. Le compte 471000 est à affecter.")
+                                   "à vérifier sur les pièces avant saisie."
+                                   + (" Le compte 471000 est à affecter." if (regul["Compte"] == "471000").any() else ""))
                         aff = regul.copy()
                         for c in ("Débit", "Crédit"):
                             aff[c] = aff[c].map(lambda x: nb_fr(x, 2) if x else "")
