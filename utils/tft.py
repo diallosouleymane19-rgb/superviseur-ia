@@ -323,6 +323,19 @@ def rapport_tft(data: dict, resultats: dict, exercices: list, entreprise: str) -
     r += ["", "## Lecture", ""]
     r.append(f"- **Activité** : {'génère' if d['Flux activité (I)'] >= 0 else 'consomme'} "
              f"{nb_fr(abs(d['Flux activité (I)']))} € de trésorerie en {exercices[-1]}.")
+    inv, fin, act = d['Flux investissement (II)'], d['Flux financement (III)'], d['Flux activité (I)']
+    if inv:
+        r.append(f"- **Investissement** : {'investissements nets de' if inv < 0 else 'cessions nettes de'} "
+                 f"{nb_fr(abs(inv))} €.")
+    if fin:
+        sec_fin = next(v for k, v in TFT_STRUCTURE.items() if k.startswith("III"))
+        detail = [f"{lib[:1].lower()}{lib[1:]} {nb_fr(abs(x))} €" for lib, _ in sec_fin["lignes"]
+                  for x in [float(data.get(lib, {}).get(exercices[-1], 0) or 0)] if x]
+        r.append(f"- **Financement** : {'sorties nettes de' if fin < 0 else 'ressources nettes de'} {nb_fr(abs(fin))} €"
+                 + (f" ({' ; '.join(detail)})" if detail else "") + ".")
+    if act > 0 and inv + fin < 0 and act + inv + fin >= 0:
+        r.append(f"- **Conclusion** : l'activité finance les investissements et les remboursements, "
+                 f"et la trésorerie augmente encore de {nb_fr(act + inv + fin)} €.")
     if d['Flux activité (I)'] + d['Flux investissement (II)'] < 0:
         r.append("- **Les investissements ne sont pas couverts par l'activité** : ils sont financés par la trésorerie "
                  "existante ou par le financement externe.")
