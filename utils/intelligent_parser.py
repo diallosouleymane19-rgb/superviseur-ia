@@ -133,11 +133,27 @@ def mapper_sans_entete(df, info):
 
 
 def identifier_colonne(nom_colonne, type_colonne):
+    import re
     nom_lower = str(nom_colonne).lower().strip()
     for mot_cle in MOTS_CLES.get(type_colonne, []):
-        if mot_cle in nom_lower:
+        if len(mot_cle) <= 3:     # « sd », « sc », « cpt » : mot entier (sinon « description » contiendrait « sc »)
+            if re.search(rf"(?<![a-zà-ÿ]){re.escape(mot_cle)}(?![a-zà-ÿ])", nom_lower):
+                return True
+        elif mot_cle in nom_lower:
             return True
     return False
+
+
+def _est_a_nouveau(nom):
+    """Colonne d'à-nouveaux (soldes d'ouverture) : « A nouveau débit », « Report crédit », « Ouverture »…"""
+    n = _sans_accents(nom)
+    return any(k in n for k in ("a nouveau", "a-nouveau", "anouveau", "report", "ouverture", "opening")) \
+        or n.startswith(("an ", "an_"))
+
+
+def _sans_accents(t):
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", str(t).lower()) if unicodedata.category(c) != "Mn")
 
 
 def detecter_colonnes_numeriques(df, colonnes_utilisees):
@@ -201,7 +217,17 @@ def mapper_colonnes_intelligent(df, info):
                     colonnes_utilisees.add(col)
                     break
     
-    # 3. Debit — mots-clés d'abord
+    # 3. À-nouveaux (soldes d'ouverture) : colonnes à part, jamais prises pour les mouvements
+    for col in df.columns:
+        if col in colonnes_utilisees or not _est_a_nouveau(col):
+            continue
+        n = _sans_accents(col)
+        cible = 'ANDebit' if ('debit' in n or 'doit' in n) else 'ANCredit' if 'credit' in n else None
+        if cible and cible not in mapping.values():
+            mapping[col] = cible
+            colonnes_utilisees.add(col)
+
+    # 4. Debit — mots-clés d'abord
     debit_candidats = []
     for col in df.columns:
         if col in colonnes_utilisees:
@@ -231,8 +257,25 @@ def mapper_colonnes_intelligent(df, info):
         mapping[credit_candidats[0]] = 'Credit'
         colonnes_utilisees.add(credit_candidats[0])
     
-    # 5. FALLBACK NUMÉRIQUE — si Debit ou Credit non détectés par mots-clés
-    if 'Debit' not in mapping.values() or 'Credit' not in mapping.values():
+    # 5. Soldes débiteur / créditeur, ou solde unique signé
+    for type_solde in ('SoldeDebiteur', 'SoldeCrediteur'):
+        for col in df.columns:
+            if col not in colonnes_utilisees and identifier_colonne(col, type_solde):
+                mapping[col] = type_solde
+                colonnes_utilisees.add(col)
+                break
+    if not {'SoldeDebiteur', 'SoldeCrediteur'} & set(mapping.values()):
+        for col in df.columns:
+            n = _sans_accents(col)
+            if col not in colonnes_utilisees and ('solde' in n or n.strip() == 'balance') \
+                    and not any(k in n for k in ('debit', 'credit', 'debiteur', 'crediteur')):
+                mapping[col] = 'Solde'
+                colonnes_utilisees.add(col)
+                break
+
+    # FALLBACK NUMÉRIQUE — si ni mouvements ni soldes n'ont été reconnus
+    soldes_trouves = {'SoldeDebiteur', 'SoldeCrediteur', 'Solde'} & set(mapping.values())
+    if not soldes_trouves and ('Debit' not in mapping.values() or 'Credit' not in mapping.values()):
         cols_numeriques = detecter_colonnes_numeriques(df, colonnes_utilisees)
         
         if 'Debit' not in mapping.values() and len(cols_numeriques) > 0:
@@ -244,23 +287,6 @@ def mapper_colonnes_intelligent(df, info):
             col_credit = cols_numeriques.pop(0)
             mapping[col_credit] = 'Credit'
             colonnes_utilisees.add(col_credit)
-    
-    # 6. Soldes
-    for col in df.columns:
-        if col in colonnes_utilisees:
-            continue
-        if identifier_colonne(col, 'SoldeDebiteur'):
-            mapping[col] = 'SoldeDebiteur'
-            colonnes_utilisees.add(col)
-            break
-    
-    for col in df.columns:
-        if col in colonnes_utilisees:
-            continue
-        if identifier_colonne(col, 'SoldeCrediteur'):
-            mapping[col] = 'SoldeCrediteur'
-            colonnes_utilisees.add(col)
-            break
     
     info['colonnes_mappees'] = mapping
     return df.rename(columns=mapping)
@@ -297,7 +323,7 @@ def parser_balance_intelligent(fichier):
         df_propre = mapper_sans_entete(df_donnees, info)
         info['ligne_entete'] = None
         info['colonnes_manquantes'] = [c for c in ('CompteNum', 'Debit', 'Credit') if c not in df_propre.columns]
-        df_propre = nettoyer_balance(df_propre)
+        df_propre = nettoyer_balance(normaliser_montants(df_propre, info))
         info['nb_lignes_donnees'] = len(df_propre)
         return df_propre, info
     if ligne_entete is None:
@@ -334,10 +360,83 @@ def parser_balance_intelligent(fichier):
         if c not in df_propre.columns
     ]
     
-    df_propre = nettoyer_balance(df_propre)
+    df_propre = nettoyer_balance(normaliser_montants(df_propre, info))
     info['nb_lignes_donnees'] = len(df_propre)
     
     return df_propre, info
+
+
+def montants(serie):
+    """Montants au format français ou anglais -> nombres : « 1 234,56 » (espaces normales, insécables ou fines),
+    « 1.234,56 », « 1,234.56 », « (1 234,56) » ou « 1 234,56- » (négatifs), « 12,5 € ». Cellule vide -> 0."""
+    import re
+    def un(v):
+        if v is None or (isinstance(v, float) and v != v):
+            return 0.0
+        if isinstance(v, (int, float)):
+            return float(v)
+        t = re.sub(r"[\s\u00a0\u202f\u2009€$£]|EUR", "", str(v))
+        if not t or t.lower() in ("nan", "none", "-"):
+            return 0.0
+        neg = t.startswith("(") and t.endswith(")") or t.endswith("-")
+        t = t.strip("()").rstrip("-")
+        if "," in t and "." in t:
+            t = t.replace(".", "").replace(",", ".") if t.rfind(",") > t.rfind(".") else t.replace(",", "")
+        elif "," in t:
+            t = t.replace(",", ".") if len(t.rsplit(",", 1)[1]) != 3 or t.count(",") == 1 and len(t.split(",")[0].lstrip("-")) > 3 \
+                else t.replace(",", "")
+        elif t.count(".") > 1:
+            t = t.replace(".", "")
+        try:
+            x = float(t)
+        except ValueError:
+            return float("nan")
+        return -abs(x) if neg else x
+    return serie.map(un)
+
+
+def normaliser_montants(df, info=None):
+    """Colonnes Debit / Credit numériques et cohérentes pour tous les modules :
+    - soldes débiteur / créditeur présents : ils font foi (ils incluent les à-nouveaux) ; les mouvements
+      sont gardés en MvtDebit / MvtCredit ;
+    - solde unique signé : débit si positif, crédit si négatif ;
+    - à-nouveaux + mouvements sans soldes : à-nouveaux ajoutés aux mouvements."""
+    cols = set(df.columns)
+    df = df.copy()
+    illisibles = 0
+    for c in ('Debit', 'Credit', 'SoldeDebiteur', 'SoldeCrediteur', 'Solde', 'ANDebit', 'ANCredit'):
+        if c in cols:
+            v = montants(df[c])
+            if 'CompteNum' in cols:   # les lignes de titre ou de total, retirées ensuite, ne comptent pas
+                v_utiles = v[df['CompteNum'].astype(str).str.strip().str.match(r"^\d")]
+                illisibles += int(v_utiles.isna().sum())
+            df[c] = v.fillna(0.0)
+    if info is not None:
+        info['montants_illisibles'] = illisibles
+    source = None
+    if {'SoldeDebiteur', 'SoldeCrediteur'} <= cols:
+        if {'Debit', 'Credit'} <= cols:
+            df = df.rename(columns={'Debit': 'MvtDebit', 'Credit': 'MvtCredit'})
+        sd, sc = df['SoldeDebiteur'], df['SoldeCrediteur']
+        # un solde négatif dans la colonne opposée (certains logiciels) est remis du bon côté
+        df['Debit'] = sd.clip(lower=0) + (-sc).clip(lower=0)
+        df['Credit'] = sc.clip(lower=0) + (-sd).clip(lower=0)
+        source = "soldes débiteurs et créditeurs"
+    elif 'Solde' in cols and not {'Debit', 'Credit'} <= cols:
+        df['Debit'], df['Credit'] = df['Solde'].clip(lower=0), (-df['Solde']).clip(lower=0)
+        source = "solde unique (positif = débiteur, négatif = créditeur)"
+    elif {'ANDebit', 'ANCredit'} & cols and {'Debit', 'Credit'} <= cols:
+        df['MvtDebit'], df['MvtCredit'] = df['Debit'], df['Credit']
+        df['Debit'] = df['Debit'] + df.get('ANDebit', 0)
+        df['Credit'] = df['Credit'] + df.get('ANCredit', 0)
+        source = "à-nouveaux + mouvements de l'exercice"
+    elif {'Debit', 'Credit'} <= cols:
+        source = "colonnes débit et crédit"
+    if info is not None:
+        info['montants_depuis'] = source
+        if source and source != "colonnes débit et crédit":
+            info['colonnes_manquantes'] = [c for c in info.get('colonnes_manquantes', []) if c not in ('Debit', 'Credit')]
+    return df
 
 
 def nettoyer_balance(df):
@@ -414,4 +513,7 @@ def charger_balance_ou_fec(fichier):
     fichier.seek(0)
     df, info = parser_balance_intelligent(fichier)
     msg = f"Balance lue : {len(df):,} comptes".replace(",", " ")
+    if info.get('montants_illisibles'):
+        msg += (f" — ATTENTION : {info['montants_illisibles']} montant(s) illisible(s) compté(s) pour 0, "
+                "vérifiez le fichier")
     return df, msg, info

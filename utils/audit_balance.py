@@ -25,6 +25,10 @@ def _sans_accents(t):
 def detecter_colonnes(df):
     """Détecte automatiquement les colonnes Debit/Credit/Compte (« Débit », « Crédit » acceptés)"""
     colonnes = {}
+    # Balance déjà normalisée par le lecteur (intelligent_parser) : colonnes standard
+    std = {'compte': 'CompteNum', 'libelle': 'CompteLib', 'debit': 'Debit', 'credit': 'Credit'}
+    if all(v in df.columns for k, v in std.items() if k != 'libelle'):
+        return {k: v for k, v in std.items() if v in df.columns}
     
     # Detection Compte
     for col in df.columns:
@@ -84,9 +88,11 @@ def auditer_balance(df):
     
     # Conversion numerique
     if 'debit' in cols:
-        df['_debit'] = pd.to_numeric(df[cols['debit']].astype(str).str.replace(',', '.').str.replace(' ', ''), errors='coerce').fillna(0)
+        from utils.intelligent_parser import montants
+        df['_debit'] = montants(df[cols['debit']]).fillna(0)
     if 'credit' in cols:
-        df['_credit'] = pd.to_numeric(df[cols['credit']].astype(str).str.replace(',', '.').str.replace(' ', ''), errors='coerce').fillna(0)
+        from utils.intelligent_parser import montants
+        df['_credit'] = montants(df[cols['credit']]).fillna(0)
     
     points = 0
     points_max = 100
@@ -362,6 +368,11 @@ def page_audit_balance():
                 with col3:
                     st.metric("Lignes données", info['nb_lignes_donnees'])
 
+                if info.get('montants_illisibles'):
+                    st.warning(f"{info['montants_illisibles']} montant(s) illisible(s) compté(s) pour 0 : "
+                               "vérifiez le format des nombres dans le fichier.", icon=":material/warning:")
+                if info.get('montants_depuis'):
+                    st.caption(f"Montants lus depuis : {info['montants_depuis']}.")
                 if info['colonnes_manquantes']:
                     st.warning(f"Colonnes non détectées : {', '.join(info['colonnes_manquantes'])}. Essayez le mode manuel.", icon=":material/warning:")
 
