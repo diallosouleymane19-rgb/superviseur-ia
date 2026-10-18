@@ -1,3 +1,4 @@
+import pandas as pd
 # -*- coding: utf-8 -*-
 """
 Export Word du Comparatif N / N-1 : indicateurs clés, graphiques, tableaux et analyse des écarts.
@@ -66,6 +67,8 @@ def _note(doc, texte):
 
 
 def _ecart_txt(ea, ep):
+    if ep is None or pd.isna(ep):
+        return f"{nb_fr_signe(ea)} € (n.s.)"
     return f"{nb_fr_signe(ea)} € ({nb_fr_signe(ep, 1)} %)"
 
 
@@ -107,7 +110,8 @@ def _tableau(doc, df, label_n1, label_n):
         total = rub.upper().startswith("TOTAL") or rub.startswith("Résultat")
         cells = t.add_row().cells
         valeurs = [rub, nb_fr(ligne[label_n1]), nb_fr(ligne[label_n]),
-                   nb_fr_signe(ligne["Écart (€)"]), nb_fr_signe(ligne["Écart (%)"], 1)]
+                   nb_fr_signe(ligne["Écart (€)"]),
+                   "n.s." if ligne["Écart (%)"] is None or pd.isna(ligne["Écart (%)"]) else nb_fr_signe(ligne["Écart (%)"], 1)]
         for j, v in enumerate(valeurs):
             if total:
                 _fond(cells[j], "EEF2F7")

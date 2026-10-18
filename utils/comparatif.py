@@ -28,7 +28,7 @@ def _ecart(val_n: float, val_n1: float):
     if val_n1 != 0:
         ecart_pct = (ecart_abs / abs(val_n1)) * 100
     else:
-        ecart_pct = 100.0 if val_n != 0 else 0.0
+        ecart_pct = None if val_n != 0 else 0.0   # base nulle : pourcentage non significatif (« n.s. »)
     return ecart_abs, ecart_pct
 
 
@@ -44,7 +44,7 @@ def _formats(c1: str, c2: str) -> dict:
     nb = lambda v: "—" if _vide(v) else nb_fr(v, 0)
     return {c1: nb, c2: nb,
             'Écart (€)': lambda v: "—" if _vide(v) else nb_fr_signe(v, 0),
-            'Écart (%)': lambda v: "—" if _vide(v) else nb_fr_signe(v, 1)}
+            'Écart (%)': lambda v: "n.s." if _vide(v) else nb_fr_signe(v, 1)}
 
 
 LIGNES_CHARGES = ("Coût", "Consommations", "Impôts", "Charges", "Participation", "Achats", "Dotations")
@@ -79,7 +79,7 @@ def _fmt(v: float) -> str:
 
 def _fmt_pct(v: float) -> str:
     if v is None:
-        return "—"
+        return "n.s."
     sign = "+" if v >= 0 else ""
     return f"{sign}{v:.1f} %".replace(".", ",")
 
@@ -290,7 +290,7 @@ def rapport_comparatif(entreprise, label_n, label_n1, kpis, alertes, tableaux) -
     for titre, df in tableaux:
         r += ["", f"## {titre}", "", f"| Rubrique | {label_n1} | {label_n} | Écart (€) | Écart (%) |", "|---|---:|---:|---:|---:|"]
         r += [f"| {x['Rubrique']} | {nb_fr(x[label_n1])} | {nb_fr(x[label_n])} | {nb_fr_signe(x['Écart (€)'])} | "
-              f"{nb_fr_signe(x['Écart (%)'], 1)} |" for _, x in df.iterrows()]
+              f"{'n.s.' if _vide(x['Écart (%)']) else nb_fr_signe(x['Écart (%)'], 1)} |" for _, x in df.iterrows()]
     return "\n".join(r)
 
 
@@ -508,10 +508,14 @@ def page_comparatif():
         ea_ca = (ca_n - ca_n1) / abs(ca_n1) * 100
         if ea_ca < -10:
             alertes.append(('error', f"CA en baisse de {nb_fr(abs(ea_ca), 1)} % — analyse des causes requise"))
-        elif ea_ca > 15:
-            alertes.append(('success', f"CA en hausse de {nb_fr(ea_ca, 1)} % — performance commerciale solide"))
-        else:
+        elif ea_ca < -2:
+            alertes.append(('warning', f"CA en baisse de {nb_fr(abs(ea_ca), 1)} %"))
+        elif ea_ca <= 2:
             alertes.append(('info', f"CA stable ({nb_fr_signe(ea_ca, 1)} %)"))
+        elif ea_ca <= 15:
+            alertes.append(('success', f"CA en hausse de {nb_fr(ea_ca, 1)} %"))
+        else:
+            alertes.append(('success', f"CA en forte hausse de {nb_fr(ea_ca, 1)} % — performance commerciale solide"))
 
     # Résultat net
     rn_n = sig_n.get("Résultat net", 0) or 0
@@ -523,7 +527,9 @@ def page_comparatif():
     elif rn_n1 != 0:
         ea_rn, _ = _ecart(rn_n, rn_n1)
         if abs(ea_rn) / abs(rn_n1) > 0.20:
-            alertes.append(('warning', f"Résultat net : variation significative de {nb_fr_signe(ea_rn, 0)} €"))
+            sens = "hausse" if ea_rn > 0 else "baisse"
+            alertes.append(('success' if ea_rn > 0 else 'warning',
+                            f"Résultat net en {sens} de {nb_fr(abs(ea_rn), 0)} € ({nb_fr_signe(ea_rn / abs(rn_n1) * 100, 1)} %)"))
 
     # BFR
     bfr_n = (bilan_n.get('ratios') or {}).get(B.R_BFR, 0) or 0

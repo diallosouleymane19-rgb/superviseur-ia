@@ -693,7 +693,7 @@ def test_ecart_comparatif():
     from utils.comparatif import _ecart
     assert _ecart(120, 100) == (20, A(20))
     assert _ecart(-50, -100) == (50, A(50))          # perte réduite : amélioration
-    assert _ecart(10, 0) == (10, 100.0)
+    assert _ecart(10, 0) == (10, None)                 # base nulle : pourcentage non significatif (n.s.)
 
 
 # ═══ Confidentialité : masquage avant envoi à l'IA ═══════════════════════════
@@ -744,3 +744,14 @@ def test_bilan_compte_courant_associe_en_dettes_financieres():
     r = calculer_bilan(b)
     assert r["passif"][EMPRUNTS] == A(15000) and r["passif"][AUTRES_DETTES] == A(0)
     assert r["ratios"][R_FRNG] == A(5000) and r["ratios"][R_BFR] == A(1000) and r["ratios"][R_TN] == A(4000)
+
+
+def test_comparatif_ecart_sur_base_nulle_non_significatif():
+    from utils.comparatif import _ecart, _build_comparatif_df, rapport_comparatif
+    from utils.export_comparatif import _ecart_txt
+    assert _ecart(4000, 0) == (4000, None) and _ecart(0, 0) == (0, 0.0)
+    assert _ecart(-400, 0)[1] is None
+    assert _ecart_txt(4000, None) == "+4 000 € (n.s.)"
+    df = _build_comparatif_df({"Subventions": 4000, "CA": 516000}, {"Subventions": 0, "CA": 453000}, "2025", "2024")
+    r = rapport_comparatif("X", "2025", "2024", [], [], [("SIG", df)])
+    assert "| Subventions | 0 | 4 000 | +4 000 | n.s. |" in r
