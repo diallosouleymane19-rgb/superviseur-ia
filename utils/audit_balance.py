@@ -209,7 +209,11 @@ def auditer_balance(df):
             
             if produits > 0:
                 resultat = produits - charges
-                marge = (resultat / produits) * 100
+                cpt70 = df[cols['compte']].astype(str).str.strip().str.startswith('70')
+                ca = df.loc[cpt70, '_credit'].sum() - df.loc[cpt70, '_debit'].sum()
+                base = ca if ca > 0 else produits      # marge nette = résultat / chiffre d'affaires
+                marge = (resultat / base) * 100
+                audit['kpis']['chiffre_affaires'] = ca
                 audit['kpis']['charges_totales'] = charges
                 audit['kpis']['produits_totaux'] = produits
                 audit['kpis']['resultat_estime'] = resultat

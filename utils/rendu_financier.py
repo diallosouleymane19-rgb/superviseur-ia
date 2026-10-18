@@ -266,7 +266,7 @@ def visuels_synthese_score(score, niveau, kpis, controles, anomalies, devise="�
         ordre = ["Capitaux", "Immobilisations", "Stocks", "Tiers", "Financiers", "Charges", "Produits", "Speciaux"]
         cles = sorted(rep, key=lambda k: ordre.index(k) if k in ordre else 99)
         graphiques.append(barres_simples([k.replace("Speciaux", "Spéciaux") for k in cles], [rep[k] for k in cles],
-                                         "Nombre de lignes par classe de comptes", unite="Nombre de lignes"))
+                                         "Nombre de comptes par classe", unite="Nombre de comptes"))
     return ind, graphiques
 
 
@@ -339,16 +339,16 @@ def afficher_synthese_score(
             rep = kpis['repartition_classes']
             df_rep = pd.DataFrame(
                 [(k, v) for k, v in rep.items()],
-                columns=["Classe", "Nb écritures"]
-            ).sort_values("Nb écritures", ascending=False)
+                columns=["Classe", "Nombre de comptes"]
+            ).sort_values("Nombre de comptes", ascending=False)
             cols_rep = st.columns([2, 3])
             with cols_rep[0]:
                 st.dataframe(df_rep, width="stretch", hide_index=True)
             with cols_rep[1]:
                 import plotly.graph_objects as go
-                fig_rep = go.Figure(go.Bar(x=[str(c) for c in df_rep["Classe"]], y=df_rep["Nb écritures"],
+                fig_rep = go.Figure(go.Bar(x=[str(c) for c in df_rep["Classe"]], y=df_rep["Nombre de comptes"],
                                            marker_color="#1c5cab"))
-                fig_rep.update_layout(height=300, yaxis_title="Nombre de lignes", yaxis_tickformat=",.0f",
+                fig_rep.update_layout(height=300, yaxis_title="Nombre de comptes", yaxis_tickformat=",.0f",
                                       xaxis_type="category", margin=dict(l=10, r=10, t=10, b=10))
                 st.plotly_chart(fig_rep, width="stretch")
 
