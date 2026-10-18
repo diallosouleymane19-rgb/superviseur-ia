@@ -201,7 +201,7 @@ def generer_checklist_cloture(exercice):
         # Provisions
         {"Catégorie": "⚠ Provisions", "Tâche": "Provisions créances douteuses (491)", "Priorité": "🔴 Critique", "Délai": "J-10"},
         {"Catégorie": "⚠ Provisions", "Tâche": "Provisions risques et charges (15x)", "Priorité": "🟡 Important", "Délai": "J-10"},
-        {"Catégorie": "⚠ Provisions", "Tâche": "Provisions pour congés payés (428)", "Priorité": "🟡 Important", "Délai": "J-10"},
+        {"Catégorie": "⚠ Provisions", "Tâche": "Congés payés à payer et charges sociales (4282, 4382)", "Priorité": "🟡 Important", "Délai": "J-10"},
         
         # Régularisations
         {"Catégorie": "🔄 Régularisations", "Tâche": "Charges constatées d'avance (486)", "Priorité": "🔴 Critique", "Délai": "J-5"},
@@ -345,8 +345,13 @@ def page_inventaire():
 
                 st.divider()
                 st.markdown("### Écriture comptable")
+                ttc_douteux = float(df_resultats.loc[df_resultats['Taux (%)'] > 0, 'Créance TTC (€)'].sum()) if total else 0.0
                 st.info(f"""
-    **Dotation aux dépréciations :**
+    **1. Reclassement des créances douteuses (montant TTC) :**
+    - Débit **416** (Clients douteux ou litigieux) : {nb_fr(ttc_douteux, 2)} €
+    - Crédit **411** (Clients) : {nb_fr(ttc_douteux, 2)} €
+
+    **2. Dotation aux dépréciations (base HT) :**
     - Débit **6817** (Dotations aux dépréciations des actifs circulants) : {nb_fr(total, 2)} €
     - Crédit **491** (Dépréciations des comptes clients) : {nb_fr(total, 2)} €
                 """)
@@ -356,6 +361,7 @@ def page_inventaire():
                                                       "*Calculée sur le montant HT ; taux indicatifs selon l'ancienneté.*", "",
                                                       tableau_markdown(df_resultats), "",
                                                       f"**Total des dépréciations** : {nb_fr(total, 2)} €", "",
+                                                      f"- Reclassement : Débit 416 / Crédit 411 : {nb_fr(ttc_douteux, 2)} € (TTC)",
                                                       f"- Débit 6817 (Dotations aux dépréciations des actifs circulants) : {nb_fr(total, 2)} €",
                                                       f"- Crédit 491 (Dépréciations des comptes clients) : {nb_fr(total, 2)} €"]
                                                      + ([f"", f"*{len(anciennes)} créance(s) de plus de 365 jours : perte "
