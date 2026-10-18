@@ -81,3 +81,19 @@ def test_liste_csv_sans_faux_controles_de_mentions():
     imputer(r)
     assert r["compte"] == "606100"
     assert not [c for c in r["controles"] if c[0] != "OK"]
+
+
+def test_vente_services_tva_exigible_a_l_encaissement():
+    r = _un(VENTE)
+    comptes = {l["compte"] for l in r["ecriture"]["lignes"]}
+    assert "445800" in comptes and "445710" not in comptes
+
+
+def test_vente_services_tva_directe_ou_option_debits():
+    from utils.compta_facture import generer_ecriture
+    d = {"type": "facture", "numero": "1", "client": "X", "ht": 100.0, "tva": 20.0, "ttc": 120.0}
+    assert "445710" in {l["compte"] for l in generer_ecriture(d, "vente", "706000", "service", "directe")["lignes"]}
+    d["option_debits"] = True
+    assert "445710" in {l["compte"] for l in generer_ecriture(d, "vente", "706000", "service")["lignes"]}
+    d["option_debits"] = False
+    assert "445710" in {l["compte"] for l in generer_ecriture(d, "vente", "707000", "bien")["lignes"]}

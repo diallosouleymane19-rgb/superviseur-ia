@@ -639,7 +639,7 @@ def test_facture_vente():
     r, e = _ecriture(texte)
     assert r["sens"] == "vente"
     assert e["411000"] == (A(120), 0)
-    assert e["445710"] == (0, A(20))
+    assert e["445800"] == (0, A(20))   # prestation de services : TVA exigible à l'encaissement
 
 
 # ═══ Plan de financement, comparatif ═════════════════════════════════════════

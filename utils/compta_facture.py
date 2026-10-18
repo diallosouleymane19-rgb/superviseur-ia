@@ -899,6 +899,14 @@ def nature_compte(compte):
     return "service"
 
 
+def _compte_tva_vente(d, nature, tva_services):
+    """TVA collectée : prestations de services exigibles à l'encaissement (art. 269 du CGI) -> 445800
+    jusqu'au paiement, sauf option pour les débits ; livraisons de biens -> 445710 dès la facture."""
+    if nature == "service" and tva_services == "exigibilite" and not d.get("option_debits"):
+        return "445800"
+    return "445710"
+
+
 def generer_ecriture(d, sens, compte, nature, tva_services="exigibilite", journal_achat="AC", journal_vente="VE",
                      groupes=None):
     """
@@ -942,7 +950,7 @@ def generer_ecriture(d, sens, compte, nature, tva_services="exigibilite", journa
         aux = code_auxiliaire(tiers_nom or "", "C")
         ligne("411000", aux, ttc, 0)
         ligne(compte, "", 0, ht)
-        ligne("445710", "", 0, tva)
+        ligne(_compte_tva_vente(d, nature, tva_services), "", 0, tva)
     return {"journal": journal_achat if sens == "achat" else journal_vente, "lignes": L}
 
 
@@ -963,9 +971,13 @@ def _ecriture_ventilee(d, sens, groupes, tva_services, journal_achat, journal_ve
     if sens == "vente":
         aux = code_auxiliaire(tiers_nom or "", "C")
         ligne("411000", aux, ttc, 0)
+        tva_c = {}
         for g in groupes:
             ligne(g["compte"], "", 0, g["ht"])
-        ligne("445710", "", 0, sum(g["tva"] for g in groupes))
+            c = _compte_tva_vente(d, g["nature"], tva_services)
+            tva_c[c] = tva_c.get(c, 0) + g["tva"]
+        for c, m in tva_c.items():
+            ligne(c, "", 0, m)
         return {"journal": journal_vente, "lignes": L}
 
     aux = code_auxiliaire(tiers_nom or "", "F")

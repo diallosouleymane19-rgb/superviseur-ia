@@ -14,7 +14,7 @@ from utils.sig_pcg import eur_fr, nb_fr
 
 OPTIONS_TVA = {
     "exigibilite": "Selon l'exigibilité : prestations de services en 445800 jusqu'au paiement (sauf option pour les débits)",
-    "directe": "Directement en 445660 dès la facture",
+    "directe": "Dès la facture : 445660 (achats) et 445710 (ventes)",
 }
 
 
@@ -92,10 +92,11 @@ def page_analyse_facture():
         ma_societe = st.text_input(
             "Votre société (nom ou SIREN)", value=st.session_state.get("cabinet", "") or "",
             help="Sert à distinguer vos ventes (vous êtes l'émetteur) de vos achats.")
-        tva_services = st.radio("TVA déductible sur les prestations de services",
+        tva_services = st.radio("TVA sur les prestations de services (achats et ventes)",
                                 list(OPTIONS_TVA), format_func=OPTIONS_TVA.get, key="cf_tva")
-        st.caption("Exigibilité de la TVA sur les services : à l'encaissement (art. 269 du CGI), "
-                   "donc déductible au paiement, sauf option du fournisseur pour les débits.")
+        st.caption("Exigibilité de la TVA sur les services : à l'encaissement (art. 269 du CGI). "
+                   "Achats : déductible au paiement ; ventes : due à l'encaissement du client ; "
+                   "sauf option pour les débits mentionnée sur la facture.")
 
     fichiers = st.file_uploader("Déposer une ou plusieurs factures",
                                 type=["pdf", "xml", "txt", "csv", "png", "jpg", "jpeg"],
