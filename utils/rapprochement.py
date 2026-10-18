@@ -296,6 +296,19 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
     }
 
 
+def affichable(df):
+    """Copie pour l'écran : dates JJ/MM/AAAA, montants au format français (1 234,56)."""
+    if df is None or df.empty:
+        return df
+    d = df.copy()
+    for c in d.columns:
+        if "Date" in c:
+            d[c] = pd.to_datetime(d[c], errors="coerce").dt.strftime("%d/%m/%Y").fillna("")
+        elif c == "Montant":
+            d[c] = d[c].map(lambda x: nb_fr(x, 2))
+    return d
+
+
 def _tableau_operations(df, titre, explication, maxi=200):
     """Liste des opérations (Date · Libellé · Montant) au format Markdown, avec total."""
     if df is None or getattr(df, "empty", True):
@@ -499,17 +512,17 @@ def page_rapprochement():
 
                     if not resultats['rapproches'].empty:
                         with st.expander(f"Opérations rapprochées ({resultats['nb_rapproches']})"):
-                            st.dataframe(resultats['rapproches'], width="stretch", hide_index=True)
+                            st.dataframe(affichable(resultats['rapproches']), width="stretch", hide_index=True)
 
                     if not resultats['non_rapproches_releve'].empty:
                         with st.expander(f"Relevé non rapproché ({resultats['nb_non_rapproches_releve']})", expanded=True):
                             st.warning("Opérations bancaires sans contrepartie comptable")
-                            st.dataframe(resultats['non_rapproches_releve'], width="stretch", hide_index=True)
+                            st.dataframe(affichable(resultats['non_rapproches_releve']), width="stretch", hide_index=True)
 
                     if not resultats['non_rapproches_ecritures'].empty:
                         with st.expander(f"Écritures non rapprochées ({resultats['nb_non_rapproches_ecritures']})", expanded=True):
                             st.warning("Écritures sans contrepartie bancaire")
-                            st.dataframe(resultats['non_rapproches_ecritures'], width="stretch", hide_index=True)
+                            st.dataframe(affichable(resultats['non_rapproches_ecritures']), width="stretch", hide_index=True)
 
                     st.divider()
 
