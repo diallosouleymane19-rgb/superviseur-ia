@@ -258,7 +258,7 @@ def visuels_synthese_score(score, niveau, kpis, controles, anomalies, devise="â‚
                             ('produits_totaux', "Produits totaux", devise)):
         if cle in kpis:
             v = kpis[cle]
-            val = f"{nb_fr(v, 1)} %" if unite == "%" else f"{nb_fr(v, 0)} {unite}".strip()
+            val = f"{nb_fr(v, 2)} %" if unite == "%" else f"{nb_fr(v, 0)} {unite}".strip()
             ind.append({"libelle": lib, "valeur": val})
     graphiques = []
     rep = kpis.get('repartition_classes') or {}
@@ -321,7 +321,7 @@ def afficher_synthese_score(
             'charges_totales':   ("Charges totales", devise),
             'produits_totaux':   ("Produits totaux", devise),
         }
-        affichables = [(lab, f"{nb_fr(kpis[k], 0)} {u}".strip() if u != "%" else f"{nb_fr(kpis[k], 1)} %")
+        affichables = [(lab, f"{nb_fr(kpis[k], 0)} {u}".strip() if u != "%" else f"{nb_fr(kpis[k], 2)} %")
                        for k, (lab, u) in kpi_keys.items() if k in kpis]
         if affichables:
             cols = st.columns(min(len(affichables), 4))

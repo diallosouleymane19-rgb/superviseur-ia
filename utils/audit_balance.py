@@ -298,7 +298,7 @@ def generer_rapport_audit(audit, nom_entreprise="Entreprise", exercice=""):
             rapport.append(f"- **Nombre de comptes** : {kpis['nb_comptes']}")
         if 'resultat_estime' in kpis:
             rapport.append(f"- **Résultat estimé** : {nb_fr(kpis['resultat_estime'], 2)} €")
-            rapport.append(f"- **Marge** : {nb_fr(kpis.get('marge_pct', 0), 1)} %")
+            rapport.append(f"- **Marge nette** : {nb_fr(kpis.get('marge_pct', 0), 2)} %")
         rapport.append("")
     
     # CONTROLES
