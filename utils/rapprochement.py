@@ -13,14 +13,108 @@ from utils.page_helpers import (
 
 
 def normaliser_montant(serie):
-    return pd.to_numeric(
-        serie.astype(str).str.replace(',', '.').str.replace(' ', '').str.replace('€', ''),
-        errors='coerce'
-    ).fillna(0)
+    from utils.intelligent_parser import montants
+    return montants(serie).fillna(0)
+
+
+def _sans_accents(t):
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", str(t).lower()) if unicodedata.category(c) != "Mn")
+
+
+def lire_operations(fichier):
+    """Relevé bancaire ou écritures (CSV, TXT ou Excel) tel qu'exporté par la banque ou le logiciel :
+    encodage UTF-8 ou Windows, séparateur quelconque, lignes d'en-tête de la banque (nom, n° de compte,
+    solde…) ignorées : le tableau commence à la ligne qui contient « Date » et un montant.
+    Retourne (DataFrame, solde_indique) ; solde_indique = solde lu dans l'en-tête de la banque, ou None."""
+    import io, re
+    from utils.formats import est_tableur
+    nom = getattr(fichier, "name", "").lower()
+    fichier.seek(0)
+    contenu = fichier.read()
+    if est_tableur(nom):
+        brut = pd.read_excel(io.BytesIO(contenu), header=None, dtype=str)
+    else:
+        texte = None
+        for enc in ("utf-8-sig", "cp1252"):
+            try:
+                texte = contenu.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        lignes = texte.splitlines()
+        sep = max([";", "|", "\t", ","], key=lambda x: sum(l.count(x) for l in lignes[:30]))
+        brut = pd.read_csv(io.StringIO(texte), sep=sep, header=None, dtype=str, engine="python",
+                           on_bad_lines="skip", names=range(max(l.count(sep) for l in lignes[:200]) + 1))
+    entete = None
+    for i in range(min(len(brut), 40)):
+        cellules = [_sans_accents(x) for x in brut.iloc[i].fillna("")]
+        texte_l = " ".join(cellules)
+        if any("date" in c for c in cellules) and re.search(r"montant|debit|credit|amount", texte_l):
+            entete = i
+            break
+    solde = None
+    zone = " ".join(" ".join(str(x) for x in brut.iloc[j].fillna("")) for j in range(entete or 0))
+    # montant avec décimales (« 12 480,50 ») : la date « au 30/09/2026 » qui précède n'est pas prise
+    m = re.search(r"(?i)solde\b.{0,40}?(-?\d{1,3}(?:[\s\u00a0\u202f.]\d{3})*[.,]\d{2}|-?\d+[.,]\d{2})(?!\d)", zone)
+    if m:
+        from utils.intelligent_parser import montants
+        v = montants(pd.Series([m.group(1)])).iloc[0]
+        solde = None if pd.isna(v) else float(v)
+    if entete is None:
+        entete = 0
+    noms = [str(x).strip() if str(x).strip() not in ("", "nan") else f"col_{k}" for k, x in enumerate(brut.iloc[entete])]
+    df = brut.iloc[entete + 1:].copy()
+    df.columns = noms
+    df = df.dropna(how="all")
+    df = df[[c for c in df.columns if not (c.startswith("col_") and df[c].isna().all())]]
+    return df.reset_index(drop=True), solde
+
+
+def ecritures_banque(df, compte=None):
+    """FEC ou grand livre complet : seules les lignes du compte de banque (512 par défaut, ou le compte choisi)
+    sont gardées. Fichier qui ne contient déjà que la banque : inchangé. Retourne (df, comptes_banque)."""
+    col = next((c for c in df.columns if _sans_accents(c) in ("comptenum", "compte", "n compte", "numero de compte")), None)
+    if col is None:
+        return df, []
+    cpt = df[col].astype(str).str.strip()
+    banques = sorted(set(cpt[cpt.str.match(r"^51[2-7]")]))
+    if not banques or cpt.str.match(r"^51").all():
+        return df, banques
+    choix = compte or ("512000" if "512000" in banques else banques[0])
+    return df[cpt == choix].copy(), banques
+
+
+def etat_rapprochement(resultats, solde_releve, solde_comptable):
+    """État de rapprochement à la date d'arrêté.
+    Côté banque : solde du relevé + encaissements comptabilisés non encore au relevé - décaissements comptabilisés
+    non encore au relevé. Côté comptabilité : solde du 512 + crédits du relevé non comptabilisés - débits du
+    relevé non comptabilisés. Les deux soldes rectifiés doivent être égaux."""
+    nr_e = resultats.get('non_rapproches_ecritures')
+    nr_r = resultats.get('non_rapproches_releve')
+    m_e = nr_e['Montant'] if nr_e is not None and not nr_e.empty else pd.Series(dtype=float)
+    m_r = nr_r['Montant'] if nr_r is not None and not nr_r.empty else pd.Series(dtype=float)
+    enc_compta, dec_compta = float(m_e[m_e > 0].sum()), float(-m_e[m_e < 0].sum())
+    cred_banque, deb_banque = float(m_r[m_r > 0].sum()), float(-m_r[m_r < 0].sum())
+    banque_rect = solde_releve + enc_compta - dec_compta
+    compta_rect = solde_comptable + cred_banque - deb_banque
+    return {
+        "Solde du relevé bancaire": solde_releve,
+        "+ Encaissements comptabilisés, absents du relevé": enc_compta,
+        "- Décaissements comptabilisés, absents du relevé (chèques émis non débités…)": dec_compta,
+        "= Solde bancaire rectifié": banque_rect,
+        "Solde comptable du compte de banque": solde_comptable,
+        "+ Crédits du relevé non comptabilisés": cred_banque,
+        "- Débits du relevé non comptabilisés (frais, prélèvements…)": deb_banque,
+        "= Solde comptable rectifié": compta_rect,
+        "Écart": round(banque_rect - compta_rect, 2),
+    }
 
 
 def normaliser_date(serie):
-    return pd.to_datetime(serie, errors='coerce', dayfirst=True)
+    t = serie.astype(str).str.strip()
+    aaaammjj = pd.to_datetime(t.where(t.str.fullmatch(r"\d{8}")), format="%Y%m%d", errors="coerce")
+    return aaaammjj.fillna(pd.to_datetime(t.where(~t.str.fullmatch(r"\d{8}")), errors='coerce', dayfirst=True))
 
 
 def calculer_similarite_libelle(lib1, lib2):
@@ -53,7 +147,7 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
     
     for k in cols_releve:
         if 'date' in k:
-            col_date_r = cols_releve[k]
+            col_date_r = col_date_r or cols_releve[k]   # 1re date : date d'opération (pas date de valeur)
         elif any(x in k for x in ['libelle', 'libellé', 'description', 'operation']):
             col_lib_r = cols_releve[k]
         elif 'montant' in k:
@@ -72,7 +166,7 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
     
     for k in cols_ecr:
         if 'date' in k:
-            col_date_e = cols_ecr[k]
+            col_date_e = col_date_e or (cols_ecr['ecrituredate'] if 'ecrituredate' in cols_ecr else cols_ecr[k])
         elif any(x in k for x in ['libelle', 'libellé', 'description', 'lib']):
             col_lib_e = cols_ecr[k]
         elif 'montant' in k:
@@ -96,6 +190,8 @@ def rapprocher_bancaire(df_releve, df_ecritures, tolerance_jours=3):
     else:
         df_r['_montant'] = 0
     
+    if 'ecriturelib' in cols_ecr:      # FEC : libellé de l'écriture, pas celui du journal ou du compte
+        col_lib_e = cols_ecr['ecriturelib']
     if col_date_e:
         df_e['_date'] = normaliser_date(df_e[col_date_e])
     if col_lib_e:
@@ -238,7 +334,7 @@ def visuels_rapprochement(resultats):
              if resultats['nb_non_rapproches_ecritures'] else "aucune"}], []
 
 
-def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
+def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire", etat=None):
     """Génère un rapport professionnel"""
     rapport = []
     rapport.append(f"# RAPPORT DE RAPPROCHEMENT BANCAIRE")
@@ -265,6 +361,15 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire"):
         rapport.append("**À vérifier** : investigations nécessaires")
     
     rapport.append("")
+    if etat:
+        rapport += ["## ÉTAT DE RAPPROCHEMENT", "", "| Poste | Montant (€) |", "|-------|------------:|"]
+        for k, v in etat.items():
+            gras = k.startswith("=") or k == "Écart"
+            rapport.append(f"| {'**' + k + '**' if gras else k} | {'**' + nb_fr(v, 2) + '**' if gras else nb_fr(v, 2)} |")
+        rapport.append("")
+        rapport.append("Soldes rectifiés concordants : rapprochement justifié." if abs(etat["Écart"]) < 0.01
+                       else f"**Écart non expliqué : {nb_fr(etat['Écart'], 2)} €.**")
+        rapport.append("")
     for titre, cle, explication in (
             ("OPÉRATIONS BANCAIRES NON RAPPROCHÉES", 'non_rapproches_releve',
              "Opérations du relevé sans écriture comptable correspondante."),
@@ -297,27 +402,35 @@ def page_rapprochement():
     with col1:
         st.markdown("### Relevé bancaire")
         releve = st.file_uploader(
-            "Fichier relevé (CSV, XLSX)",
-            type=TYPES_TABLEUR_CSV,
+            "Fichier relevé (CSV, TXT, Excel)",
+            type=TYPES_BALANCE,
             key="releve",
-            help="Colonnes attendues : Date, Libellé, Montant"
+            help="Export de la banque (CSV ou Excel) : Date, Libellé et Montant, ou Débit / Crédit. "
+                 "Les lignes d'en-tête de la banque sont ignorées."
         )
 
     with col2:
         st.markdown("### Écritures comptables")
         ecritures = st.file_uploader(
-            "Fichier écritures (CSV, XLSX)",
-            type=TYPES_TABLEUR_CSV,
+            "Fichier écritures : grand livre 512 ou FEC (CSV, TXT, Excel)",
+            type=TYPES_BALANCE,
             key="ecritures",
-            help="Colonnes attendues : Date, Libellé, Débit, Crédit"
+            help="Grand livre du compte de banque ou FEC complet (seul le compte 512 est retenu) : "
+                 "Date, Libellé, Débit, Crédit."
         )
 
     if releve and ecritures:
         from utils.rapprochement import rapprocher_bancaire, generer_rapport_rapprochement
 
         try:
-            df_releve = pd.read_excel(releve) if est_tableur(releve.name) else pd.read_csv(releve, sep=None, engine='python')
-            df_ecritures = pd.read_excel(ecritures) if est_tableur(ecritures.name) else pd.read_csv(ecritures, sep=None, engine='python')
+            df_releve, solde_lu = lire_operations(releve)
+            df_ecritures, _ = lire_operations(ecritures)
+            df_ecritures, banques = ecritures_banque(df_ecritures)
+            if len(banques) > 1:
+                choix_banque = st.selectbox("Compte de banque à rapprocher", banques)
+                df_ecritures, _ = ecritures_banque(lire_operations(ecritures)[0], choix_banque)
+            elif banques:
+                st.caption(f"Écritures du compte {banques[0]} retenues (les autres comptes du fichier sont ignorés).")
 
             st.success(f"Relevé : **{len(df_releve)} opérations** | Écritures : **{len(df_ecritures)} lignes**", icon=":material/check_circle:")
 
@@ -338,6 +451,17 @@ def page_rapprochement():
             with col2:
                 tolerance = st.slider("Tolérance (jours)", 0, 10, 3,
                                      help="Écart maximum entre date relevé et écriture")
+            st.markdown("**État de rapprochement** (facultatif) : soldes à la date d'arrêté")
+            col1, col2 = st.columns(2)
+            with col1:
+                solde_releve = st.number_input("Solde du relevé à la date d'arrêté (€)", value=solde_lu, step=0.01,
+                                               format="%.2f", placeholder="ex. 12 480,50",
+                                               help="Repris de l'en-tête du relevé quand la banque l'indique. "
+                                                    "Créditeur (en votre faveur) = positif.")
+            with col2:
+                solde_compta = st.number_input("Solde comptable du compte de banque à la même date (€)", value=None,
+                                               step=0.01, format="%.2f", placeholder="ex. 11 933,00",
+                                               help="Solde du 512 dans votre balance ou grand livre. Débiteur = positif.")
 
             if st.button("Lancer le rapprochement", type="primary", width="stretch"):
                 if not compter_analyse("Rapprochement"):
@@ -389,7 +513,21 @@ def page_rapprochement():
 
                     st.divider()
 
-                    rapport = generer_rapport_rapprochement(resultats, nom_compte)
+                    etat = None
+                    if solde_releve is not None and solde_compta is not None:
+                        etat = etat_rapprochement(resultats, solde_releve, solde_compta)
+                        st.markdown("### État de rapprochement")
+                        st.dataframe(pd.DataFrame({"Poste": list(etat), "Montant (€)": [nb_fr(v, 2) for v in etat.values()]}),
+                                     width="stretch", hide_index=True)
+                        if abs(etat["Écart"]) < 0.01:
+                            st.success("Les soldes rectifiés concordent : rapprochement justifié.", icon=":material/check_circle:")
+                        else:
+                            st.error(f"Écart non expliqué de {nb_fr(etat['Écart'], 2)} € : opération manquante, "
+                                     "erreur de montant ou soldes pris à des dates différentes.", icon=":material/error:")
+                    else:
+                        st.info("Indiquez les deux soldes pour obtenir l'état de rapprochement.", icon=":material/info:")
+
+                    rapport = generer_rapport_rapprochement(resultats, nom_compte, etat)
 
                     col1, col2 = st.columns(2)
                     with col1:
