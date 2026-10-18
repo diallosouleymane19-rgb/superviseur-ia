@@ -76,7 +76,8 @@ REGLES_ACHAT = [
     (["apostille", "notariz", "notaris", "legalisation", "legalization", "certified document",
       "certification de documents", "formalites", "formalities", "frais d'actes"], "622700", "service", "haute"),
     (["honoraires", "conseil", "consulting", "legal fees", "attorney", "lawyer", "accounting fees", "expertise comptable", "expert-comptable", "commissaire aux comptes",
-      "avocat", "audit", "notaire"], "622600", "service", "haute"),
+      "avocat", "audit", "notaire", "tenue comptable", "tenue de comptabilite", "mission comptable",
+      "declaration de tva", "declaration tva", "liasse fiscale", "bilan annuel", "paie", "bulletins de salaire"], "622600", "service", "haute"),
     (["huissier", "frais d'actes", "contentieux", "greffe"], "622700", "service", "haute"),
     (["telecom", "telephone", "telephonie", "mobile", "forfait", "internet", "fibre", "box", "affranchissement",
       "timbre", "colissimo", "la poste", "postage", "postal", "orange", "sfr", "bouygues", "free pro"], "626000", "service", "haute"),
@@ -570,6 +571,17 @@ def _siren_dans(txt, libelle_requis=True):
     return re.sub(r"\D", "", m.group(1))[:9] if m else ""
 
 
+_PAYS_TVA = "AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HR|HU|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|XI"
+_RE_TVA_FR = re.compile(r"\bFR\s?[0-9A-HJ-NP-Z]{2}\s?\d{3}\s?\d{3}\s?\d{3}\b")
+_RE_TVA_UE = re.compile(rf"\b(?:{_PAYS_TVA})\s?(?=[0-9A-Z]*\d{{5}})[0-9A-Z]{{8,12}}\b")
+
+
+def _numero_tva(txt):
+    """N° de TVA intracommunautaire : FR + 2 caractères + SIREN, ou code pays UE + au moins 5 chiffres."""
+    m = _RE_TVA_FR.search(txt) or _RE_TVA_UE.search(txt)
+    return re.sub(r"\s", "", m.group(0)) if m else ""
+
+
 def _categorie(ts):
     """Catégorie d'opération : LB (livraison de biens), PS (prestations de services), LBPS (mixte)."""
     m = re.search(r"categorie[^\n:]{0,25}:\s*([^\n]+)", ts)
@@ -622,15 +634,15 @@ def extraire_texte(texte, source=""):
         d["siren"] = ""
     d["categorie"] = _categorie(ts)
     d["adresse_livraison"] = bool(re.search(r"adresse de livraison|livre a :|lieu de livraison", ts))
-    m = re.search(r"\b(FR\s?[0-9A-Z]{2}\s?\d{3}\s?\d{3}\s?\d{3}|[A-Z]{2}\s?[0-9A-Z]{8,12})\b", t) \
-        if re.search(r"(?i)tva\s*intra|n[°o]\s*tva|vat", t) else None
-    d["tva_intra"] = re.sub(r"\s", "", m.group(1)) if m else ""
+    d["tva_intra"] = _numero_tva(hors_client) or _numero_tva(t)
     d["adresse"] = bool(re.search(r"(?i)\b\d{5}\b\s+[A-Za-zÀ-ÿ]", t))
     # Fournisseur étranger : pays dans l'en-tête (hors bloc client), sans SIREN ni n° TVA français
     hc = _sans_accents(hors_client)
-    francais = bool(d["siren"] or d["tva_intra"].startswith("FR") or re.search(r"\b\d{5}\b[ \t]+[a-z]", hc))
     pays = lambda liste: next((p for p in liste if re.search(rf"(?<![a-z]){re.escape(p)}(?![a-z])", hc)), "")
     d["pays_hors_ue"], d["pays_ue"] = pays(PAYS_HORS_UE), pays(PAYS_UE)
+    tva_etrangere = bool(d["tva_intra"]) and not d["tva_intra"].startswith("FR")
+    francais = bool(d["siren"] or d["tva_intra"].startswith("FR") or (
+        re.search(r"\b\d{5}\b[ \t]+[a-z]", hc) and not (d["pays_hors_ue"] or d["pays_ue"] or tva_etrangere)))
     d["devise"] = _devise(t)
     d["etranger"] = not francais and bool(d["pays_hors_ue"] or d["pays_ue"] or d["devise"] != "EUR")
     d["hors_ue"] = d["etranger"] and not d["pays_ue"] and (bool(d["pays_hors_ue"]) or d["devise"] != "EUR")
@@ -650,8 +662,9 @@ def extraire_texte(texte, source=""):
     lignes_tva = []
     # Les lignes de mention légale (« TVA non applicable, art. 293 B », « autoliquidation »...) ne portent pas de montant
     mention = re.compile(r"(?i)non applicable|exon|autoliquid|auto-liquid|art(icle)?\.?\s*\d|intra|d'apr[eè]s les d[ée]bits")
-    texte_montants = "\n".join(l for l in t.splitlines() if not mention.search(l))
-    for m in re.finditer(rf"(?im)^.*?\btva\b[^\n\d]*?(\d{{1,2}}(?:[.,]\d{{1,2}})?)\s*%[^\n\d\-]*{_NUM}", texte_montants):
+    texte_montants = "\n".join(l for l in t.splitlines()
+                                if not mention.search(l) and not _RE_TVA_FR.search(l) and not _RE_TVA_UE.search(l))
+    for m in re.finditer(rf"(?im)^.*?\b(?:tva|vat)\b[^\n\d]*?(\d{{1,2}}(?:[.,]\d{{1,2}})?)\s*%[^\n\d\-]*{_NUM}", texte_montants):
         lignes_tva.append({"taux": float(m.group(1).replace(",", ".")), "montant": parse_montant(m.group(2))})
     if not lignes_tva:
         m = re.search(rf"(?im)^\s*(?:total\s+|montant\s+)?tva\b[^\n\d\-]*{_NUM}", texte_montants)
@@ -686,7 +699,7 @@ def extraire_csv(ligne, source=""):
                 if n in k and v:
                     return v
         return ""
-    d = {"source": source, "texte": " ; ".join(f"{k}: {v}" for k, v in ligne.items())}
+    d = {"source": source, "texte": " ; ".join(f"{k}: {v}" for k, v in ligne.items()), "liste": True}
     d["type"] = "avoir" if "avoir" in _sans_accents(get("type", "nature")) else "facture"
     d["numero"] = get("numero", "num", "piece", "facture")
     d["date"] = parse_date(get("date"))
@@ -759,6 +772,9 @@ def _texte_imputation(d, sens, ma_societe=""):
             continue
         # mentions légales de paiement (pénalités, indemnité forfaitaire, escompte) : sans lien avec la nature
         if re.search(r"penalit|indemnite forfaitaire|frais de recouvrement|escompte|retard de paiement|reglements? recus", ls):
+            continue
+        # mentions réglementaires (catégorie d'opération, option débits) : elles ne disent rien de la nature précise
+        if re.search(r"categorie|nature de l.operation|operations?\s*:\s*(prestations?|livraisons?)|d.apres les debits", ls):
             continue
         if any(_sans_accents(x) in ls for x in exclus):
             continue
@@ -1000,7 +1016,11 @@ def controler(d, ecriture=None):
     (ok if d.get("date") else ko)("Date de facture" + ("" if d.get("date") else " absente ou illisible"))
     (ok if d.get("fournisseur") or d.get("client") else ko)("Identité du tiers")
     etranger = d.get("etranger")
-    if etranger:
+    liste = d.get("liste")
+    if liste:
+        ok("Ligne d'une liste de factures : les mentions obligatoires (SIREN, n° de TVA, adresses, "
+           "nouvelles mentions 2026) se contrôlent sur la pièce elle-même")
+    elif etranger:
         pays = d.get("pays_hors_ue") or d.get("pays_ue") or "pays non identifié"
         pays = pays.upper() if len(pays) == 2 else pays.title()
         ok(f"Fournisseur établi hors de France ({pays}) : SIREN non applicable")
@@ -1008,12 +1028,15 @@ def controler(d, ecriture=None):
         (ok if siren_valide(d["siren"]) else ko)(f"SIREN {d['siren']} " + ("valide" if siren_valide(d["siren"]) else "invalide (clé de contrôle)"))
     else:
         ko("SIREN / SIRET de l'émetteur absent (mention obligatoire)")
-    if etranger and d.get("hors_ue"):
+    if liste:
+        pass
+    elif etranger and d.get("hors_ue"):
         ok("N° de TVA intracommunautaire non applicable (fournisseur hors UE)")
     elif not d.get("franchise"):
         (ok if d.get("tva_intra") else ko)("N° de TVA intracommunautaire" + ("" if d.get("tva_intra") else " absent (mention obligatoire)"))
-    (ok if d.get("adresse") else av)("Adresses" + ("" if d.get("adresse") else " non détectées (mention obligatoire)"))
-    (ok if d.get("client") else av)("Nom du client" + ("" if d.get("client") else " non indiqué (mention obligatoire)"))
+    if not liste:
+        (ok if d.get("adresse") else av)("Adresses" + ("" if d.get("adresse") else " non détectées (mention obligatoire)"))
+        (ok if d.get("client") else av)("Nom du client" + ("" if d.get("client") else " non indiqué (mention obligatoire)"))
     (ok if d.get("objet") else av)("Désignation" + ("" if d.get("objet") else " absente : imputation impossible à déterminer"))
     ht, tva, ttc = d.get("ht"), d.get("tva"), d.get("ttc")
     if None in (ht, tva, ttc):
@@ -1046,7 +1069,9 @@ def controler(d, ecriture=None):
         av("Fournisseur hors UE, aucune TVA facturée. Si votre société est assujettie à la TVA en France : "
            "prestation de services → TVA à autoliquider (art. 283-2 du CGI, 445660 / 445200) ; "
            "marchandises → TVA à l'importation. Sinon, aucune TVA.")
-    if etranger:
+    if liste:
+        pass
+    elif etranger:
         ok("Nouvelles mentions de la facturation électronique française non applicables (fournisseur étranger)")
     elif date and date >= DATE_MENTIONS_2026:
         if d.get("siren_client"):
