@@ -41,8 +41,7 @@ TFT_STRUCTURE = {
             ("Acquisitions d'immobilisations incorporelles", "-"),
             ("Acquisitions d'immobilisations corporelles", "-"),
             ("Acquisitions d'immobilisations financières", "-"),
-            ("Cessions d'immobilisations incorporelles", "+"),
-            ("Cessions d'immobilisations corporelles", "+"),
+            ("Cessions d'immobilisations corporelles et incorporelles", "+"),
             ("Cessions d'immobilisations financières", "+"),
             ("Variation des créances sur cessions d'actifs", "±"),
         ]
@@ -103,25 +102,27 @@ def _extraire_tft(df_n, df_n1) -> dict:
 
     resultat_net = c(dn, ["7"]) - db(dn, ["6"])
     dotations = db(dn, ["681", "686", "687"]) - c(dn, ["781", "786", "787"])
-    plus_value = c(dn, ["775"]) - db(dn, ["675"])            # résultat de cession (avant impôt)
-    prix_cession = c(dn, ["775"])
+    # Cessions : 775 / 675 (PCG avant 2025) ou 757 / 657 et 767 / 667 (règlement ANC 2022-06, exercices ouverts dès 2025)
+    plus_value = c(dn, ["775", "757", "767"]) - db(dn, ["675", "657", "667"])   # résultat de cession (avant impôt)
+    prix_cession = c(dn, ["775", "757", "767"])
+    prix_cession_fin = c(dn, ["767"])                         # immobilisations financières (depuis 2025)
 
     tresorerie = lambda d: db(d, ["50", "51", "53", "54"], ["519"])   # hors concours bancaires
     resultat_n1 = c(d1, ["7"]) - db(d1, ["6"])
     reserves_var = var_c(["106", "11", "12"])
     dividendes = resultat_n1 - reserves_var - var_c(["457"])  # résultat N-1 non mis en réserve, hors dividendes restant à payer (457)
-    quote_part_subv = c(dn, ["777"])                          # produit sans encaissement
+    quote_part_subv = c(dn, ["777", "747"])                   # produit sans encaissement (777 avant 2025, 747 ensuite)
     subventions_recues = var_c(["13"]) + quote_part_subv      # 139 (virée au résultat) est inclus dans le compte 13
 
     capital_var = var_c(["101", "104", "108", "109"])
     emprunts_var = var_c(["16", "17", "455"])               # 455 : comptes courants d'associés
-    # Brut sorti lors des cessions = VNC (675) + amortissements cédés
+    # Brut sorti lors des cessions = VNC (675 ou 657) + amortissements cédés
     # amortissements cédés = dotations aux amortissements (6811, 6812) - variation des comptes 28
     amort_cedes = max(db(dn, ["6811", "6812"]) - var_c(["28"]), 0.0)
-    brut_cede = db(dn, ["675"]) + amort_cedes
+    brut_cede = db(dn, ["675", "657"]) + amort_cedes
     brut_corp = var_d(["21", "22", "23"]) + brut_cede - var_c(["404", "405"])   # net des dettes sur immobilisations
     brut_incorp = var_d(["20"])
-    brut_fin = var_d(["26", "27"])
+    brut_fin = var_d(["26", "27"]) + db(dn, ["667"])      # 667 : valeur comptable des immobilisations financières cédées
 
     v = {
         "Résultat net (bénéfice + / perte -)": resultat_net,
@@ -138,7 +139,8 @@ def _extraire_tft(df_n, df_n1) -> dict:
         "Acquisitions d'immobilisations incorporelles": -max(brut_incorp, 0.0),
         "Acquisitions d'immobilisations corporelles": -max(brut_corp, 0.0),
         "Acquisitions d'immobilisations financières": -max(brut_fin, 0.0),
-        "Cessions d'immobilisations corporelles": prix_cession,
+        "Cessions d'immobilisations corporelles et incorporelles": prix_cession - prix_cession_fin,
+        "Cessions d'immobilisations financières": prix_cession_fin,
         "Augmentation de capital en numéraire": max(capital_var, 0.0),
         "Remboursements de capital": min(capital_var, 0.0),
         "Subventions d'investissement reçues": subventions_recues,
@@ -152,7 +154,7 @@ def _extraire_tft(df_n, df_n1) -> dict:
     for lib, d_ in (("N", df_n), ("N-1", df_n1)):
         if erreur_comptes(d_):
             alertes.append(f"Balance {lib} : {erreur_comptes(d_)}")
-    if prix_cession or db(dn, ["675"]):
+    if prix_cession or db(dn, ["675", "657", "667"]):
         alertes.append("Cessions détectées : la valeur brute sortie est reconstituée (VNC + amortissements cédés). "
                        "À rapprocher du tableau des immobilisations.")
     ouverture, cloture = tresorerie(d1), tresorerie(dn)

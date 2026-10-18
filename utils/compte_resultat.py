@@ -196,6 +196,8 @@ def calculer_compte_resultat(df, type_entreprise='Mixte'):
         "Impôts et taxes": k['impots_taxes'],
         "Charges de personnel": k['masse_salariale'],
         "Excédent brut d'exploitation (EBE)": ebe,
+        **({"Quote-part des subventions d'investissement virée au résultat (747)": k['quote_part_subventions_invest']}
+           if k.get('quote_part_subventions_invest') else {}),
         "Résultat d'exploitation": k['resultat_exploitation'],
         **({"Quotes-parts de résultat sur opérations faites en commun": k['quotes_parts']}
            if k['quotes_parts'] else {}),

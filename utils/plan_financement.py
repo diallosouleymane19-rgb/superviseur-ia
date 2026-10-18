@@ -46,7 +46,8 @@ EMPLOIS = [
 def _extraire_caf_bfr_pcg(fichier_bytes: bytes, nom_fichier: str) -> dict:
     """CAF (méthode additive PCG) et BFR à la clôture, depuis une balance ou un FEC.
     CAF = résultat net + dotations (681, 686, 687) - reprises (781, 786, 787)
-          + VNC des éléments cédés (675) - produits de cession (775) - quote-part de subventions virée (777).
+          + VNC des éléments cédés (675 ; 657, 667 depuis 2025) - produits de cession (775 ; 757, 767)
+          - quote-part de subventions virée (777 ; 747 depuis 2025, règlement ANC 2022-06).
     Résultat net : classe 7 - classe 6 (balance avant affectation), sinon comptes 120 / 129."""
     try:
         from utils.intelligent_parser import charger_balance_ou_fec
@@ -62,7 +63,7 @@ def _extraire_caf_bfr_pcg(fichier_bytes: bytes, nom_fichier: str) -> dict:
         a_gestion = d["_cpt"].str.match(r"^[67]").any()
         resultat_net = (c(["7"]) - db(["6"])) if a_gestion else (c(["120"]) - db(["129"]))
         caf = (resultat_net + db(["681", "686", "687"]) - c(["781", "786", "787"])
-               + db(["675"]) - c(["775"]) - c(["777"]))
+               + db(["675", "657", "667"]) - c(["775", "757", "767"]) - c(["777", "747"]))
 
         bilan = calculer_bilan(df)
         bfr = None if "erreur" in bilan else bilan["ratios"][R_BFR]

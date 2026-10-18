@@ -7,7 +7,7 @@ Chaîne : lecture du document -> détection facture / avoir -> extraction par r�
 -> sens (achat / vente) -> compte PCG -> traitement TVA -> écriture équilibrée
 -> contrôles (mentions, cohérence, doublons) -> export au format FEC.
 
-Comptes : nomenclature du PCG (règlement ANC 2014-03), présentés sur 6 chiffres.
+Comptes : nomenclature du PCG (règlement ANC 2014-03 modifié par l'ANC 2022-06), présentés sur 6 chiffres.
 """
 import io
 import re

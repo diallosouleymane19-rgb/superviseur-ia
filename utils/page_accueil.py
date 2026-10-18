@@ -204,4 +204,4 @@ def page_accueil(aller_a):
         f"<span>Plan {escape(plan.capitalize())}</span><span>Rôle {escape(role.capitalize())}</span></div>",
         unsafe_allow_html=True,
     )
-    st.caption("SMD Global Consulting LLC © 2026. PCG France, ANC 2014-03, RGPD. contact@smdconsulting.pro")
+    st.caption("SMD Global Consulting LLC © 2026. PCG France (règlement ANC 2014-03 modifié, dont ANC 2022-06), RGPD. contact@smdconsulting.pro")

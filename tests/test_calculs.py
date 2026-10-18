@@ -262,12 +262,14 @@ def test_tft_cession():
     from utils.tft import _extraire_tft
     n1 = balance([("101", 0, 10000), ("2154", 10000, 0), ("28154", 0, 4000), ("512", 4000, 0)])
     n = balance([("101", 0, 10000), ("512", 9000, 0), ("6811", 2000, 0), ("675", 4000, 0), ("775", 0, 5000)])
-    v = _extraire_tft(n, n1)
-    assert v["Cessions d'immobilisations corporelles"] == A(5000)
-    assert v["Plus-values de cessions nettes d'impôts"] == A(-1000)
-    flux = sum(x for k, x in v.items() if not k.startswith("_"))
-    assert flux == A(5000)
-    assert len(v["_alertes"]) == 1                 # seulement l'information « cessions détectées »
+    for vnc, prix in (("675", "775"), ("657", "757")):    # PCG avant 2025, puis règlement ANC 2022-06
+        n = balance([("101", 0, 10000), ("512", 9000, 0), ("6811", 2000, 0), (vnc, 4000, 0), (prix, 0, 5000)])
+        v = _extraire_tft(n, n1)
+        assert v["Cessions d'immobilisations corporelles et incorporelles"] == A(5000)
+        assert v["Plus-values de cessions nettes d'impôts"] == A(-1000)
+        flux = sum(x for k, x in v.items() if not k.startswith("_"))
+        assert flux == A(5000)
+        assert len(v["_alertes"]) == 1             # seulement l'information « cessions détectées »
 
 
 def test_tft_calcul_sections():
@@ -319,20 +321,38 @@ def test_degressif_refuse_moins_de_3_ans():
         calculer_amortissement_degressif(1000, 2, date(2025, 1, 1))
 
 
-@pytest.mark.parametrize("prix,resultat", [(5000, 1000), (3000, -1000)])
-def test_cession_ecriture_equilibree(prix, resultat):
-    """Cession PCG : 512 / 775 pour le prix ; 28 + 675 / 2 pour la sortie du bien."""
+@pytest.mark.parametrize("prix,resultat,jour,cpt_prix,cpt_vnc", [
+    (5000, 1000, date(2025, 6, 30), "757", "657"), (3000, -1000, date(2025, 6, 30), "757", "657"),
+    (5000, 1000, date(2024, 6, 30), "775", "675")])
+def test_cession_ecriture_equilibree(prix, resultat, jour, cpt_prix, cpt_vnc):
+    """Cession : 512 / 757 pour le prix ; 28 + 657 / 2 pour la sortie (règlement ANC 2022-06, exercices
+    ouverts depuis 2025) ; 775 / 675 avant."""
     from utils.immobilisations import calculer_cession
-    r = calculer_cession(10000, 6000, prix, date(2025, 6, 30))
+    r = calculer_cession(10000, 6000, prix, jour)
     assert r["vnc"] == A(4000)
     assert r["resultat_cession"] == A(resultat)
     e = r["ecritures"]
     assert e["Débit"].sum() == A(e["Crédit"].sum())
     par_compte = {c: (d, k) for c, d, k in zip(e["Compte"], e["Débit"], e["Crédit"])}
-    assert par_compte["775"] == (0, A(prix))
-    assert par_compte["675"] == (A(4000), 0)
+    assert par_compte[cpt_prix] == (0, A(prix))
+    assert par_compte[cpt_vnc] == (A(4000), 0)
     assert par_compte["28xx"] == (A(6000), 0)
     assert par_compte["2xxx"] == (0, A(10000))
+
+
+def test_caf_et_sig_pcg_2025():
+    """747 (quote-part de subvention virée) hors EBE mais dans le résultat d'exploitation ; 657/757 : cession
+    neutralisée dans la CAF."""
+    from utils.sig_pcg import calculer_sig
+    from utils.plan_financement import _extraire_caf_bfr_pcg
+    b = balance([("101", 0, 10000), ("512", 15000, 0), ("641", 1000, 0), ("706", 0, 5000),
+                 ("747", 0, 500), ("657", 4000, 0), ("757", 0, 4500)])
+    k = calculer_sig(b)
+    assert k["ebe"] == A(4000)
+    assert k["resultat_exploitation"] == A(5000) and k["resultat_net"] == A(5000)
+    csv = "Compte;Débit;Crédit\n" + "\n".join(f"{c};{d};{x}" for c, d, x in b.itertuples(index=False))
+    caf = _extraire_caf_bfr_pcg(csv.encode(), "b.csv")["CAF"]
+    assert caf == A(5000 + 4000 - 4500 - 500)
 
 
 # ═══ Travaux d'inventaire ═════════════════════════════════════════════════════

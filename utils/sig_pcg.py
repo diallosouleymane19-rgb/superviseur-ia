@@ -2,7 +2,9 @@
 """
 utils/sig_pcg.py - SMD Global Consulting LLC
 Soldes intermédiaires de gestion et postes clés du bilan, selon le PCG
-(règlement ANC 2014-03, système de base).
+(règlement ANC 2014-03 modifié par le règlement ANC 2022-06 pour les exercices ouverts depuis le 01/01/2025 :
+cessions d'immobilisations en 657 / 757 et 667 / 767, quote-part de subventions en 747, plus de transferts de charges 79 ;
+les anciens comptes 675 / 775 / 777 / 79 restent reconnus pour les exercices antérieurs).
 
 Entrée : DataFrame avec CompteNum, Debit, Credit (FEC ou balance).
 Contrôle intégré : le résultat net issu des SIG doit égaler classe 7 - classe 6.
@@ -87,12 +89,12 @@ def calculer_sig(df):
     consommations_tiers = dbt(["60"], ["607", "6037", "6097"]) + dbt(["61", "62"])
     valeur_ajoutee = marge_commerciale + production_exercice - consommations_tiers
 
-    subventions = c(["74"])
+    subventions = c(["74"], ["747"])   # 747 (quote-part de subvention d'investissement) : produit calculé, hors EBE
     impots_taxes = dbt(["63"])
     charges_personnel = dbt(["64"])
     ebe = valeur_ajoutee + subventions - impots_taxes - charges_personnel
 
-    resultat_exploitation = (ebe + c(["75"], ["755"]) + c(["781"]) + c(["791"])
+    resultat_exploitation = (ebe + c(["747"]) + c(["75"], ["755"]) + c(["781"]) + c(["791"])
                              - dbt(["65"], ["655"]) - dbt(["681"]))
     # Quotes-parts de résultat sur opérations faites en commun : entre exploitation et courant (PCG)
     quotes_parts = c(["755"]) - dbt(["655"])
@@ -124,6 +126,7 @@ def calculer_sig(df):
         "cout_achat_marchandises": cout_achat_marchandises,
         "marge_commerciale": marge_commerciale,
         "subventions": subventions,
+        "quote_part_subventions_invest": c(["747"]),
         "impots_taxes": impots_taxes,
         "participation_impots": participation_impots,
         "production_exercice": production_exercice,

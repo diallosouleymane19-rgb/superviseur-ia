@@ -123,22 +123,30 @@ def calculer_amortissement_degressif(valeur_origine, duree_ans, date_acquisition
     return pd.DataFrame(tableau)
 
 
-def calculer_cession(valeur_origine, amort_cumule, prix_cession, date_cession, taux_is=25):
-    """Calcule la plus ou moins-value de cession"""
+def calculer_cession(valeur_origine, amort_cumule, prix_cession, date_cession, taux_is=25, pcg_2025=None):
+    """Calcule la plus ou moins-value de cession.
+    pcg_2025 : exercice ouvert depuis le 01/01/2025 (règlement ANC 2022-06) -> prix en 757, VNC en 657 ;
+    sinon 775 / 675. Par défaut, déduit de la date de cession."""
     vnc = valeur_origine - amort_cumule
     resultat_cession = prix_cession - vnc
     
     type_resultat = "Plus-value" if resultat_cession > 0 else "Moins-value"
     impot_estime = max(resultat_cession * taux_is / 100, 0) if resultat_cession > 0 else 0
     
-    # Écritures comptables (PCG) : le prix de cession en 775, la sortie du bien en 675 (VNC) et 28 ;
-    # la plus- ou moins-value résulte de la différence 775 - 675.
+    if pcg_2025 is None:
+        pcg_2025 = bool(date_cession) and getattr(date_cession, "year", 0) >= 2025
+    cpt_prix, cpt_vnc = ("757", "657") if pcg_2025 else ("775", "675")
+    lib_prix = ("Produits des cessions d'immobilisations incorporelles et corporelles" if pcg_2025
+                else "Produits des cessions d'éléments d'actif")
+    lib_vnc = ("Valeur comptable des immobilisations incorporelles et corporelles cédées" if pcg_2025
+               else "Valeur comptable des éléments d'actif cédés")
+    # Écritures comptables (PCG) : le prix de cession au crédit, la sortie du bien (VNC) au débit et les 28 soldés ;
+    # la plus- ou moins-value résulte de la différence prix - VNC.
     ecritures = [
         {'Compte': '512', 'Libellé': 'Banque (prix de cession)', 'Débit': round(prix_cession, 2), 'Crédit': 0},
-        {'Compte': '775', 'Libellé': "Produit de cession d'éléments d'actif", 'Débit': 0,
-         'Crédit': round(prix_cession, 2)},
+        {'Compte': cpt_prix, 'Libellé': lib_prix, 'Débit': 0, 'Crédit': round(prix_cession, 2)},
         {'Compte': '28xx', 'Libellé': 'Amortissements cumulés', 'Débit': round(amort_cumule, 2), 'Crédit': 0},
-        {'Compte': '675', 'Libellé': "Valeur comptable de l'élément cédé (VNC)", 'Débit': round(vnc, 2), 'Crédit': 0},
+        {'Compte': cpt_vnc, 'Libellé': lib_vnc, 'Débit': round(vnc, 2), 'Crédit': 0},
         {'Compte': '2xxx', 'Libellé': 'Immobilisation (valeur origine)', 'Débit': 0,
          'Crédit': round(valeur_origine, 2)},
     ]
@@ -395,6 +403,10 @@ def page_immobilisations():
                                            placeholder="0 en cas de mise au rebut")
             date_cession = st.date_input("Date de cession", value=None, key="cess_date", format="DD/MM/YYYY")
             taux_is = st.number_input("Taux IS (%)", min_value=0, max_value=100, value=25, key="cess_is")
+        pcg_2025 = st.checkbox("Exercice ouvert depuis le 01/01/2025 (plan comptable modifié par le règlement ANC 2022-06)",
+                               value=True, key="cess_pcg2025",
+                               help="Coché : prix de cession en 757 et valeur comptable en 657 (la cession n'est plus "
+                                    "exceptionnelle). Décoché (exercices antérieurs) : 775 et 675.")
 
         if st.button("Calculer la cession", type="primary", width="stretch") and champs_remplis(**{
                 "Valeur d'origine": valeur_origine_c, "Amortissements cumulés": amort_cumule,
@@ -402,7 +414,7 @@ def page_immobilisations():
             if not compter_analyse("Cession"):
                 st.stop()
             with st.spinner("Calcul en cours..."):
-                result = calculer_cession(valeur_origine_c, amort_cumule, prix_cession, date_cession, taux_is)
+                result = calculer_cession(valeur_origine_c, amort_cumule, prix_cession, date_cession, taux_is, pcg_2025)
 
                 st.markdown(f"## Cession — {nom_bien_c}")
 
