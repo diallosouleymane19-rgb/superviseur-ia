@@ -73,6 +73,8 @@ def _classer(cpt: str, s: float):
         return ("passif", FOURN, -s, None) if s <= 0 else ("actif", AUTRES_CREANCES, s, "brut")
     if c2 in ("42", "43", "44"):
         return ("passif", FISC_SOC, -s, None) if s <= 0 else ("actif", AUTRES_CREANCES, s, "brut")
+    if c3 == "455":   # comptes courants d'associés : emprunts et dettes financières divers (ressource de financement)
+        return ("passif", EMPRUNTS, -s, None) if s <= 0 else ("actif", AUTRES_CREANCES, s, "brut")
     if cpt[0] == "4":
         return ("passif", AUTRES_DETTES, -s, None) if s <= 0 else ("actif", AUTRES_CREANCES, s, "brut")
     # --- Classe 5 : trésorerie ; soldes créditeurs de banque = concours bancaires

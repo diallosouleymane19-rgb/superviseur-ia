@@ -718,3 +718,13 @@ def test_facture_electronique_ubl():
     assert msg == ""
     assert (d["numero"], d["ht"], d["tva"], d["ttc"]) == ("F-2026-001", A(200), A(40), A(240))
     assert d["fournisseur"] == "FOURNISSEUR SAS"
+
+
+def test_bilan_compte_courant_associe_en_dettes_financieres():
+    """455 créditeur : emprunts et dettes financières divers (hors BFR, dans le FRNG), comme dans le TFT."""
+    from utils.bilan import calculer_bilan, EMPRUNTS, AUTRES_DETTES, R_FRNG, R_BFR, R_TN
+    b = balance([("101", 0, 10000), ("455", 0, 15000), ("2183", 20000, 0), ("411", 3000, 0), ("401", 0, 2000),
+                 ("512", 4000, 0)])
+    r = calculer_bilan(b)
+    assert r["passif"][EMPRUNTS] == A(15000) and r["passif"][AUTRES_DETTES] == A(0)
+    assert r["ratios"][R_FRNG] == A(5000) and r["ratios"][R_BFR] == A(1000) and r["ratios"][R_TN] == A(4000)
