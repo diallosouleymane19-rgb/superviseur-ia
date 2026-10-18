@@ -436,7 +436,23 @@ def test_fec_date_invalide_apres_100_lignes():
     lignes = [("VT", str(i), "20250105", "411", "1,00", "0,00") for i in range(150)]
     lignes += [("VT", str(i), "05/01/2025", "706", "0,00", "1,00") for i in range(150)]
     r = valider_fec(_fec(lignes))
-    assert not r["Format dates (AAAAMMJJ)"]["valide"]
+    assert not r["Dates (format AAAAMMJJ)"]["valide"]
+
+
+def test_fec_controles_dgfip():
+    """Séparateur, nom du fichier, champs obligatoires, écriture après clôture, lettrage, débit ET crédit."""
+    from utils.fec import valider_fec
+    df = _fec([("VT", "1", "20250105", "411", "120,00", "0,00"), ("VT", "1", "20250105", "706", "0,00", "120,00"),
+               ("VT", "2", "20260105", "411", "50,00", "50,00")])
+    df.loc[0, "EcritureLib"] = ""
+    df.loc[1, "EcritureLet"] = "AA"
+    r = valider_fec(df, sep=";", nom_fichier="732829320FEC20251231.txt")
+    assert not r["Séparateur"]["valide"] and r["Nom du fichier"]["valide"]
+    assert "EcritureLib (1 ligne)" in r["Champs obligatoires renseignés"]["message"]
+    assert "après la clôture" in r["Dates (format AAAAMMJJ)"]["message"]
+    assert "débit ET crédit" in r["Montants"]["message"]
+    assert not r["Lettrage"]["valide"]
+    assert not valider_fec(_fec([("VT", "1", "20250105", "411", "1,00", "0,00")]), nom_fichier="fec.txt")["Nom du fichier"]["valide"]
 
 
 def test_fec_format_montant_sens():

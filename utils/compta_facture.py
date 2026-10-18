@@ -1233,6 +1233,7 @@ def export_fec(resultats, inclure_doublons=False):
     """Écritures au format FEC (séparateur |, montants à virgule)."""
     out = ["|".join(COLONNES_FEC)]
     n = 0
+    validation = datetime.now().strftime("%Y%m%d")   # ValidDate : écritures validées dans KontrolIA à l'export
     for r in resultats:
         if r.get("doublon_de") and not inclure_doublons:
             continue
@@ -1246,5 +1247,5 @@ def export_fec(resultats, inclure_doublons=False):
                 l["compte"], PCG.get(l["compte"], ""), l["aux"], (tiers or "") if l["aux"] else "",
                 d.get("numero") or "", date, l["libelle"],
                 f"{l['debit']:.2f}".replace(".", ","), f"{l['credit']:.2f}".replace(".", ","),
-                "", "", "", *_devise_fec(d, l)]))
+                "", "", validation, *_devise_fec(d, l)]))
     return "\n".join(out) + "\n"
