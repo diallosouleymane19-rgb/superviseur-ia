@@ -41,3 +41,15 @@ def test_rapprochement_et_etat():
     assert r["non_rapproches_ecritures"]["Montant"].tolist() == [-560.0]
     e = etat_rapprochement(r, solde, 12480.50 - 560 + 12.50)
     assert e["= Solde bancaire rectifié"] == 11920.50 and e["Écart"] == 0
+
+
+def test_ecritures_de_regularisation():
+    import pandas as pd
+    from utils.rapprochement import ecritures_regularisation
+    nr = pd.DataFrame({"Date": pd.to_datetime(["2026-09-15", "2026-09-20", "2026-09-30", "2026-09-30"]),
+                       "Libellé": ["FRAIS TENUE DE COMPTE", "PRLV SEPA URSSAF", "INTERETS CREDITEURS", "VIR INCONNU"],
+                       "Montant": [-12.5, -1250.0, 3.2, 500.0]})
+    e = ecritures_regularisation(nr)
+    assert e["Débit"].sum() == e["Crédit"].sum() == 12.5 + 1250 + 3.2 + 500
+    paires = [(e.iloc[i]["Compte"], e.iloc[i + 1]["Compte"]) for i in range(0, len(e), 2)]
+    assert paires == [("627000", "512000"), ("431000", "512000"), ("512000", "768000"), ("512000", "471000")]

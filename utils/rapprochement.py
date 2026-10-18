@@ -85,6 +85,47 @@ def ecritures_banque(df, compte=None):
     return df[cpt == choix].copy(), banques
 
 
+# Opérations bancaires non comptabilisées : compte de contrepartie proposé d'après le libellé du relevé
+# (motif, compte, libellé du compte) ; sens : « - » = débit banque (sortie), « + » = crédit banque (entrée).
+REGLES_REGULARISATION = [
+    ("-", r"agios|interets? debiteurs?|int\.? deb", "661600", "Intérêts bancaires et sur opérations de financement"),
+    ("-", r"frais|commission|cotisation|tenue de compte|abonnement|forfait|carte|com\.?\b|cb pro", "627000",
+     "Services bancaires et assimilés"),
+    ("-", r"urssaf", "431000", "Sécurité sociale"),
+    ("-", r"retraite|prevoyance|mutuelle", "437000", "Autres organismes sociaux"),
+    ("+", r"interets? crediteurs?|remuneration|livret", "768000", "Autres produits financiers"),
+]
+
+
+def ecritures_regularisation(non_rapproches_releve, compte_banque="512000"):
+    """Écritures proposées pour les opérations du relevé absentes de la comptabilité. Sans motif reconnu,
+    la contrepartie est le compte d'attente 471000, à affecter après examen de la pièce."""
+    import re
+    if non_rapproches_releve is None or non_rapproches_releve.empty:
+        return pd.DataFrame()
+    lignes = []
+    for _, op in non_rapproches_releve.iterrows():
+        m = round(float(op['Montant']), 2)
+        if not m:
+            continue
+        sens = "-" if m < 0 else "+"
+        lib = str(op.get('Libellé', ''))[:50]
+        texte = _sans_accents(lib)
+        cpt, lib_cpt = "471000", "Compte d'attente (à affecter après examen de la pièce)"
+        for s_, motif, c, l in REGLES_REGULARISATION:
+            if s_ == sens and re.search(motif, texte):
+                cpt, lib_cpt = c, l
+                break
+        date = op.get('Date')
+        date = date.strftime('%d/%m/%Y') if hasattr(date, 'strftime') and pd.notna(date) else ""
+        debit_cpt, credit_cpt = (cpt, compte_banque) if m < 0 else (compte_banque, cpt)
+        lignes += [{"Date": date, "Compte": debit_cpt, "Libellé": lib, "Débit": abs(m), "Crédit": 0.0,
+                    "Intitulé du compte": lib_cpt if debit_cpt == cpt else "Banque"},
+                   {"Date": date, "Compte": credit_cpt, "Libellé": lib, "Débit": 0.0, "Crédit": abs(m),
+                    "Intitulé du compte": lib_cpt if credit_cpt == cpt else "Banque"}]
+    return pd.DataFrame(lignes)
+
+
 def etat_rapprochement(resultats, solde_releve, solde_comptable):
     """État de rapprochement à la date d'arrêté.
     Côté banque : solde du relevé + encaissements comptabilisés non encore au relevé - décaissements comptabilisés
@@ -347,7 +388,7 @@ def visuels_rapprochement(resultats):
              if resultats['nb_non_rapproches_ecritures'] else "aucune"}], []
 
 
-def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire", etat=None):
+def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire", etat=None, regularisations=None):
     """Génère un rapport professionnel"""
     rapport = []
     rapport.append(f"# RAPPORT DE RAPPROCHEMENT BANCAIRE")
@@ -389,6 +430,16 @@ def generer_rapport_rapprochement(resultats, nom_compte="Compte bancaire", etat=
             ("ÉCRITURES COMPTABLES NON RAPPROCHÉES", 'non_rapproches_ecritures',
              "Écritures du compte 512 sans opération correspondante sur le relevé.")):
         rapport += _tableau_operations(resultats.get(cle), titre, explication)
+    if regularisations is not None and not regularisations.empty:
+        rapport += ["---", "", "## ÉCRITURES DE RÉGULARISATION PROPOSÉES", "",
+                    "*Opérations du relevé non comptabilisées. Proposition à vérifier sur les pièces avant saisie ; "
+                    "le compte 471000 est à affecter.*", "",
+                    "| Date | Compte | Intitulé | Libellé | Débit (€) | Crédit (€) |",
+                    "|------|--------|----------|---------|----------:|-----------:|"]
+        for _, l in regularisations.iterrows():
+            rapport.append(f"| {l['Date']} | {l['Compte']} | {l['Intitulé du compte']} | {str(l['Libellé']).replace('|', '/')} | "
+                           f"{nb_fr(l['Débit'], 2) if l['Débit'] else ''} | {nb_fr(l['Crédit'], 2) if l['Crédit'] else ''} |")
+        rapport.append("")
     rapport.append("---")
     rapport.append("*SMD Global Consulting LLC - KontrolIA*")
     
@@ -543,7 +594,19 @@ def page_rapprochement():
                     else:
                         st.info("Indiquez les deux soldes pour obtenir l'état de rapprochement.", icon=":material/info:")
 
-                    rapport = generer_rapport_rapprochement(resultats, nom_compte, etat)
+                    compte_banque = (choix_banque if len(banques) > 1 else banques[0]) if banques else "512000"
+                    regul = ecritures_regularisation(resultats['non_rapproches_releve'], compte_banque)
+                    if not regul.empty:
+                        st.markdown("### Écritures de régularisation proposées")
+                        st.caption("Opérations du relevé absentes de la comptabilité. Contrepartie proposée d'après le libellé ; "
+                                   "à vérifier sur les pièces avant saisie. Le compte 471000 est à affecter.")
+                        aff = regul.copy()
+                        for c in ("Débit", "Crédit"):
+                            aff[c] = aff[c].map(lambda x: nb_fr(x, 2) if x else "")
+                        st.dataframe(aff[["Date", "Compte", "Intitulé du compte", "Libellé", "Débit", "Crédit"]],
+                                     width="stretch", hide_index=True)
+
+                    rapport = generer_rapport_rapprochement(resultats, nom_compte, etat, regul)
 
                     col1, col2 = st.columns(2)
                     with col1:
