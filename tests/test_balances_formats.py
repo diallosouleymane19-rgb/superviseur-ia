@@ -79,3 +79,22 @@ def test_montant_illisible_signale():
     txt = "Compte;Libellé;Débit;Crédit\n401000;Fourn;0;12?000,00\n512000;Banque;12 000,00;0\n"
     df, info = parser_balance_intelligent(Fichier(txt.encode(), "b.csv"))
     assert info["montants_illisibles"] == 1
+
+
+def test_desequilibre_toujours_critique():
+    from utils.coherence import verifier_coherence
+    df = pd.DataFrame({"CompteNum": ["401000", "512000", "606000"], "CompteLib": ["a", "b", "c"],
+                       "Debit": [0.0, 500.0, 120.0], "Credit": [1000.0, 0.0, 0.0]})
+    assert auditer_balance(df.copy())["niveau"] == "Critique"
+    assert verifier_coherence(df.copy())["niveau"] == "Critique"
+
+
+def test_benford_balance_avec_titres_ecarte_les_numeros_de_compte():
+    from utils.benford_module import charger_donnees_benford, colonnes_montants
+    rows = [["SARL DEMO - Balance", "", ""], ["N° compte", "Solde débiteur", "Solde créditeur"]] + \
+        [[l[0], f"{l[5]:.2f}".replace(".", ",") if l[5] else "", f"{l[6]:.2f}".replace(".", ",") if l[6] else ""] for l in _lignes()]
+    buf = io.BytesIO()
+    pd.DataFrame(rows).to_excel(buf, header=False, index=False)
+    df, err = charger_donnees_benford(Fichier(buf.getvalue(), "b.xlsx"))
+    cols, (deb, cre) = colonnes_montants(df)
+    assert err is None and (deb, cre) == ("Debit", "Credit")

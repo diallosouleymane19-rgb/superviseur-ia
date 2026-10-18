@@ -92,6 +92,36 @@ def _nombres(serie):
                                    if pd.notna(x) and motif.fullmatch(str(x)) else None), errors="coerce")
 
 
+def charger_donnees_benford(fichier):
+    """FEC tel quel ; balance d'un logiciel lue par le lecteur de balances (titres et sous-totaux retirés,
+    numéros de compte écartés), avec ses mouvements s'ils existent ; sinon fichier lu tel quel."""
+    from utils.page_helpers import charger_fichier
+    from utils.formats import est_tableur
+    nom = getattr(fichier, "name", "").lower()
+    if not est_tableur(nom):
+        try:
+            from utils.fec import lire_fec
+            fichier.seek(0)
+            df, _, _ = lire_fec(fichier)
+            if df is not None and {"CompteNum", "Debit", "Credit"} <= set(df.columns):
+                return df, None
+        except Exception:
+            pass
+    try:
+        from utils.intelligent_parser import parser_balance_intelligent
+        fichier.seek(0)
+        df, info = parser_balance_intelligent(fichier)
+        if {"CompteNum", "Debit", "Credit"} <= set(df.columns) and len(df):
+            if {"MvtDebit", "MvtCredit"} <= set(df.columns):      # mouvements de l'exercice plutôt que soldes
+                df = df.rename(columns={"Debit": "SoldeD", "Credit": "SoldeC", "MvtDebit": "Debit", "MvtCredit": "Credit"})
+            garder = [c for c in ("CompteNum", "CompteLib", "Debit", "Credit") if c in df.columns]
+            return df[garder], None
+    except Exception:
+        pass
+    fichier.seek(0)
+    return charger_fichier(fichier)
+
+
 def colonnes_montants(df):
     """Colonnes de montants utilisables pour Benford, les plus probables d'abord.
     Écartées : numéros de compte, dates, codes et références (même s'ils sont numériques)."""
@@ -409,7 +439,7 @@ def page_benford():
     )
 
     if uploaded_file:
-        df, erreur = charger_fichier(uploaded_file)
+        df, erreur = charger_donnees_benford(uploaded_file)
         if erreur:
             st.error(f"Erreur lecture fichier : {erreur}", icon=":material/error:")
             st.stop()

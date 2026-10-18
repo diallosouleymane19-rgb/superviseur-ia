@@ -213,6 +213,9 @@ def verifier_coherence(df):
         resultat['niveau'] = 'A améliorer'
     else:
         resultat['niveau'] = 'Critique'
+    # Une comptabilité déséquilibrée est inexploitable, quel que soit le reste du score
+    if resultat['verifications'].get('Équilibre Débit/Crédit', {}).get('status') == 'KO':
+        resultat['niveau'] = 'Critique'
     
     if not resultat['recommandations']:
         if resultat['score_qualite'] >= 90:

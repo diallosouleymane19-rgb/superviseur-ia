@@ -245,6 +245,8 @@ def auditer_balance(df):
         audit['niveau'] = 'A surveiller'
     else:
         audit['niveau'] = 'Critique'
+    if audit['controles'].get('Équilibre Débit/Crédit', {}).get('statut') == 'KO':
+        audit['niveau'] = 'Critique'   # balance déséquilibrée : inexploitable en l'état
     
     # RECOMMANDATIONS GENERALES
     if not audit['recommandations']:

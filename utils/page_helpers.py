@@ -200,8 +200,15 @@ def _charger_fichier_bytes(file_bytes: bytes, file_name: str, header: int = 0):
             buf.seek(0)
             return pd.read_csv(buf, sep=sep, encoding=enc, header=header), None
         else:
+            # CSV : encodage UTF-8 ou Windows (exports Cegid, Sage, EBP sous Windows)
+            for enc in ("utf-8-sig", "cp1252"):
+                try:
+                    file_bytes.decode(enc)
+                    break
+                except UnicodeDecodeError:
+                    continue
             buf.seek(0)
-            return pd.read_csv(buf, sep=None, engine="python", header=header), None
+            return pd.read_csv(buf, sep=None, engine="python", header=header, encoding=enc), None
     except Exception as e:
         return None, str(e)
 

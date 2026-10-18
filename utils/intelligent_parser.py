@@ -209,8 +209,10 @@ def mapper_colonnes_intelligent(df, info):
             break
     
     if 'CompteLib' not in mapping.values():
+        montant = lambda c: _est_numerique(df[c]) or 'solde' in _sans_accents(c) or any(
+            identifier_colonne(c, t) for t in ('Debit', 'Credit', 'SoldeDebiteur', 'SoldeCrediteur'))
         for col in df.columns:
-            if col not in colonnes_utilisees:
+            if col not in colonnes_utilisees and not montant(col):
                 test_text = df[col].astype(str).str.len().mean()
                 if test_text > 5:
                     mapping[col] = 'CompteLib'

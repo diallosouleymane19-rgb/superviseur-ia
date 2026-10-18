@@ -286,8 +286,9 @@ def afficher_synthese_score(
     # Score visuel ─────────────────────────────────────────────────────────
     col_score, col_info = st.columns([1, 3])
     with col_score:
-        couleur = _COULEUR_OK if score >= 80 else _COULEUR_WARN if score >= 55 else _COULEUR_KO
-        bg = _BG_OK if score >= 80 else _BG_WARN if score >= 55 else _BG_KO
+        critique = str(niveau).lower().startswith("critique")   # ex. déséquilibre : rouge quel que soit le score
+        couleur = _COULEUR_KO if critique else _COULEUR_OK if score >= 80 else _COULEUR_WARN if score >= 55 else _COULEUR_KO
+        bg = _BG_KO if critique else _BG_OK if score >= 80 else _BG_WARN if score >= 55 else _BG_KO
         st.markdown(
             f"""<div style='background:{bg};border:2px solid {couleur};border-radius:12px;
             padding:20px;text-align:center;'>
