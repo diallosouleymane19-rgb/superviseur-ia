@@ -97,3 +97,51 @@ def test_vente_services_tva_directe_ou_option_debits():
     assert "445710" in {l["compte"] for l in generer_ecriture(d, "vente", "706000", "service")["lignes"]}
     d["option_debits"] = False
     assert "445710" in {l["compte"] for l in generer_ecriture(d, "vente", "707000", "bien")["lignes"]}
+
+
+# Facture télécom (structure réelle La Poste Mobile, données client fictives) — cas corrigé le 28/10/2026
+TELECOM = """Bonjour, voici votre facture du 03 octobre 2026.
+Montant total prélevé ce mois-ci*
+21,99 € TTC
+HT
+TTC
+Montant de votre facture
+18,32 €
+21,99 €
+(dont montant de TVA à 20,00 % acquittée sur les débits : 3,67 €)
+Vos abonnements, forfaits et options du 03/10/2026 au 02/11/2026
+· F+M 150Go
+18,32 €
+21,99 €
+Numéro de Facture : 1116116865
+Montant € TTC : 21,99 €
+Client : M JEAN MARTIN
+LA POSTE TELECOM - SAS au capital de 10 000 000€ - 855 av. R. Salengro - 92370 Chaville - RCS Nanterre n° 525 254 736 - TVA FR 93525254736
+Numéro de facture
+1116116865
+Total : 18,32 € HT soit 21,99 € TTC
+delà de votre forfait (après avoir consommé les communications incluses dans votre forfait) pour le mois précédent.
+Remboursement ou exonération de la rémunération pour usage professionnel : www.copiefrance.fr.
+"""
+
+
+def test_facture_telecom_mentions_legales_et_glossaire():
+    r = analyser([{"source": "telecom.pdf", "texte": TELECOM}], "SMD GLOBAL CONSULTING")[0]
+    d = r["donnees"]
+    assert d["type"] == "facture"                       # « après avoir consommé » n'est pas un avoir
+    assert d["numero"] == "1116116865"
+    assert d["fournisseur"] == "LA POSTE TELECOM"
+    assert d["siren"] == "525254736"                    # lu après « RCS Nanterre n° »
+    assert (d["ht"], d["tva"], d["ttc"]) == (18.32, 3.67, 21.99)   # glossaire « exonération » ignoré
+    assert d["option_debits"] is True
+    assert "150Go" in d["objet"]
+    assert r["sens"] == "achat" and r["compte"] == "626000"
+    comptes = {l["compte"]: (l["debit"], l["credit"]) for l in r["ecriture"]["lignes"]}
+    assert comptes["626000"] == (18.32, 0) and comptes["445660"] == (3.67, 0)   # TVA sur les débits : déductible
+    assert comptes["401000"] == (0, 21.99)
+
+
+def test_avoir_reconnu_comme_document():
+    t = "AVOIR N° AV-2026-03\nDate : 10/10/2026\nFournisseur : ACME SARL\nSIRET : 552 100 554 00012\n" \
+        "Total HT : 100,00 €\nTVA 20 % : 20,00 €\nTotal TTC : 120,00 €\n"
+    assert analyser([{"source": "a.txt", "texte": t}])[0]["donnees"]["type"] == "avoir"

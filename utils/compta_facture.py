@@ -435,13 +435,42 @@ def _montant_ligne(texte, motif):
     return parse_montant(m.group(1)) if m else None
 
 
+_FORME_JURIDIQUE = r"(?:SASU|SAS|SARL|EURL|SA|SNC|SCI|SCOP|SELARL|SELAS|SCP|GIE)"
+
+
+def _emetteur_mentions(t, client=""):
+    """Raison sociale lue dans les mentions légales : « LA POSTE TELECOM - SAS au capital de … »."""
+    cl = _sans_accents(client)
+    for m in re.finditer(rf"(?m)^[ \t]*([A-Z0-9][^\n]{{1,60}}?)[ \t]*[-–,][ \t]*{_FORME_JURIDIQUE}\b[^\n]{{0,15}}\b(?:au capital|capital|RCS|SIREN|SIRET)", t):
+        nom = m.group(1).strip(" -–,")
+        if len(re.sub(r"[^A-Za-zÀ-ÿ]", "", nom)) >= 3 and not (cl and _sans_accents(nom) in cl):
+            return nom[:80]
+    return ""
+
+
+def _objet_rubrique(t):
+    """Sans tableau « Désignation », objet lu dans une rubrique « Vos abonnements, forfaits… » (télécom, énergie),
+    avec la première prestation qui suit (« · F+M 150Go »)."""
+    lignes = [l.strip() for l in t.splitlines()]
+    for motif in (r"abonnements?|forfaits?", r"prestations?|consommations?"):
+        for i, l in enumerate(lignes):
+            if re.match(rf"(?i)(?:vos\s+|votre\s+)?(?:{motif})\b", l) and len(l) <= 100:
+                obj = re.sub(r"\*|\(.*?\)", "", l).strip(" :")
+                suite = next((x for x in lignes[i + 1:i + 4] if re.match(r"^[·•\-]\s*\S", x)), "")
+                if suite:
+                    obj += " : " + suite.lstrip("·•- ").strip()
+                return obj[:200]
+    return ""
+
+
 def _emetteur_entete(t, client=""):
     """Sans étiquette « Fournisseur : », l'émetteur est la première ligne de l'en-tête
-    qui ressemble à un nom (ni titre, ni date, ni adresse, ni le client)."""
+    qui ressemble à un nom (ni titre, ni date, ni adresse, ni le client, ni une phrase de montant)."""
     cl = _sans_accents(client)
     for l in [x.strip() for x in t.splitlines() if x.strip()][:12]:
         ls = _sans_accents(l)
-        if re.search(r"facture|avoir|invoice|receipt|recu\b|quittance|date|page|siret|siren|tva|tel|mail|@|www|^\d|\d{5}", ls):
+        if re.search(r"facture|avoir|invoice|receipt|recu\b|quittance|date|page|siret|siren|tva|tel|mail|@|www|^\d|\d{5}"
+                     r"|montant|total|\bttc\b|\bht\b|bonjour|votre|vos\b|merci|\*", ls):
             continue
         if re.fullmatch(r"[A-Za-z0-9\-/_.#]+", l) and re.search(r"\d", l):   # référence / code
             continue
@@ -552,7 +581,8 @@ def _bloc_client(t):
             bloc = lignes[i:i + 5]
             # le bloc s'arrête à la première ligne vide ou à une autre rubrique
             for j, l in enumerate(bloc[1:], 1):
-                if not l.strip() or re.match(r"(?i)\s*(objet|d[ée]signation|total|montant|date|facture)", l):
+                if not l.strip() or re.match(r"(?i)\s*(objet|d[ée]signation|total|montant|date|facture)", l) \
+                        or re.search(r"(?i)au capital|\bR\.?C\.?S\.?\b|\bsire[nt]\b|TAG_", l):   # mentions légales de l'émetteur
                     bloc = bloc[:j]
                     break
             dans += bloc
@@ -564,8 +594,9 @@ def _bloc_client(t):
 
 
 def _siren_dans(txt, libelle_requis=True):
-    """Premier SIREN (ou SIRET tronqué à 9 chiffres) précédé de « SIREN » ou « SIRET »."""
-    m = re.search(r"(?i)\bsire[nt]\b[^\d\n]{0,25}(\d{3}\s?\d{3}\s?\d{3})", txt)
+    """Premier SIREN (ou SIRET tronqué à 9 chiffres) précédé de « SIREN », « SIRET » ou « RCS <ville> »."""
+    m = re.search(r"(?i)\bsire[nt]\b[^\d\n]{0,25}(\d{3}\s?\d{3}\s?\d{3})", txt) \
+        or re.search(r"(?i)\bR\.?C\.?S\.?\b[^\d\n]{0,40}?(\d{3}\s?\d{3}\s?\d{3})(?!\s?\d)", txt)
     if not m and not libelle_requis:
         m = re.search(r"\b(\d{3}\s?\d{3}\s?\d{3})\b", txt)
     return re.sub(r"\D", "", m.group(1))[:9] if m else ""
@@ -603,10 +634,16 @@ def extraire_texte(texte, source=""):
     ts = _sans_accents(t)
     d = {"source": source, "texte": texte}
 
-    d["type"] = "avoir" if re.search(r"\bavoir\b|note de credit|credit note", ts) else \
+    # « avoir » comme document, pas le verbe (« après avoir consommé », « avoir droit »...)
+    avoir_doc = re.search(r"note de credit|credit note|facture d.avoir|^\s*avoir\b(?!\s+(?:ete|eu|consomm|recu|pris|fait|"
+                          r"choisi|souscrit|lu|besoin|acces|droit|un|une|des|le|la|les|l'|plus|moins|a\b))"
+                          r"|\bavoir\s*(?:n[°o]|num|no\b|#|:)", ts, re.M)
+    d["type"] = "avoir" if avoir_doc else \
                 "facture" if re.search(r"\bfacture\b|\binvoice\b|\breceipt\b|\brecu\b", ts) else None
 
-    m = re.search(r"(?i)(?:facture|avoir|invoice)\s*(?:n[°o]\.?|num[ée]ro|number|no\b\.?|#)\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-/_.]*)", t)
+    m = re.search(r"(?i)(?:facture|avoir|invoice)\s*(?:n[°o]\.?|num[ée]ro|number|no\b\.?|#)\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-/_.]*)", t) \
+        or re.search(r"(?i)(?:num[ée]ro|n[°o]\.?)\s+(?:de\s+(?:la\s+|l')?)?(?:facture|avoir|invoice)\s*:?[ \t]*\n?[ \t]*"
+                     r"([A-Z0-9][A-Z0-9\-/_.]*\d[A-Z0-9\-/_.]*)", t)
     d["numero"] = m.group(1).rstrip(".") if m else _champ(t, ["n[°o] de facture", "num[ée]ro"])
 
     m = re.search(r"(?im)date(?:\s+(?:de\s+)?(?:la\s+)?(?:facture|facturation|[ée]mission))?\s*[:\-]\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{4}-\d{2}-\d{2})", t)
@@ -620,11 +657,11 @@ def extraire_texte(texte, source=""):
         m = re.search(r"(?im)^\s*(?:bill(?:ed)?\s+to|sold\s+to|invoice\s+to|customer)\s*:?\s*\n\s*(\S[^\n]*)", t)
         d["client"] = m.group(1).strip() if m else ""
     if not d["fournisseur"]:
-        d["fournisseur"] = _emetteur_entete(t, d["client"])
+        d["fournisseur"] = _emetteur_mentions(t, d["client"]) or _emetteur_entete(t, d["client"])
         d["emetteur_deduit"] = bool(d["fournisseur"])
     arts = _articles_tableau(t)
     d["objet"] = _champ(t, ["objet", "d[ée]signation", "description", "libell[ée]", "prestation", "nature"]) \
-        or " ; ".join(a["libelle"] for a in arts)[:200] or _lignes_tableau(t)
+        or " ; ".join(a["libelle"] for a in arts)[:200] or _lignes_tableau(t) or _objet_rubrique(t)
 
     bloc_client, hors_client = _bloc_client(t)
     d["siren"] = _siren_dans(hors_client)
@@ -635,6 +672,11 @@ def extraire_texte(texte, source=""):
     d["categorie"] = _categorie(ts)
     d["adresse_livraison"] = bool(re.search(r"adresse de livraison|livre a :|lieu de livraison", ts))
     d["tva_intra"] = _numero_tva(hors_client) or _numero_tva(t)
+    # SIREN absent mais n° TVA français FR + clé + SIREN : le SIREN s'en déduit
+    if not d["siren"] and d["tva_intra"].startswith("FR") and len(d["tva_intra"]) == 13:
+        s9 = d["tva_intra"][4:]
+        if s9.isdigit() and siren_valide(s9) and s9 != d["siren_client"]:
+            d["siren"] = s9
     d["adresse"] = bool(re.search(r"(?i)\b\d{5}\b\s+[A-Za-zÀ-ÿ]", t))
     # Fournisseur étranger : pays dans l'en-tête (hors bloc client), sans SIREN ni n° TVA français
     hc = _sans_accents(hors_client)
@@ -649,9 +691,14 @@ def extraire_texte(texte, source=""):
     if d["etranger"] and (d["pays_hors_ue"] or d["pays_ue"]):
         d["adresse"] = True
 
-    d["ht"] = _montant_libelle(t, r"\b(?:total\s+|montant\s+)?h\.?\s?t\.?(?![a-z])")
-    d["ttc"] = _montant_libelle(t, r"\b(?:total\s+|montant\s+)?t\.?t\.?c\.?(?![a-z])") \
-        or _montant_libelle(t, r"net\s+[àa]\s+payer")
+    # « 18,32 € HT soit 21,99 € TTC » : montants placés AVANT leur libellé (factures télécom, énergie)
+    m = re.search(rf"(?i){_NUM}\s*(?:€|eur)?\s*h\.?t\.?\s*(?:soit|,|/)\s*{_NUM}\s*(?:€|eur)?\s*t\.?t\.?c\.?", t)
+    if m:
+        d["ht"], d["ttc"] = parse_montant(m.group(1)), parse_montant(m.group(2))
+    else:
+        d["ht"] = _montant_libelle(t, r"\b(?:total\s+|montant\s+)?h\.?\s?t\.?(?![a-z])(?![^\n\d\-]{0,25}\bsoit\b)")
+        d["ttc"] = _montant_libelle(t, r"\b(?:total\s+|montant\s+)?t\.?t\.?c\.?(?![a-z])") \
+            or _montant_libelle(t, r"net\s+[àa]\s+payer")
     # Factures en anglais : Subtotal / Total / Amount due / Amount paid (montant parfois à la ligne)
     if d["ht"] is None:
         d["ht"] = _montant_ligne(t, r"sub-?total")
@@ -679,8 +726,11 @@ def extraire_texte(texte, source=""):
 
     d["autoliquidation"] = bool(re.search(r"autoliquidation|auto-liquidation|reverse charge|283-2|283 2", ts))
     d["franchise"] = bool(re.search(r"293\s?b|tva non applicable", ts))
-    d["option_debits"] = bool(re.search(r"(paiement|acquittement) de la taxe d'apres les debits|option.{0,20}debits", ts))
-    d["exoneration"] = bool(re.search(r"exoneration|exonere|art(icle)?\.?\s*26[12]", ts))
+    d["option_debits"] = bool(re.search(r"(paiement|acquittement) de la taxe d'apres les debits|option.{0,20}debits"
+                                        r"|tva[^\n]{0,40}acquittee sur les debits", ts))
+    # Exonération de TVA seulement (pas « exonération de la rémunération pour copie privée » d'un glossaire)
+    d["exoneration"] = bool(re.search(r"exon[a-z]*\s+de\s+(?:la\s+)?tva|tva\s*:?\s*exon|exon[a-z]*[^\n]{0,30}art(icle)?\.?\s*2[67]\d"
+                                      r"|art(icle)?\.?\s*26[12]\b[^\n]{0,20}cgi|^\s*exon[a-z]*\s*$", ts, re.M))
     if d["franchise"] or d["exoneration"]:
         d["lignes_tva"], d["tva"] = [], None   # aucune TVA facturée
     d["articles"] = arts
