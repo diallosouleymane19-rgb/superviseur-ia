@@ -90,7 +90,7 @@ REGLES_ACHAT = [
     (["maintenance", "contrat de maintenance", "support technique", "infogerance"], "615600", "service", "haute"),
     (["reparation", "entretien"], "615500", "service", "moyenne"),
     (["assurance", "insurance", "prime d'assurance", "responsabilite civile", "multirisque"], "616000", "service", "haute"),
-    (["licence", "license", "logiciel", "software", "saas", "abonnement logiciel"], "651000", "service", "moyenne"),
+    (["licence", "license", "logiciel", "software", "saas", "abonnement logiciel", "subscription"], "651000", "service", "moyenne"),
     (["sous-traitance", "sous traitance"], "611000", "service", "haute"),
     (["interim", "interimaire", "travail temporaire"], "621100", "service", "haute"),
     (["publicite", "annonce", "insertion", "google ads", "campagne"], "623100", "service", "haute"),
@@ -251,6 +251,31 @@ def _convertir_euros(d, t):
     for a in d.get("articles") or []:
         if a.get("ht") is not None:
             a["ht_devise"], a["ht"] = a["ht"], round(a["ht"] * facteur, 2)
+    return d
+
+
+def convertir_au_cours(d, taux):
+    """Conversion en euros au cours saisi par l'utilisateur (1 devise = taux €), depuis les montants en devise
+    d'origine : peut être rappelée avec un autre cours sans cumuler les conversions."""
+    if d.get("devise", "EUR") == "EUR" or not taux or taux <= 0:
+        return d
+    md = d.setdefault("montants_devise", {k: d.get(k) for k in ("ht", "tva", "ttc")})
+    if "lignes_tva_devise" not in d:
+        d["lignes_tva_devise"] = [dict(l) for l in d.get("lignes_tva", [])]
+    for a in d.get("articles") or []:
+        a.setdefault("ht_devise", a.get("ht"))
+        if a["ht_devise"] is not None:
+            a["ht"] = round(a["ht_devise"] * taux, 2)
+    d["ht"] = round(md["ht"] * taux, 2) if md.get("ht") is not None else None
+    d["ttc"] = round(md["ttc"] * taux, 2) if md.get("ttc") is not None else None
+    d["tva"] = round(d["ttc"] - d["ht"], 2) if d["ht"] is not None and d["ttc"] is not None else \
+        (round(md["tva"] * taux, 2) if md.get("tva") is not None else None)
+    lt = d["lignes_tva_devise"]
+    d["lignes_tva"] = [dict(l, montant=(d["tva"] if len(lt) == 1 else
+                                         round(l["montant"] * taux, 2) if l.get("montant") is not None else None))
+                       for l in lt]
+    d["taux_change"], d["facteur_devise"] = taux, taux
+    d["conversion"] = "cours saisi par l'utilisateur"
     return d
 
 

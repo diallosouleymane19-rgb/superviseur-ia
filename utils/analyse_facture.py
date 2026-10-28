@@ -8,7 +8,7 @@ import re
 from datetime import datetime
 
 from utils.compta_facture import (
-    PCG, lire_document, analyser, imputer, export_fec,
+    PCG, lire_document, analyser, imputer, export_fec, convertir_au_cours,
 )
 from utils.sig_pcg import eur_fr, nb_fr
 
@@ -38,11 +38,25 @@ def _ocr_images(pieces):
 def _recalculer(r, choix, tva_services, ma_societe):
     """Recalcule l'écriture selon les choix de l'utilisateur :
     choix = {"sens", "mode" ("lignes" ou "unique"), "compte" (mode unique), "lignes" (un compte par ligne)}."""
+    if choix.get("taux"):
+        convertir_au_cours(r["donnees"], choix["taux"])
     if choix["sens"] != r["sens"]:
         r.update(sens=choix["sens"], justif_sens="Choisi par l'utilisateur")
     if choix.get("mode") == "unique":
         return imputer(r, ma_societe, tva_services, compte=choix.get("compte"), ventiler_lignes=False)
     return imputer(r, ma_societe, tva_services, comptes_lignes=choix.get("lignes"))
+
+
+def _garde(choix, cle):
+    """Cours de change saisi : conservé quand l'utilisateur change ensuite le sens ou le compte."""
+    return {"taux": choix[cle]["taux"]} if choix.get(cle, {}).get("taux") else {}
+
+
+def _montant(d, x):
+    """Montant en euros, ou dans la devise d'origine tant qu'aucun cours n'est connu (rien n'est affiché en € à tort)."""
+    if d.get("devise", "EUR") != "EUR" and not d.get("facteur_devise"):
+        return f"{nb_fr(x or 0, 2)} {d['devise']}"
+    return eur_fr(x or 0, 2)
 
 
 def _en_attente(r):
@@ -148,21 +162,31 @@ def page_analyse_facture():
         non_conforme = any(s_ in ("KO", "ALERTE") for s_, _ in r["controles"])
         icone = "⛔" if r.get("doublon_de") else "⚠️" if r in a_verifier else "🟠" if non_conforme else "✅"
         titre = (f"{icone} {(d.get('type') or 'pièce').capitalize()} {d.get('numero') or 's/n'} · "
-                 f"{tiers or 'tiers inconnu'} · {eur_fr(d.get('ttc') or 0, 2)} TTC")
+                 f"{tiers or 'tiers inconnu'} · {_montant(d, d.get('ttc'))} TTC")
         with st.expander(titre, expanded=(r in a_verifier and not r.get("doublon_de"))):
             if r.get("doublon_de"):
                 st.error(f"Doublon de {r['doublon_de']} : exclu de l'export.")
             a, b, c = st.columns(3)
             a.markdown(f"**Date**  \n{d['date'].strftime('%d/%m/%Y') if d.get('date') else 'non lue'}")
-            b.markdown(f"**HT / TVA / TTC**  \n{eur_fr(d.get('ht') or 0, 2)} / {eur_fr(d.get('tva') or 0, 2)} / "
-                       f"{eur_fr(d.get('ttc') or 0, 2)}"
+            b.markdown(f"**HT / TVA / TTC**  \n{_montant(d, d.get('ht'))} / {_montant(d, d.get('tva'))} / "
+                       f"{_montant(d, d.get('ttc'))}"
                        + (f"  \n*soit {nb_fr((d.get('montants_devise') or {}).get('ttc') or 0, 2)} {d['devise']} TTC*"
-                          if d.get("devise", "EUR") != "EUR" else ""))
+                          if d.get("devise", "EUR") != "EUR" and d.get("facteur_devise") else ""))
             c.markdown(f"**Source**  \n{d['source']}")
             if d.get("objet"):
                 st.caption(f"Désignation : {d['objet']}")
 
             cle = f"{d['source']}|{d.get('numero')}"
+            if d.get("devise", "EUR") != "EUR" and (not d.get("facteur_devise") or choix.get(cle, {}).get("taux")):
+                dev = d["devise"]
+                tx = st.number_input(
+                    f"Cours de change : 1 {dev} = … €", min_value=0.0, step=0.0001, format="%.4f",
+                    value=float(choix.get(cle, {}).get("taux") or 0.0), key=f"cf_tx_{i}",
+                    help="Cours du jour de l'opération (BCE, banque-france.fr), ou montant débité en euros sur votre "
+                         f"relevé divisé par le montant en {dev}.")
+                if tx and tx != choix.get(cle, {}).get("taux"):
+                    choix[cle] = {**choix.get(cle, {"sens": r["sens"]}), "taux": tx}
+                    st.rerun()
             fmt = lambda c: f"{c} · {PCG.get(c, '')}"
             arts = r.get("lignes_articles") or []
             s1, s2 = st.columns([1, 3])
@@ -170,7 +194,7 @@ def page_analyse_facture():
                                 key=f"cf_sens_{i}", help=r["justif_sens"])
             if sens != r["sens"]:
                 # Changement de sens : les comptes proposés sont recalculés, les anciens choix sont oubliés
-                choix[cle] = {"sens": sens, "mode": "lignes"}
+                choix[cle] = {"sens": sens, "mode": "lignes", **_garde(choix, cle)}
                 for k in [k for k in st.session_state if k.startswith((f"cf_cpt_{i}", f"cf_l_{i}_", f"cf_v_{i}"))]:
                     st.session_state.pop(k, None)
                 st.rerun()
@@ -182,7 +206,7 @@ def page_analyse_facture():
                                       help="Les montants des lignes redonnent le total HT : chaque ligne peut "
                                            "avoir son propre compte.")
                 if par_ligne != (choix.get(cle, {}).get("mode", "lignes" if r.get("ventilation") else "unique") == "lignes"):
-                    choix[cle] = {"sens": sens, "mode": "lignes" if par_ligne else "unique"}
+                    choix[cle] = {"sens": sens, "mode": "lignes" if par_ligne else "unique", **_garde(choix, cle)}
                     st.rerun()
             if par_ligne:
                 actuels = [l["compte"] for l in arts]
@@ -191,11 +215,11 @@ def page_analyse_facture():
                     opts = options if l["compte"] in options else [l["compte"]] + options
                     c1_, c2_ = st.columns([3, 2])
                     nouveaux.append(c1_.selectbox(
-                        f"{l['libelle'][:70]} · {nb_fr(l['ht'], 2)} € HT", opts, index=opts.index(l["compte"]),
+                        f"{l['libelle'][:70]} · {_montant(d, l['ht'])} HT", opts, index=opts.index(l["compte"]),
                         format_func=fmt, key=f"cf_l_{i}_{j}"))
                     c2_.caption(f"{l['regle']} · confiance {l['confiance']}")
                 if nouveaux != actuels:
-                    choix[cle] = {"sens": sens, "mode": "lignes", "lignes": nouveaux}
+                    choix[cle] = {"sens": sens, "mode": "lignes", "lignes": nouveaux, **_garde(choix, cle)}
                     st.rerun()
             else:
                 if r["compte"] not in options:
@@ -204,7 +228,7 @@ def page_analyse_facture():
                     "Compte de charge / produit", options, index=options.index(r["compte"]),
                     format_func=fmt, key=f"cf_cpt_{i}")
                 if compte != r["compte"]:
-                    choix[cle] = {"sens": sens, "mode": "unique", "compte": compte}
+                    choix[cle] = {"sens": sens, "mode": "unique", "compte": compte, **_garde(choix, cle)}
                     st.rerun()
             st.caption(f"Proposition : {r['regle']} · confiance {r['confiance']}")
 
@@ -240,9 +264,14 @@ def page_analyse_facture():
         aff["Débit"] = aff["Débit"].map(lambda x: nb_fr(x, 2) if x else "")
         aff["Crédit"] = aff["Crédit"].map(lambda x: nb_fr(x, 2) if x else "")
         st.dataframe(aff, hide_index=True, width="stretch")
+        sans_cours = [r for r in retenus if r["donnees"].get("devise", "EUR") != "EUR" and not r["donnees"].get("facteur_devise")]
+        tot = (lambda x: nb_fr(x, 2)) if sans_cours else (lambda x: eur_fr(x, 2))
         (st.success if td == tc else st.error)(
-            f"Total débit {eur_fr(td, 2)} · total crédit {eur_fr(tc, 2)}"
+            f"Total débit {tot(td)} · total crédit {tot(tc)}"
             + (" · journal équilibré" if td == tc else " · journal déséquilibré"))
+        if sans_cours:
+            st.error(f"{len(sans_cours)} pièce(s) en devise sans cours de change : leurs montants sont en devise, "
+                     "pas en euros. Saisissez le cours dans la pièce avant d'exporter.")
         if any(_en_attente(r) for r in retenus):
             st.warning("Des pièces sont en compte d'attente 471000 : choisissez leur compte avant import.")
 

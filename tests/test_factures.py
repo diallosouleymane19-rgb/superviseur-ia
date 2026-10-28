@@ -145,3 +145,37 @@ def test_avoir_reconnu_comme_document():
     t = "AVOIR N° AV-2026-03\nDate : 10/10/2026\nFournisseur : ACME SARL\nSIRET : 552 100 554 00012\n" \
         "Total HT : 100,00 €\nTVA 20 % : 20,00 €\nTotal TTC : 120,00 €\n"
     assert analyser([{"source": "a.txt", "texte": t}])[0]["donnees"]["type"] == "avoir"
+
+
+USD = """Invoice
+Invoice number EKQOTNK0-0005
+Date of issue October 7, 2026
+Celonis Inc.
+One World Trade Center
+New York, New York 10007
+United States
+Bill to
+JEAN MARTIN
+France
+Description Qty Unit price Amount
+Make Core plan (10000 credits / month) - monthly subscription   1   $10.59   $10.59
+Subtotal $10.59
+Total $10.59
+Amount due $10.59 USD
+"""
+
+
+def test_facture_usd_abonnement_et_cours_saisi():
+    from utils.compta_facture import convertir_au_cours
+    r = analyser([{"source": "usd.pdf", "texte": USD}], "SMD GLOBAL CONSULTING")[0]
+    d = r["donnees"]
+    assert d["devise"] == "USD" and d["hors_ue"] and r["compte"] == "651000"
+    assert any(s == "KO" and "NON convertis" in m for s, m in r["controles"])
+    for tx in (0.86, 0.8612):          # un second cours remplace le premier, sans cumul
+        convertir_au_cours(d, tx)
+        imputer(r, "SMD GLOBAL CONSULTING")
+    assert (d["ht"], d["tva"], d["ttc"]) == (9.12, 0.0, 9.12)
+    assert d["montants_devise"]["ttc"] == 10.59
+    assert {l["compte"]: (l["debit"], l["credit"]) for l in r["ecriture"]["lignes"]} == \
+        {"651000": (9.12, 0), "401000": (0, 9.12)}
+    assert not any(s == "KO" for s, _ in r["controles"])
