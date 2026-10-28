@@ -179,3 +179,16 @@ def test_facture_usd_abonnement_et_cours_saisi():
     assert {l["compte"]: (l["debit"], l["credit"]) for l in r["ecriture"]["lignes"]} == \
         {"651000": (9.12, 0), "401000": (0, 9.12)}
     assert not any(s == "KO" for s, _ in r["controles"])
+
+
+def test_facture_usd_montant_preleve_releve():
+    from utils.compta_facture import convertir_au_montant_preleve
+    r = analyser([{"source": "usd.pdf", "texte": USD}], "SMD GLOBAL CONSULTING")[0]
+    d = r["donnees"]
+    convertir_au_montant_preleve(d, 9.18)
+    imputer(r, "SMD GLOBAL CONSULTING")
+    assert (d["ht"], d["tva"], d["ttc"]) == (9.18, 0.0, 9.18)   # au centime près du relevé
+    assert round(d["taux_change"], 4) == 0.8669
+    assert {l["compte"]: (l["debit"], l["credit"]) for l in r["ecriture"]["lignes"]} == \
+        {"651000": (9.18, 0), "401000": (0, 9.18)}
+    assert any("montant prélevé" in m for s, m in r["controles"] if s == "OK")

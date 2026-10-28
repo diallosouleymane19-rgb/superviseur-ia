@@ -8,7 +8,7 @@ import re
 from datetime import datetime
 
 from utils.compta_facture import (
-    PCG, lire_document, analyser, imputer, export_fec, convertir_au_cours,
+    PCG, lire_document, analyser, imputer, export_fec, convertir_au_cours, convertir_au_montant_preleve,
 )
 from utils.sig_pcg import eur_fr, nb_fr
 
@@ -38,7 +38,9 @@ def _ocr_images(pieces):
 def _recalculer(r, choix, tva_services, ma_societe):
     """Recalcule l'écriture selon les choix de l'utilisateur :
     choix = {"sens", "mode" ("lignes" ou "unique"), "compte" (mode unique), "lignes" (un compte par ligne)}."""
-    if choix.get("taux"):
+    if choix.get("eur"):
+        convertir_au_montant_preleve(r["donnees"], choix["eur"])
+    elif choix.get("taux"):
         convertir_au_cours(r["donnees"], choix["taux"])
     if choix["sens"] != r["sens"]:
         r.update(sens=choix["sens"], justif_sens="Choisi par l'utilisateur")
@@ -48,8 +50,8 @@ def _recalculer(r, choix, tva_services, ma_societe):
 
 
 def _garde(choix, cle):
-    """Cours de change saisi : conservé quand l'utilisateur change ensuite le sens ou le compte."""
-    return {"taux": choix[cle]["taux"]} if choix.get(cle, {}).get("taux") else {}
+    """Conversion saisie (montant prélevé ou cours) : conservée quand l'utilisateur change le sens ou le compte."""
+    return {k: choix[cle][k] for k in ("taux", "eur") if choix.get(cle, {}).get(k)}
 
 
 def _montant(d, x):
@@ -177,15 +179,28 @@ def page_analyse_facture():
                 st.caption(f"Désignation : {d['objet']}")
 
             cle = f"{d['source']}|{d.get('numero')}"
-            if d.get("devise", "EUR") != "EUR" and (not d.get("facteur_devise") or choix.get(cle, {}).get("taux")):
+            ch = choix.get(cle, {})
+            if d.get("devise", "EUR") != "EUR" and (not d.get("facteur_devise") or ch.get("taux") or ch.get("eur")):
                 dev = d["devise"]
-                tx = st.number_input(
-                    f"Cours de change : 1 {dev} = … €", min_value=0.0, step=0.0001, format="%.4f",
-                    value=float(choix.get(cle, {}).get("taux") or 0.0), key=f"cf_tx_{i}",
-                    help="Cours du jour de l'opération (BCE, banque-france.fr), ou montant débité en euros sur votre "
-                         f"relevé divisé par le montant en {dev}.")
-                if tx and tx != choix.get(cle, {}).get("taux"):
-                    choix[cle] = {**choix.get(cle, {"sens": r["sens"]}), "taux": tx}
+                ttc_dev = (d.get("montants_devise") or {}).get("ttc") or d.get("ttc") or 0
+                v1, v2 = st.columns(2)
+                eur = v1.number_input(
+                    f"Montant prélevé en € (relevé bancaire) pour {nb_fr(ttc_dev, 2)} {dev}", min_value=0.0,
+                    step=0.01, format="%.2f", value=float(ch.get("eur") or 0.0), key=f"cf_eur_{i}",
+                    help="Montant de la ligne du relevé, hors commission bancaire séparée (627000). "
+                         "Le cours s'en déduit : facture et règlement tombent au centime près au rapprochement.")
+                tx = v2.number_input(
+                    f"ou cours de change : 1 {dev} = … €", min_value=0.0, step=0.0001, format="%.4f",
+                    value=float(ch.get("taux") or 0.0), key=f"cf_tx_{i}", disabled=bool(eur),
+                    help="Si la facture n'est pas encore payée : cours du jour de l'opération (BCE, banque-france.fr). "
+                         "Au règlement, l'écart éventuel va en 666000 (perte) ou 766000 (gain de change).")
+                if eur != (ch.get("eur") or 0.0):
+                    base = {k: v for k, v in (ch or {"sens": r["sens"]}).items() if k not in ("eur", "taux")}
+                    choix[cle] = {**base, **({"eur": eur} if eur else {})}
+                    st.rerun()
+                if not eur and tx != (ch.get("taux") or 0.0):
+                    base = {k: v for k, v in (ch or {"sens": r["sens"]}).items() if k != "taux"}
+                    choix[cle] = {**base, **({"taux": tx} if tx else {})}
                     st.rerun()
             fmt = lambda c: f"{c} · {PCG.get(c, '')}"
             arts = r.get("lignes_articles") or []

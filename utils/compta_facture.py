@@ -254,7 +254,7 @@ def _convertir_euros(d, t):
     return d
 
 
-def convertir_au_cours(d, taux):
+def convertir_au_cours(d, taux, origine="cours saisi par l'utilisateur", ttc_euros=None):
     """Conversion en euros au cours saisi par l'utilisateur (1 devise = taux €), depuis les montants en devise
     d'origine : peut être rappelée avec un autre cours sans cumuler les conversions."""
     if d.get("devise", "EUR") == "EUR" or not taux or taux <= 0:
@@ -267,7 +267,9 @@ def convertir_au_cours(d, taux):
         if a["ht_devise"] is not None:
             a["ht"] = round(a["ht_devise"] * taux, 2)
     d["ht"] = round(md["ht"] * taux, 2) if md.get("ht") is not None else None
-    d["ttc"] = round(md["ttc"] * taux, 2) if md.get("ttc") is not None else None
+    d["ttc"] = ttc_euros if ttc_euros is not None else round(md["ttc"] * taux, 2) if md.get("ttc") is not None else None
+    if ttc_euros is not None and md.get("ht") is not None and md.get("ht") == md.get("ttc"):
+        d["ht"] = ttc_euros   # sans TVA : HT = TTC au centime près
     d["tva"] = round(d["ttc"] - d["ht"], 2) if d["ht"] is not None and d["ttc"] is not None else \
         (round(md["tva"] * taux, 2) if md.get("tva") is not None else None)
     lt = d["lignes_tva_devise"]
@@ -275,8 +277,18 @@ def convertir_au_cours(d, taux):
                                          round(l["montant"] * taux, 2) if l.get("montant") is not None else None))
                        for l in lt]
     d["taux_change"], d["facteur_devise"] = taux, taux
-    d["conversion"] = "cours saisi par l'utilisateur"
+    d["conversion"] = origine
     return d
+
+
+def convertir_au_montant_preleve(d, montant_eur):
+    """Conversion depuis le montant réellement prélevé en euros (relevé bancaire) : le cours s'en déduit et la
+    facture est comptabilisée au centime près au montant débité, ce qui rend le rapprochement bancaire exact."""
+    md = d.get("montants_devise") or {"ttc": d.get("ttc")}
+    if d.get("devise", "EUR") == "EUR" or not montant_eur or montant_eur <= 0 or not md.get("ttc"):
+        return d
+    return convertir_au_cours(d, round(montant_eur / md["ttc"], 6),
+                              origine="montant prélevé en euros saisi (relevé bancaire)", ttc_euros=round(montant_eur, 2))
 
 
 def code_auxiliaire(nom, prefixe):
