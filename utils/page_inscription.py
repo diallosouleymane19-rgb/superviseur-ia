@@ -100,7 +100,7 @@ def page_inscription(app_name: str = "pcg") -> None:
             # Choix du plan
             st.markdown("**Choisissez votre plan**")
             plan_options = {
-                "Gratuit — 10 analyses/mois (0\u00a0€)":                "free",
+                "Essai Pro 14 jours offert, puis Gratuit (0\u00a0€)":   "free",
                 "Starter — 50 analyses/mois (29\u00a0€ HT/mois)":       "starter",
                 "Pro — 200 analyses/mois (79\u00a0€ HT/mois)":          "pro",
                 "Entreprise — analyses illimitées (199\u00a0€ HT/mois)": "enterprise",
@@ -115,6 +115,9 @@ def page_inscription(app_name: str = "pcg") -> None:
 
             if plan_choisi != "free":
                 st.caption("Vous serez redirigé vers Stripe pour payer en toute sécurité.")
+            else:
+                st.caption("« Dossier Propre en 14 jours » : plan Pro complet (tous les modules, 200 analyses), "
+                           "sans carte bancaire. Ensuite, plan Gratuit (10 analyses/mois) sauf si vous choisissez un plan.")
 
             st.markdown("---")
 
@@ -175,7 +178,10 @@ def page_inscription(app_name: str = "pcg") -> None:
                 else:
                     # Compte créé avec succès
                     if plan_choisi == "free":
-                        st.success("Compte créé ! Connectez-vous maintenant.", icon=":material/check_circle:")
+                        st.success("Compte créé ! " + ("Votre essai Pro « Dossier Propre en 14 jours » est activé, sans "
+                                   "carte bancaire : tous les modules et 200 analyses pendant 14 jours. "
+                                   if result.get("essai") else "") + "Connectez-vous maintenant.",
+                                   icon=":material/check_circle:")
                         st.balloons()
                         # Basculer vers l'onglet connexion
                         st.session_state["inscription_ok"] = True

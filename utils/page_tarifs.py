@@ -135,6 +135,7 @@ def page_tarifs(app_name="pcg"):
     """Page Tarifs & Abonnement."""
     user_email  = st.session_state.get("user_email", "")
     # Plan relu en base : il change quand Stripe confirme un paiement (webhook), pendant la session
+    u = None
     try:
         u = get_user(user_email) if user_email else None
         if u and u.get("plan"):
@@ -156,8 +157,32 @@ def page_tarifs(app_name="pcg"):
     if not paiement_ok:
         st.info("Le paiement en ligne n'est pas encore activé. Pour changer de plan, écrivez à contact@smdconsulting.pro.", icon=":material/info:")
 
+    # --- Essai Pro « Dossier Propre en 14 jours » ---
+    from utils.essai import jours_restants, essai_possible, demarrer_essai, NOM_ESSAI, ESSAI_JOURS, _date
+    from utils.cabinets import get_cabinet
+    cab = get_cabinet(u.get("tenant_id")) if u else None
+    j_essai = jours_restants(cab) if cab else None
+    if j_essai:
+        fin = _date(cab.get("essai_fin")).astimezone().strftime("%d/%m/%Y")
+        st.info(f"Essai Pro « **{NOM_ESSAI}** » en cours : **{j_essai} jour{'s' if j_essai > 1 else ''}** "
+                f"restant{'s' if j_essai > 1 else ''} (fin le {fin}). Tous les modules et 200 analyses par mois. "
+                "Choisissez un plan ci-dessous pour continuer après l'essai ; sinon, le cabinet repassera "
+                "au plan Gratuit, sans perdre ses dossiers.", icon=":material/timer:")
+    elif cab and essai_possible(cab) and not collaborateur:
+        st.markdown(f"#### Essayez le plan Pro {ESSAI_JOURS} jours, sans carte bancaire")
+        st.caption(f"« {NOM_ESSAI} » : tous les modules, 200 analyses, sur vos vrais dossiers. "
+                   "À la fin de l'essai, le cabinet repasse au plan Gratuit sauf si vous choisissez un plan.")
+        if st.button(f"Démarrer mon essai Pro de {ESSAI_JOURS} jours", type="primary", icon=":material/rocket_launch:"):
+            if demarrer_essai(cab["id"], user_email):
+                st.session_state["plan"] = "pro"
+                st.rerun()
+            st.error("L'essai n'a pas pu démarrer. Réessayez ou écrivez à contact@smdconsulting.pro.")
+        st.divider()
+    elif cab and cab.get("essai_fin") and plan_actuel == "free":
+        st.caption(f"Essai Pro terminé le {_date(cab.get('essai_fin')).astimezone().strftime('%d/%m/%Y')}.")
+
     # --- Abonnement actuel ---
-    if plan_actuel != "free":
+    if plan_actuel != "free" and not j_essai:
         info  = PLANS_DISPLAY.get(plan_actuel, {})
         used  = get_quota_used(user_email) if user_email else 0
         limit = info.get("quota", 0)
@@ -194,7 +219,7 @@ def page_tarifs(app_name="pcg"):
     for i, (plan_key, plan) in enumerate(PLANS_DISPLAY.items()):
         price     = plan["price_a"] if billing_key == "annual" else plan["price_m"]
         period    = "/an" if billing_key == "annual" else "/mois"
-        is_current = (plan_key == plan_actuel)
+        is_current = (plan_key == plan_actuel) and not j_essai   # pendant l'essai, le Pro reste à souscrire
 
         with cols[i]:
             card = _card_html(plan_key, plan, price, period, is_current)
@@ -209,7 +234,7 @@ def page_tarifs(app_name="pcg"):
                           disabled=True, width="stretch",
                           help="Résiliez via le portail Stripe.")
             else:
-                label = "Commencer" if plan_actuel == "free" else "Upgrader"
+                label = "Commencer" if plan_actuel == "free" or j_essai else "Upgrader"
                 if st.button(label, key="pay_" + plan_key, disabled=collaborateur or not paiement_ok,
                              width="stretch", type="primary"):
                     if not user_email:
@@ -248,7 +273,7 @@ def page_tarifs(app_name="pcg"):
 
 **Les données sont-elles sécurisées ?** Les fichiers déposés sont lus en mémoire et ne sont pas enregistrés. Seules les analyses que vous sauvegardez sont conservées, en France (OVH), 30 jours maximum.
 
-**Essai gratuit ?** Plan Gratuit : 10 analyses/mois sans carte bancaire.
+**Essai gratuit ?** Oui : essai Pro « Dossier Propre en 14 jours », sans carte bancaire, une fois par cabinet. Ensuite, le plan Gratuit reste disponible (10 analyses/mois).
 
 **Contact :** contact@smdconsulting.pro
         """)

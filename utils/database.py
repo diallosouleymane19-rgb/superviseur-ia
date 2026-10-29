@@ -289,6 +289,11 @@ def purger_si_necessaire(intervalle_s: int = 3600) -> bool:
     purger_comptes_inactifs()
     purger_invitations()
     try:
+        from utils.essai import taches_essais
+        taches_essais()   # fin des essais Pro échus, rappel 3 jours avant
+    except Exception as e:
+        logger.error(f"taches_essais : {e}")
+    try:
         from utils.securite_connexion import purger_anciens
         purger_anciens()
         from utils.db_supabase import get_supabase as _sb

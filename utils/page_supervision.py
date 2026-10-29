@@ -26,6 +26,8 @@ ACTIONS = {
     "MDP_DEMANDE": "Demande de nouveau mot de passe",
     "MDP_REINITIALISE": "Mot de passe réinitialisé",
     "INSCRIPTION": "Inscription",
+    "ESSAI_DEBUT": "Début de l'essai Pro",
+    "ESSAI_FIN": "Fin de l'essai Pro",
     "ABONNEMENT": "Abonnement (paiement Stripe)",
     "ANALYSE": "Analyse lancée",
     "SAUVEGARDE_ANALYSE": "Sauvegarde d'analyse",

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from utils.db_supabase import get_supabase
 
 # Champs de facturation portés par le cabinet (et non plus par l'utilisateur)
-CHAMPS_CABINET = ("plan", "stripe_customer_id", "stripe_subscription_id", "quota_used_month", "quota_month")
+CHAMPS_CABINET = ("plan", "stripe_customer_id", "stripe_subscription_id", "quota_used_month", "quota_month", "essai_fin")
 ROLE_RESPONSABLE = "cabinet"
 ROLE_COLLABORATEUR = "collaborateur"
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -73,6 +73,9 @@ def enrichir_user(user: dict | None) -> dict | None:
     if not user:
         return user
     cab = get_cabinet(user.get("tenant_id"))
+    if cab and cab.get("essai_fin"):
+        from utils.essai import expirer_si_termine
+        cab = expirer_si_termine(cab)   # essai Pro échu sans abonnement : retour au plan Gratuit
     if cab:
         u = dict(user)
         for k in CHAMPS_CABINET:

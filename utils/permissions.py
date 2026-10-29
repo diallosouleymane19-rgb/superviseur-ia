@@ -150,6 +150,15 @@ def afficher_quota_sidebar() -> None:
     user = get_user(user_email) if user_email else None
     if not user:
         return
+    if user.get("plan") and user["plan"] != st.session_state.get("plan"):
+        st.session_state["plan"] = user["plan"]   # essai terminé ou abonnement pris : droits à jour
+    if user.get("essai_fin"):
+        from utils.essai import jours_restants, NOM_ESSAI
+        j = jours_restants({"plan": user.get("plan"), "essai_fin": user.get("essai_fin"),
+                            "stripe_subscription_id": user.get("stripe_subscription_id")})
+        if j:
+            st.sidebar.markdown(f"<div class='smd-quota'>Essai Pro « {NOM_ESSAI} » : <b>{j} jour{'s' if j > 1 else ''}"
+                                f"</b> restant{'s' if j > 1 else ''}</div>", unsafe_allow_html=True)
 
     limit = get_quota_limit(user)
     if limit == -1:

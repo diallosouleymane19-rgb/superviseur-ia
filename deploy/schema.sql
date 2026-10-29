@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS smd_cabinets (
     stripe_subscription_id text DEFAULT '',
     quota_used_month       integer DEFAULT 0,
     quota_month            text DEFAULT '',
-    updated_at             timestamptz DEFAULT now()
+    updated_at             timestamptz DEFAULT now(),
+    essai_fin              timestamptz,
+    essai_rappel           boolean DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS users (

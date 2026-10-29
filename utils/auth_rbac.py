@@ -128,10 +128,14 @@ def creer_user_rbac(email: str, password: str, nom: str = "",
         }).execute()
         if invitation:
             marquer_acceptee(invitation["id"])
+        elif role == "cabinet" and plan == "free":
+            from utils.essai import demarrer_essai   # nouveau cabinet : essai Pro de 14 jours sans carte
+            if demarrer_essai(tenant_id, email):
+                plan = "pro"
         log_action(email, "INSCRIPTION", details=f"{'Collaborateur invité' if invitation else 'Responsable'}"
                                                  f" · cabinet {cabinet or '—'} · plan {plan}")
         return {"ok": True, "tenant_id": tenant_id, "invite": bool(invitation),
-                "cabinet": cabinet}
+                "cabinet": cabinet, "essai": plan == "pro" and not invitation}
     except Exception as e:
         msg = str(e)
         if not invitation and tenant_id:   # cabinet créé pour rien : supprimé
