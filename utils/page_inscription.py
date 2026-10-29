@@ -41,13 +41,16 @@ def page_inscription(app_name: str = "pcg") -> None:
     st.markdown(f"""
         <div style='text-align:center;padding:32px 0 24px'>
             <div style='font-size:2.8em;font-weight:900;color:#1a3a5c'>
-                SMD Global Consulting LLC
+                {app_label}
             </div>
             <div style='font-size:1.15em;color:#4a90d9;margin-top:4px'>
-                {app_label}
+                « Vous décidez, votre assistant {app_label} vérifie »
             </div>
             <div style='font-size:0.9em;color:#888;margin-top:8px'>
                 Créez votre compte et commencez à analyser en 2 minutes.
+            </div>
+            <div style='font-size:0.75em;color:#9aa5b1;margin-top:6px'>
+                une solution SMD Global Consulting LLC
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -217,7 +220,7 @@ def page_inscription(app_name: str = "pcg") -> None:
 
     # ── Colonne droite : avantages ─────────────────────────────────────────────
     with col_right:
-        st.markdown("### Pourquoi rejoindre SMD ?")
+        st.markdown("### Pourquoi choisir KontrolIA ?")
 
         avantages = [
             ("🧠", "IA Comptable augmentée",
