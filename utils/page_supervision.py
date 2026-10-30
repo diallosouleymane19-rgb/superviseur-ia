@@ -26,6 +26,7 @@ ACTIONS = {
     "MDP_DEMANDE": "Demande de nouveau mot de passe",
     "MDP_REINITIALISE": "Mot de passe réinitialisé",
     "INSCRIPTION": "Inscription",
+    "SUPPRESSION_COMPTE": "Suppression de compte",
     "ESSAI_DEBUT": "Début de l'essai Pro",
     "ESSAI_FIN": "Fin de l'essai Pro",
     "ABONNEMENT": "Abonnement (paiement Stripe)",
@@ -201,6 +202,8 @@ def page_supervision():
     else:
         st.info("Aucun compte enregistré.")
 
+    _section_suppression(users, cabinets)
+
     st.subheader("Journal des dernières actions")
     st.caption("100 dernières actions : connexions, inscriptions, analyses lancées, sauvegardes, dossiers.")
     jl = []
@@ -219,3 +222,42 @@ def page_supervision():
         st.dataframe(pd.DataFrame(jl), hide_index=True, width="stretch")
     else:
         st.info("Aucune action enregistrée pour le moment.")
+
+
+def _section_suppression(users, cabinets):
+    """Suppression définitive d'un compte, avec confirmation par saisie de l'e-mail."""
+    moi = (st.session_state.get("user_email") or "").lower()
+    choix = sorted(u["email"] for u in users if u.get("role") != "admin" and u.get("email", "").lower() != moi)
+    if st.session_state.get("sup_del_ok"):
+        st.success(f"Supprimé : {st.session_state.pop('sup_del_ok')}.", icon=":material/check_circle:")
+    with st.expander("Supprimer un compte", icon=":material/delete:"):
+        if not choix:
+            st.caption("Aucun compte supprimable.")
+            return
+        email = st.selectbox("Compte à supprimer", choix, index=None, placeholder="Choisissez un e-mail",
+                             key="sup_del_email")
+        if not email:
+            return
+        u = next(x for x in users if x.get("email") == email)
+        tid = str(u.get("tenant_id") or "")
+        cab = cabinets.get(tid, {})
+        membres_cab = sum(1 for x in users if str(x.get("tenant_id") or "") == tid) if tid else 0
+        if membres_cab == 1:
+            st.warning(f"Seul membre du cabinet « {cab.get('nom', '')} » (plan {cab.get('plan', '')}) : le cabinet "
+                       "sera supprimé avec ses dossiers clients, analyses sauvegardées et invitations.",
+                       icon=":material/warning:")
+        else:
+            st.info(f"Le cabinet « {cab.get('nom', '') or '—'} » compte {membres_cab} membres : seul ce compte "
+                    "est supprimé, le cabinet et ses données restent.")
+        conf = st.text_input("Pour confirmer, tapez l'e-mail du compte", key="sup_del_conf")
+        if st.button("Supprimer définitivement", type="primary", key="sup_del_btn",
+                     disabled=conf.strip().lower() != email.lower()):
+            from utils.cabinets import supprimer_compte
+            r = supprimer_compte(email, st.session_state.get("user_email", ""))
+            if r.get("ok"):
+                st.session_state.pop("sup_del_email", None)
+                st.session_state.pop("sup_del_conf", None)
+                st.session_state["sup_del_ok"] = email + (f" et le cabinet « {r['cabinet']} »" if r["cabinet_supprime"] else "")
+                st.rerun()
+            else:
+                st.error(r["error"], icon=":material/error:")

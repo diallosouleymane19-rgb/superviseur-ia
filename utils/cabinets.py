@@ -224,3 +224,51 @@ def compter(tenant_id) -> dict:
     except Exception:
         pass
     return res
+
+
+# ─── Suppression d'un compte (administrateur de la plateforme) ──────────────
+
+def _abonnement_actif(cab: dict) -> bool:
+    """Abonnement Stripe en cours pour ce cabinet (un client du mode test, inconnu en mode réel, n'en a pas)."""
+    if not cab or not cab.get("stripe_customer_id"):
+        return False
+    try:
+        from utils.stripe_billing import _init_stripe, abonnements_actifs
+        _init_stripe()
+        return bool(abonnements_actifs(cab["stripe_customer_id"]))
+    except Exception:
+        return False
+
+
+def supprimer_compte(email: str, par: str = "") -> dict:
+    """Supprime définitivement un compte. S'il est le seul membre de son cabinet, le cabinet est supprimé avec
+    ses dossiers, analyses et invitations. Refusé pour un administrateur, pour soi-même, et pour un cabinet
+    dont l'abonnement Stripe est en cours (à résilier d'abord dans Stripe)."""
+    email = (email or "").lower().strip()
+    if not email or email == (par or "").lower().strip():
+        return {"error": "Vous ne pouvez pas supprimer votre propre compte ici."}
+    sb = get_supabase()
+    res = sb.table("users").select("id, email, role, tenant_id").eq("email", email).limit(1).execute().data
+    if not res:
+        return {"error": "Compte introuvable."}
+    u = res[0]
+    if u.get("role") == "admin":
+        return {"error": "Un compte administrateur ne peut pas être supprimé ici."}
+    cab = get_cabinet(u.get("tenant_id"))
+    seul = bool(cab) and len(sb.table("users").select("id").eq("tenant_id", str(cab["id"])).execute().data or []) == 1
+    if seul and _abonnement_actif(cab):
+        return {"error": "Ce cabinet a un abonnement Stripe en cours : résiliez-le d'abord dans Stripe."}
+    try:
+        sb.table("audit_logs").delete().eq("user_id", u["id"]).execute()
+        sb.table("smd_quota_usage").delete().eq("user_email", email).execute()
+        for table in ("analyses", "clients"):   # données hors cabinet
+            sb.table(table).delete().eq("user_email", email).is_("tenant_id", "null").execute()
+        if seul:   # dossiers, analyses et invitations du cabinet : suppression en cascade
+            sb.table("smd_cabinets").delete().eq("id", str(cab["id"])).execute()
+        sb.table("users").delete().eq("id", u["id"]).execute()
+    except Exception as e:
+        return {"error": f"Suppression impossible : {str(e)[:120]}"}
+    from utils.auth_rbac import log_action
+    log_action(par or "admin", "SUPPRESSION_COMPTE",
+               details=f"{email}" + (f" et son cabinet « {cab.get('nom', '')} »" if seul else ""))
+    return {"ok": True, "cabinet_supprime": seul, "cabinet": (cab or {}).get("nom", "")}
