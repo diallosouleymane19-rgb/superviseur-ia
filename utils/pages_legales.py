@@ -50,9 +50,11 @@ Le responsable du Cabinet invite ses collaborateurs depuis la page « Mon cabine
 | Pro | 200 | 79 € | 759 € |
 | Entreprise | Illimité | 199 € | 1 909 € |
 
+Offre « Programme Cabinet Fondateur », réservée aux 25 premiers abonnés : plan Pro Fondateur, avec les mêmes droits et le même quota que le plan Pro, au prix de 29,99 € HT par mois pendant les 3 premiers mois, puis 49,99 € HT par mois. Ce prix de 49,99 € HT est garanti tant que l'abonnement reste actif sans interruption ; en cas de résiliation, l'offre ne peut plus être souscrite à nouveau. Elle est proposée en paiement mensuel uniquement.
+
 L'abonnement et le quota mensuel sont attachés au Cabinet et communs à tous ses membres. Seul le responsable du Cabinet peut souscrire, modifier ou résilier l'abonnement.
 
-Les prix s'entendent hors taxes. Le Service étant fourni à des professionnels par une société établie hors de l'Union européenne, la TVA éventuellement due est autoliquidée par le client établi dans l'Union européenne. Le paiement est traité par Stripe ; l'Éditeur n'a jamais accès aux numéros de carte. L'abonnement se renouvelle automatiquement à chaque échéance. L'Utilisateur peut le résilier à tout moment depuis le portail Stripe ; la résiliation prend effet à la fin de la période en cours, sans remboursement de la période entamée. Le quota non utilisé n'est pas reporté au mois suivant. L'Éditeur peut modifier ses prix pour les périodes suivantes, en prévenant l'Utilisateur au moins 30 jours à l'avance.
+Les prix s'entendent hors taxes. Le Service étant fourni à des professionnels par une société établie hors de l'Union européenne, la TVA éventuellement due est autoliquidée par le client établi dans l'Union européenne. Le paiement est traité par Stripe ; l'Éditeur n'a jamais accès aux numéros de carte. L'abonnement se renouvelle automatiquement à chaque échéance. L'Utilisateur peut le résilier à tout moment depuis le portail Stripe ; la résiliation prend effet à la fin de la période en cours, sans remboursement de la période entamée. Le quota non utilisé n'est pas reporté au mois suivant. Sous réserve de la garantie de prix de l'offre Fondateur, l'Éditeur peut modifier ses prix pour les périodes suivantes, en prévenant l'Utilisateur au moins 30 jours à l'avance.
 
 ### Article 7 — Obligations de l'Utilisateur
 
