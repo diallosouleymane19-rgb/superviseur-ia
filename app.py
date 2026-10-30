@@ -113,7 +113,7 @@ if not is_connecte():
         with col_marque, st.container(key="smd_panneau"):
             st.markdown(
                 "<img class='smd-logo' src='app/static/logo_smd.png' alt='SMD Global Consulting LLC'>"
-                "<h1 style='margin:0 0 .5rem'>Kontrol<span style='color:#5FB8E6'>IA</span></h1>"
+                "<h1 style='margin:0 0 .5rem'>Kontrol<span style='color:#E09A62'>IA</span></h1>"
                 "<p class='smd-slogan'>« Vous décidez, votre assistant KontrolIA vérifie »</p>"
                 "<p class='smd-accroche'>L'assistant des comptables, gestionnaires, DAF et experts-comptables "
                 "au quotidien : contrôles, états financiers et TVA selon le PCG et les exigences de la DGFiP.</p>"
@@ -173,24 +173,11 @@ st.session_state.pop("ouvrir_inscription", None)   # connecté : ordre normal de
 # SIDEBAR - NAVIGATION
 # =============================================================================
 
-st.logo("static/logo_smd.png", size="large", icon_image="static/logo_smd_globe.png")
-st.sidebar.markdown("<div class='smd-produit-menu'>Kontrol<span>IA</span>"
-                    "<small>« Vous décidez, votre assistant KontrolIA vérifie »</small></div>", unsafe_allow_html=True)
-st.sidebar.markdown(f"<div class='smd-utilisateur'>{html.escape(st.session_state.get('user_email', 'Utilisateur'))}</div>",
-                    unsafe_allow_html=True)
+st.sidebar.markdown("<div class='smd-produit-menu'>Kontrol<span>IA</span></div>", unsafe_allow_html=True)
 
 # Dernière activité de l'utilisateur (page Supervision), au plus toutes les 5 minutes
 from utils.page_supervision import noter_activite
 noter_activite()
-
-# Badge rôle + plan + quota
-afficher_badge_role()
-afficher_quota_sidebar()
-
-# Indicateur mode démo
-if st.session_state.get("role") == "demo":
-    st.sidebar.markdown("<div class='smd-demo'>Mode démonstration : rien n'est sauvegardé.</div>",
-                        unsafe_allow_html=True)
 
 def _aller_a(nom_page):
     """Change la page affichée (menu et boutons d'accès rapide)."""
@@ -217,7 +204,7 @@ MENU = [
         ("💹 TFT Trésorerie", "Flux de trésorerie", ":material/payments:"),
         ("📊 Comparatif N/N-1", "Comparatif N / N-1", ":material/compare_arrows:"),
         ("🧾 Aide TVA CA3/CA12", "TVA CA3 / CA12", ":material/percent:")]),
-    ("Supervision et reporting", [
+    ("Reporting et fiscal", [
         ("📂 Traitement FEC", "Fichier des écritures (FEC)", ":material/description:"),
         ("📋 Rapport Client", "Rapport client", ":material/summarize:"),
         ("📰 Veille Fiscale", "Veille fiscale", ":material/newspaper:"),
@@ -234,6 +221,49 @@ if st.session_state.get("nav_page") not in PAGES:
     st.session_state["nav_page"] = "🏠 Accueil"
 page = st.session_state["nav_page"]
 
+
+# ── Menu latéral : navigation seulement (familles repliables, page active en couleur) ──
+def _basculer_famille(nom):
+    st.session_state[f"menu_ouvert_{nom}"] = not st.session_state.get(f"menu_ouvert_{nom}", False)
+
+
+with st.sidebar.container(key="smd_menu"):
+    for _section, _items in MENU:
+        if _section:
+            _ids = [pid for pid, _, _ in _items]
+            _cle = f"menu_ouvert_{_section}"
+            if page in _ids and not st.session_state.get(f"menu_vu_{_section}_{page}"):
+                st.session_state[_cle] = True          # la famille de la page active s'ouvre d'elle-même
+                st.session_state[f"menu_vu_{_section}_{page}"] = True
+            _ouvert = st.session_state.get(_cle, False)
+            st.button(_section, key=f"famille_{MENU.index((_section, _items))}", width="stretch", type="tertiary",
+                      icon=":material/expand_more:" if _ouvert else ":material/chevron_right:",
+                      on_click=_basculer_famille, args=(_section,))
+            if not _ouvert:
+                continue
+        for _pid, _lib, _ico in _items:
+            st.button(_lib, icon=None if _section else _ico, key=f"menu_{PAGES.index(_pid)}", width="stretch",
+                      type="primary" if _pid == page else "tertiary", on_click=_aller_a, args=(_pid,))
+
+if st.session_state.get("role") == "demo":
+    st.sidebar.markdown("<div class='smd-demo'>Mode démonstration : rien n'est sauvegardé.</div>",
+                        unsafe_allow_html=True)
+
+# Rappel d'essai ou de quota (carte discrète), rempli après la lecture du compte dans la barre du haut
+_carte_compte = st.sidebar.empty()
+
+# Raccourcis d'action en bas du menu
+with st.sidebar.container(key="smd_raccourcis"):
+    for _lib, _pid, _ico in [("Analyser une facture", "🧾 Analyse et comptabilisation de factures", ":material/receipt_long:"),
+                             ("Contrôler une balance", "📊 Contrôle de balance", ":material/balance:"),
+                             ("Contrôler un FEC", "📂 Traitement FEC", ":material/description:")]:
+        st.button(_lib, icon=_ico, key=f"raccourci_{PAGES.index(_pid)}", width="stretch", type="tertiary",
+                  on_click=_aller_a, args=(_pid,))
+
+# ── Barre du haut : client en cours + menu du compte ──────────────────────────
+with st.container(key="smd_barre"):
+    _b_vide, _b_client, _b_nouveau, _b_compte = st.columns([3.6, 3, 1.9, 2.3], vertical_alignment="center")
+
 # Dossier client en cours : les sauvegardes y sont rangées (hors mode démonstration)
 if st.session_state.get("role") != "demo":
     try:
@@ -243,14 +273,11 @@ if st.session_state.get("role") != "demo":
         _clients = {}
     if st.session_state.get("dossier_id") not in _clients:
         st.session_state["dossier_id"] = 0          # 0 = aucun dossier
-    st.sidebar.selectbox("Client sur lequel vous travaillez", [0] + list(_clients), key="dossier_id",
-                         format_func=lambda i: _clients.get(i, "Aucun client choisi"),
-                         help="Les analyses que vous sauvegardez (bouton Sauvegarder) sont rangées dans le dossier de "
-                              "ce client. Vous les retrouvez dans Mes dossiers.")
+    _b_client.selectbox("Client sur lequel vous travaillez", [0] + list(_clients), key="dossier_id",
+                        format_func=lambda i: _clients.get(i, "Aucun client choisi"), label_visibility="collapsed",
+                        help="Les analyses que vous sauvegardez (bouton Sauvegarder) sont rangées dans le dossier de "
+                             "ce client. Vous les retrouvez dans Mes dossiers.")
     st.session_state["dossier_nom"] = _clients.get(st.session_state.get("dossier_id"))
-    if not st.session_state["dossier_nom"]:
-        st.sidebar.caption("Choisissez un client pour y ranger vos sauvegardes." if _clients
-                           else "Créez un client pour y ranger vos sauvegardes.")
 
     def _nouveau_client_menu():
         nom = st.session_state.get("menu_nouveau_client", "").strip()
@@ -267,7 +294,7 @@ if st.session_state.get("role") != "demo":
         else:
             st.session_state["menu_client_msg"] = "Création impossible (base de données indisponible). Réessayez."
 
-    with st.sidebar.popover("Nouveau client", icon=":material/add:", width="stretch"):
+    with _b_nouveau.popover("Nouveau client", icon=":material/add:", width="stretch"):
         st.text_input("Nom du client", key="menu_nouveau_client", placeholder="ex. SARL Martin")
         st.button("Créer le dossier", type="primary", width="stretch", on_click=_nouveau_client_menu,
                   key="menu_btn_client")
@@ -275,18 +302,27 @@ if st.session_state.get("role") != "demo":
             st.warning(st.session_state["menu_client_msg"])
         st.caption("SIRET, secteur et contact se complètent dans Mes dossiers.")
 
-with st.sidebar.container(key="smd_menu"):
-    for _section, _items in MENU:
-        if _section:
-            st.markdown(f"<div class='smd-section'>{_section}</div>", unsafe_allow_html=True)
-        for _pid, _lib, _ico in _items:
-            st.button(_lib, icon=_ico, key=f"menu_{PAGES.index(_pid)}", width="stretch",
-                      type="primary" if _pid == page else "tertiary", on_click=_aller_a, args=(_pid,))
+_nom_compte = st.session_state.get("cabinet") or st.session_state.get("nom") or "Mon compte"
+_initiales = "".join(m[0] for m in str(_nom_compte).split()[:2]).upper() or "?"
+with _b_compte.popover(f"{_initiales} · {_nom_compte}", width="stretch"):
+    st.caption(st.session_state.get("user_email", ""))
+    afficher_badge_role(st)
+    _jours_essai = afficher_quota_sidebar(st)
+    st.button("Abonnement", icon=":material/credit_card:", width="stretch", key="compte_abonnement",
+              on_click=_aller_a, args=("💳 Tarifs & Abonnement",))
+    st.button("Mon cabinet", icon=":material/group:", width="stretch", key="compte_cabinet",
+              on_click=_aller_a, args=("👥 Mon cabinet",))
+    if st.button("Se déconnecter", icon=":material/logout:", width="stretch", key="deconnexion"):
+        logout()
 
-st.sidebar.divider()
-
-if st.sidebar.button("Se déconnecter", icon=":material/logout:", width="stretch", key="deconnexion"):
-    logout()
+if _jours_essai:
+    _carte_compte.markdown(f"<div class='smd-carte-essai'><b>Essai Pro</b> : {_jours_essai} jour"
+                           f"{'s' if _jours_essai > 1 else ''} restant{'s' if _jours_essai > 1 else ''}"
+                           "<br><span>Choisissez une offre dans Abonnement pour continuer.</span></div>",
+                           unsafe_allow_html=True)
+elif st.session_state.get("quota_alerte"):
+    _carte_compte.markdown("<div class='smd-carte-essai'><b>Quota presque épuisé</b>"
+                           "<br><span>Voyez l'offre supérieure dans Abonnement.</span></div>", unsafe_allow_html=True)
 # =============================================================================
 # PAGES / MODULES
 # =============================================================================

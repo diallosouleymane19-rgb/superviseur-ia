@@ -1,4 +1,4 @@
-# Charte SMD Global Consulting : marine #0A3681 (fond du logo), azur #0A84C6 (globe).
+# Charte KontrolIA « Graphite & Cuivre » : graphite #1F2933, cuivre #A9592A.
 # Polices hébergées sur le serveur (static/fonts, et Source Serif intégrée à Streamlit) : aucun appel à Google Fonts (RGPD).
 
 [server]
@@ -6,12 +6,12 @@ enableStaticServing = true
 
 [theme]
 base = "light"
-primaryColor = "#0A3681"
+primaryColor = "#1F2933"
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F3F6FA"
-textColor = "#0E1E3A"
-linkColor = "#0A6FB0"
-borderColor = "#D9E1EC"
+secondaryBackgroundColor = "#F5F3F0"
+textColor = "#1F2933"
+linkColor = "#8F4A22"
+borderColor = "#E2E5E9"
 baseRadius = "6px"
 font = "IBM Plex Sans, sans-serif"
 headingFont = "serif"
@@ -33,11 +33,11 @@ url = "app/static/fonts/ibm-plex-sans-latin-600-normal.woff2"
 weight = 600
 
 [theme.sidebar]
-backgroundColor = "#0A3681"
-secondaryBackgroundColor = "#13449A"
-textColor = "#E9EEF7"
-primaryColor = "#0A84C6"
-borderColor = "#2A5AAE"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F5F7"
+textColor = "#1F2933"
+primaryColor = "#A9592A"
+borderColor = "#E2E5E9"
 
 [client]
 toolbarMode = "minimal"

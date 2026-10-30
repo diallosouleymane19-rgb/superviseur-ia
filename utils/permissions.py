@@ -114,8 +114,9 @@ def _journaliser_analyse(module: str) -> None:
 
 # ─── Sidebar : badge rôle ─────────────────────────────────────────────────────
 
-def afficher_badge_role() -> None:
-    """Affiche le badge rôle + plan dans la sidebar."""
+def afficher_badge_role(cible=None) -> None:
+    """Affiche le badge rôle + plan (menu du compte ; par défaut le menu latéral)."""
+    cible = cible or st.sidebar
     role  = st.session_state.get("role", "client")
     plan  = st.session_state.get("plan", "free")
     nom   = st.session_state.get("nom", "")
@@ -129,7 +130,7 @@ def afficher_badge_role() -> None:
     plan_color = plan_info["color"]
 
     import html as _html
-    st.sidebar.markdown(
+    cible.markdown(
         f"<div class='smd-role'><div class='smd-role-lib'>{_html.escape(role_label)}</div>"
         f"<div class='smd-role-plan'><span class='smd-plan'>{_html.escape(plan_label)}</span>"
         + (f"<span class='smd-role-nom'>{_html.escape(nom)}</span>" if nom else "") + "</div></div>",
@@ -138,18 +139,21 @@ def afficher_badge_role() -> None:
 
 # ─── Sidebar : barre de quota ─────────────────────────────────────────────────
 
-def afficher_quota_sidebar() -> None:
-    """Affiche la barre de progression du quota mensuel dans la sidebar."""
+def afficher_quota_sidebar(cible=None):
+    """Affiche le quota mensuel (menu du compte ; par défaut le menu latéral).
+    Retourne le nombre de jours d'essai restants (None hors essai)."""
+    cible = cible or st.sidebar
+    jours_essai = None
     user_email = st.session_state.get("user_email", "")
     role       = st.session_state.get("role", "client")
 
     if role == "admin":
-        st.sidebar.markdown("<div class='smd-quota'>Analyses illimitées (administrateur)</div>", unsafe_allow_html=True)
-        return
+        cible.markdown("<div class='smd-quota'>Analyses illimitées (administrateur)</div>", unsafe_allow_html=True)
+        return None
 
     user = get_user(user_email) if user_email else None
     if not user:
-        return
+        return None
     if user.get("plan") and user["plan"] != st.session_state.get("plan"):
         st.session_state["plan"] = user["plan"]   # essai terminé ou abonnement pris : droits à jour
     if user.get("essai_fin"):
@@ -157,27 +161,30 @@ def afficher_quota_sidebar() -> None:
         j = jours_restants({"plan": user.get("plan"), "essai_fin": user.get("essai_fin"),
                             "stripe_subscription_id": user.get("stripe_subscription_id")})
         if j:
-            st.sidebar.markdown(f"<div class='smd-quota'>Essai Pro « {NOM_ESSAI} » : <b>{j} jour{'s' if j > 1 else ''}"
+            jours_essai = j
+            cible.markdown(f"<div class='smd-quota'>Essai Pro « {NOM_ESSAI} » : <b>{j} jour{'s' if j > 1 else ''}"
                                 f"</b> restant{'s' if j > 1 else ''}</div>", unsafe_allow_html=True)
 
     limit = get_quota_limit(user)
     if limit == -1:
-        st.sidebar.markdown("<div class='smd-quota'>Analyses illimitées (Entreprise)</div>", unsafe_allow_html=True)
-        return
+        cible.markdown("<div class='smd-quota'>Analyses illimitées (Entreprise)</div>", unsafe_allow_html=True)
+        return jours_essai
 
     used = get_quota_used(user_email)
     pct  = min(100, int(used / limit * 100)) if limit > 0 else 0
     remaining = max(0, limit - used)
 
     niveau = "ok" if pct < 60 else ("moyen" if pct < 85 else "haut")
-    st.sidebar.markdown(
+    cible.markdown(
         f"<div class='smd-quota'>Analyses du cabinet ce mois : <b>{used} / {limit}</b> "
         f"({remaining} restantes)</div>"
         f"<div class='smd-jauge'><div class='smd-jauge-{niveau}' style='width:{pct}%'></div></div>",
         unsafe_allow_html=True)
 
+    st.session_state["quota_alerte"] = pct >= 90   # rappelé dans le menu latéral
     if pct >= 90:
-        st.sidebar.warning("Quota presque épuisé : voyez l'offre supérieure dans Abonnement.")
+        cible.warning("Quota presque épuisé : voyez l'offre supérieure dans Abonnement.")
+    return jours_essai
 
 
 # ─── Audit log automatique ────────────────────────────────────────────────────
