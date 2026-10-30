@@ -10,6 +10,13 @@ import re
 from utils.auth_rbac import creer_user_rbac, PLANS
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _places_fondateur() -> int:
+    """Places restantes du Programme Cabinet Fondateur (relu dans Stripe au plus toutes les 5 minutes)."""
+    from utils.stripe_billing import places_fondateur
+    return places_fondateur()
+
+
 # ─── Validation ───────────────────────────────────────────────────────────────
 
 def _email_valide(email: str) -> bool:
@@ -112,11 +119,22 @@ def page_inscription(app_name: str = "pcg") -> None:
             if not paiement_actif():   # sans paiement en ligne, seul le plan Gratuit est proposé
                 plan_options = {k: v for k, v in plan_options.items() if v == "free"}
                 st.caption("Plans payants : le paiement en ligne arrive bientôt. Écrivez à contact@smdconsulting.pro.")
+            else:   # Programme Cabinet Fondateur, tant qu'il reste des places (proposé juste après l'essai)
+                places = _places_fondateur()
+                if places > 0:
+                    libelle = (f"Pro Fondateur — 29,99\u00a0€ HT/mois 3 mois, puis 49,99\u00a0€ garanti "
+                               f"({places} place{'s' if places > 1 else ''} sur 25)")
+                    items = list(plan_options.items())
+                    plan_options = dict(items[:1] + [(libelle, "fondateur")] + items[1:])
             plan_label  = st.selectbox("Plan", list(plan_options.keys()),
                                        label_visibility="collapsed")
             plan_choisi = plan_options[plan_label]
 
-            if plan_choisi != "free":
+            if plan_choisi == "fondateur":
+                st.caption("Plan Pro complet (tous les modules, 200 analyses par mois) au tarif fondateur, sans "
+                           "engagement. Vous serez redirigé vers Stripe pour payer en toute sécurité ; renseignez votre "
+                           "n° de TVA intracommunautaire (TVA autoliquidée).")
+            elif plan_choisi != "free":
                 st.caption("Vous serez redirigé vers Stripe pour payer en toute sécurité.")
             else:
                 st.caption("« Dossier Propre en 14 jours » : plan Pro complet (tous les modules, 200 analyses), "
