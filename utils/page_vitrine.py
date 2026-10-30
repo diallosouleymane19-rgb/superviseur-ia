@@ -10,6 +10,7 @@ import streamlit as st
 from utils.stripe_billing import PRICING, FONDATEUR
 
 CONTACT = "contact@smdconsulting.pro"
+TELEPHONE = ("+33783627651", "07 83 62 76 51")
 
 COCHES = [
     "Balance et FEC contrôlés selon le PCG et les exigences de la DGFiP",
@@ -141,6 +142,7 @@ CSS = """
   padding:.8rem 1.4rem; }
 .vt-logo { font-size:1.75rem; font-weight:800; color:#FFFFFF !important; letter-spacing:-.01em; }
 .vt-logo span { color:#E09A62; }
+.vt-logo small { display:block; font-size:.68rem; font-weight:400; color:#B8C2CC; letter-spacing:.02em; margin-top:.1rem; }
 .vt-menu { display:flex; gap:.4rem; flex:1; }
 .vt-menu a { color:#FFFFFF !important; font-weight:600; padding:.5rem .9rem; border-radius:10px; font-size:.98rem; }
 .vt-menu a:hover { background:rgba(255,255,255,.1); }
@@ -148,10 +150,12 @@ CSS = """
   white-space:nowrap; }
 .vt-cta:hover { background:#8F4A22; }
 @media (max-width: 760px) {
-  .vt-nav-public, .vt-menu, .vt-nav-outils a:first-child { display:none; }
+  .vt-nav-public, .vt-menu, .vt-nav-outils a[href^='mailto'] { display:none; }
   .vt-nav-haut { justify-content:flex-end; }
   .vt-nav-bas { justify-content:space-between; gap:.8rem; padding:.7rem 1rem; }
   .vt-logo { font-size:1.4rem; } .vt-cta { padding:.5rem .9rem; font-size:.85rem; }
+  .vt-nav-outils { white-space:nowrap; } .vt-nav-outils a { margin-left:.9rem; font-size:.8rem; }
+  .vt-logo small { font-size:.58rem; white-space:nowrap; }
   .st-key-vitrine_hero { padding:1.6rem 1.2rem; }
   .vt-titre { font-size:1.9rem !important; }
 }
@@ -197,12 +201,14 @@ def page_vitrine():
         "<div class='vt-nav-haut'><div class='vt-nav-public'>"
         "<a href='#pour-qui' target='_self'>Cabinets</a><a href='#pour-qui' target='_self'>Entreprises</a></div>"
         "<div class='vt-nav-outils'>"
+        f"<a href='tel:{TELEPHONE[0]}'><span class='vt-i'>call</span>{TELEPHONE[1]}</a>"
         f"<a href='mailto:{CONTACT}'><span class='vt-i'>mail</span>{CONTACT}</a>"
         "<a href='#faq' target='_self'><span class='vt-i'>help</span>Aide</a>"
         "<a href='?acces=connexion' target='_self'><span class='vt-i'>account_circle</span>Me connecter</a>"
         "</div></div>"
         "<div class='vt-nav-bas'>"
-        "<a class='vt-logo' href='#haut' target='_self'>Kontrol<span>IA</span></a>"
+        "<a class='vt-logo' href='#haut' target='_self'>Kontrol<span>IA</span>"
+        "<small>une solution SMD Global Consulting LLC</small></a>"
         "<nav class='vt-menu'>"
         "<a href='#fonctionnalites' target='_self'>Fonctionnalités</a>"
         "<a href='#pour-qui' target='_self'>Pour qui</a>"
