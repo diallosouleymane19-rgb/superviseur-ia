@@ -200,6 +200,36 @@ def page_tarifs(app_name="pcg"):
                 st.error("Le portail de paiement ne répond pas. Réessayez plus tard ou écrivez à contact@smdconsulting.pro.")
         st.divider()
 
+    # --- Programme Cabinet Fondateur (25 places) ---
+    if paiement_ok and (plan_actuel == "free" or j_essai):
+        from utils.stripe_billing import places_fondateur, FONDATEUR
+        places = places_fondateur()
+        if places > 0:
+            with st.container(border=True):
+                st.markdown("#### Programme Cabinet Fondateur")
+                eur = lambda c: f"{c / 100:.2f}".replace(".", ",")
+                st.markdown(f"Plan **Pro** complet (tous les modules, 200 analyses par mois) à "
+                            f"**{eur(FONDATEUR['monthly'] - FONDATEUR['remise'])} € HT/mois** les "
+                            f"{FONDATEUR['mois_remise']} premiers mois, puis **{eur(FONDATEUR['monthly'])} € HT/mois "
+                            "garanti** tant que l'abonnement dure, au lieu de 79 € HT.")
+                st.caption(f"Réservé aux {FONDATEUR['places']} premiers clients : **{places} place"
+                           f"{'s' if places > 1 else ''} restante{'s' if places > 1 else ''}**. Sans engagement.")
+                if st.button("Devenir client fondateur", type="primary", key="pay_fondateur", disabled=collaborateur):
+                    try:
+                        from utils.stripe_billing import creer_checkout_session
+                        url = creer_checkout_session(email=user_email, plan=FONDATEUR["plan"], app=app_name,
+                                                     nom=st.session_state.get("nom", ""))
+                        st.link_button("Payer sur Stripe (paiement sécurisé, nouvel onglet)", url, type="primary",
+                                       icon=":material/lock:")
+                    except Exception as e:
+                        from utils.stripe_billing import DejaAbonne
+                        if isinstance(e, DejaAbonne):
+                            st.info("Vous avez déjà un abonnement : utilisez « Gérer mon abonnement Stripe ».")
+                        else:
+                            logging.exception("Paiement fondateur")
+                            st.error("Le paiement en ligne ne répond pas. Réessayez plus tard ou écrivez à "
+                                     "contact@smdconsulting.pro.")
+
     # --- Facturation mensuelle / annuelle ---
     billing_choice = st.radio(
         "Facturation",
@@ -208,7 +238,10 @@ def page_tarifs(app_name="pcg"):
         label_visibility="collapsed"
     )
     billing_key = "annual" if "Annuelle" in billing_choice else "monthly"
-    st.caption("Prix hors taxes : TVA française de 20 % en sus.")
+    from utils.stripe_billing import regime_tva
+    st.caption("Prix hors taxes : TVA française de 20 % en sus." if regime_tva() == "20" else
+               "Prix hors taxes. TVA autoliquidée par le client professionnel (art. 283-2 du CGI) : "
+               "renseignez votre n° de TVA intracommunautaire lors du paiement.")
     if billing_key == "annual":
         st.caption("Économisez 2 mois avec la facturation annuelle.")
 

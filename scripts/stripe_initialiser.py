@@ -18,7 +18,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import stripe  # noqa: E402
 
-from utils.stripe_billing import PRICING, cle_prix, _d, _get_app_url, _get_stripe_key  # noqa: E402
+from utils.stripe_billing import (PRICING, FONDATEUR, cle_prix, regime_tva, _d, _get_app_url,  # noqa: E402
+                                  _get_stripe_key)
 
 APP = "pcg"
 EVENEMENTS = ["customer.subscription.created", "customer.subscription.updated",
@@ -57,6 +58,32 @@ def produits_et_prix():
         prix_par_produit[produit] = ids
     info(f"1/3 Produits et prix prêts ({len(prix_par_produit)} plans payants).")
     return prix_par_produit
+
+
+def offre_fondateur():
+    """Prix Pro Fondateur 49,99 € HT/mois + coupon de 20 € pendant 3 mois, limité à 25 clients.
+    Pas ajouté au portail client : on n'y bascule pas depuis un autre plan."""
+    cle = cle_prix(APP, FONDATEUR["plan"], "monthly")
+    existant = stripe.Price.list(lookup_keys=[cle], active=True, limit=1).data
+    if existant:
+        info(f"  Prix fondateur déjà présent : {existant[0].unit_amount / 100:.2f} €")
+    else:
+        produit = stripe.Product.create(name=f"KontrolIA {FONDATEUR['label']}",
+                                        metadata={"app": "kontrolia", "plan": FONDATEUR["plan"]}).id
+        stripe.Price.create(product=produit, currency="eur", unit_amount=FONDATEUR["monthly"], lookup_key=cle,
+                            recurring={"interval": "month"}, nickname="Pro Fondateur mensuel")
+        info(f"  Prix créé : {cle} = {FONDATEUR['monthly'] / 100:.2f} €")
+    try:
+        c = stripe.Coupon.retrieve(FONDATEUR["coupon"])
+        info(f"  Coupon fondateur déjà présent ({c.times_redeemed or 0}/{c.max_redemptions} utilisé).")
+    except stripe.error.InvalidRequestError:
+        stripe.Coupon.create(id=FONDATEUR["coupon"], name="Programme Cabinet Fondateur",
+                             amount_off=FONDATEUR["remise"], currency="eur", duration="repeating",
+                             duration_in_months=FONDATEUR["mois_remise"], max_redemptions=FONDATEUR["places"],
+                             metadata={"app": "kontrolia"})
+        info(f"  Coupon créé : -{FONDATEUR['remise'] / 100:.2f} € pendant {FONDATEUR['mois_remise']} mois, "
+             f"{FONDATEUR['places']} places.")
+    info("1b/3 Offre fondateur prête.")
 
 
 def portail(prix_par_produit, app_url):
@@ -116,8 +143,12 @@ def main():
     if not app_url.startswith("https://"):
         sys.exit(f"APP_URL doit être l'adresse publique en https (actuellement « {app_url} »)")
     info(f"Compte Stripe en mode {'TEST' if cle.startswith(('sk_test_', 'rk_test_')) else 'RÉEL'} — {app_url}")
-    taux_tva()
+    if regime_tva() == "20":
+        taux_tva()
+    else:
+        info("0/3 TVA : autoliquidation (aucun taux ajouté, mention en pied de facture).")
     prix = produits_et_prix()
+    offre_fondateur()
     portail(prix, app_url)
     if "--sans-webhook" in sys.argv:          # mise à jour sans changer le secret du webhook
         info("3/3 Webhook inchangé.")

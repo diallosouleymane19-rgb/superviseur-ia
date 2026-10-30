@@ -77,14 +77,25 @@ PRICING = {
 }
 
 
+# Offre « Programme Cabinet Fondateur » (25 premiers clients) : Pro à 49,99 € HT/mois garanti, remise de 20 €
+# les 3 premiers mois (29,99 € HT). Donne les droits du plan Pro ; absente du portail (pas de bascule vers ce prix).
+FONDATEUR = {"plan": "fondateur", "droits": "pro", "monthly": 4999, "label": "Pro Fondateur",
+             "coupon": "kontrolia_fondateur", "remise": 2000, "mois_remise": 3, "places": 25}
+PLAN_DROITS = {FONDATEUR["plan"]: FONDATEUR["droits"]}
+
+
 def cle_prix(app: str, plan: str, billing: str) -> str:
     return f"{app}_{plan}_{billing}"
 
 
 def plan_depuis_cle(cle: str):
-    """'pcg_pro_annual' -> 'pro' ; None si la clé n'est pas une des nôtres."""
+    """'pcg_pro_annual' -> 'pro' ; 'pcg_fondateur_monthly' -> 'pro' (droits) ; None si la clé n'est pas une des nôtres."""
     parties = (cle or "").split("_")
-    return parties[1] if len(parties) == 3 and parties[1] in PRICING else None
+    if len(parties) == 3 and parties[1] in PRICING:
+        return parties[1]
+    if len(parties) == 3 and parties[1] in PLAN_DROITS:
+        return PLAN_DROITS[parties[1]]
+    return None
 
 
 def _price_id(app: str, plan: str, billing: str) -> str:
@@ -158,6 +169,22 @@ MENTIONS_FACTURE = (
 )
 
 
+MENTION_AUTOLIQUIDATION = ("TVA : autoliquidation, taxe due par le preneur (art. 283-2 du CGI). "
+                           "Montants hors taxe ; prestataire établi hors de France.")
+
+
+def regime_tva() -> str:
+    """« autoliquidation » (défaut : vendeur établi hors de France, clients professionnels) ou « 20 »
+    (TVA française ajoutée), d'après le secret STRIPE_TVA."""
+    try:
+        import streamlit as st
+        v = str(st.secrets.get("STRIPE_TVA", "")).strip()
+    except Exception:
+        v = ""
+    v = v or os.getenv("STRIPE_TVA", "").strip()
+    return "20" if v == "20" else "autoliquidation"
+
+
 def _bloc_vendeur(vendeur: str) -> str:
     """Identité du vendeur, une information par ligne (le secret sépare les éléments par « — »)."""
     return "\n".join(p.strip() for p in vendeur.split(" — ") if p.strip())
@@ -170,11 +197,14 @@ def _mentions_facture() -> str:
         vendeur = str(st.secrets.get("STRIPE_MENTIONS_VENDEUR", "")).strip()
     except Exception:
         vendeur = os.getenv("STRIPE_MENTIONS_VENDEUR", "").strip()
-    return (_bloc_vendeur(vendeur) + "\n\n" if vendeur else "") + MENTIONS_FACTURE
+    tva = (MENTION_AUTOLIQUIDATION + "\n") if regime_tva() == "autoliquidation" else ""
+    return (_bloc_vendeur(vendeur) + "\n\n" if vendeur else "") + tva + MENTIONS_FACTURE
 
 
 def _taux_tva_id():
-    """Taux de TVA 20 % créé par scripts/stripe_initialiser.py (None s'il n'existe pas encore)."""
+    """Taux de TVA 20 % créé par scripts/stripe_initialiser.py ; None en autoliquidation ou s'il n'existe pas."""
+    if regime_tva() == "autoliquidation":
+        return None
     try:
         for t in stripe.TaxRate.list(active=True, limit=100).data:
             if _d(t).get("metadata", {}).get("app") == "kontrolia":
@@ -202,7 +232,12 @@ def get_or_create_customer(email: str, nom: str = "", app: str = "pcg") -> str:
         from utils.auth_rbac import get_user, mettre_a_jour_stripe
         user = get_user(email)
         if user and user.get("stripe_customer_id"):
-            return user["stripe_customer_id"]
+            try:   # un client créé en mode test n'existe pas en mode réel (et inversement)
+                c = stripe.Customer.retrieve(user["stripe_customer_id"])
+                if not _d(c).get("deleted"):
+                    return user["stripe_customer_id"]
+            except stripe.error.InvalidRequestError:
+                pass
     except Exception:
         pass
 
@@ -243,8 +278,13 @@ def creer_checkout_session(
     """
     _init_stripe()
 
-    if plan not in PRICING or billing not in ("monthly", "annual"):
+    fondateur = plan == FONDATEUR["plan"]
+    if fondateur:
+        billing = "monthly"
+    elif plan not in PRICING or billing not in ("monthly", "annual"):
         raise ValueError(f"Plan '{plan}' ou facturation '{billing}' inconnus")
+    if fondateur and places_fondateur() <= 0:
+        raise ValueError("Les 25 places du Programme Cabinet Fondateur sont prises.")
 
     app_url   = _get_app_url()
     customer_id = get_or_create_customer(email, nom, app)
@@ -282,10 +322,23 @@ def creer_checkout_session(
                 "app":   app,
             }
         },
-        allow_promotion_codes = True,
+        # Remise fondateur appliquée d'office ; sinon codes promo possibles (Stripe refuse les deux à la fois)
+        **({"discounts": [{"coupon": FONDATEUR["coupon"]}]} if fondateur else {"allow_promotion_codes": True}),
         locale            = "fr",
     )
     return session.url
+
+
+def places_fondateur() -> int:
+    """Places restantes du Programme Cabinet Fondateur (coupon limité à 25 utilisations) ; 0 si indisponible."""
+    try:
+        _init_stripe()
+        c = _d(stripe.Coupon.retrieve(FONDATEUR["coupon"]))
+        if not c.get("valid", False):
+            return 0
+        return max(0, (c.get("max_redemptions") or FONDATEUR["places"]) - (c.get("times_redeemed") or 0))
+    except Exception:
+        return 0
 
 
 # ─── Customer Portal ──────────────────────────────────────────────────────────
@@ -444,7 +497,7 @@ def gerer_retour_stripe() -> None:
 
         if params.get("stripe") == "success":
             plan = params.get("plan", "")
-            libelle = PRICING.get(plan, {}).get("label", plan.capitalize())
+            libelle = FONDATEUR["label"] if plan == FONDATEUR["plan"] else PRICING.get(plan, {}).get("label", plan.capitalize())
             st.success(f"Paiement accepté : abonnement **{libelle}** KontrolIA. "
                        + ("Il est actif sur votre compte." if st.session_state.get("authenticated")
                           else "Connectez-vous pour en profiter (activation en quelques secondes)."),
