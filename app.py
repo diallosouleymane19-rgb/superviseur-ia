@@ -85,6 +85,9 @@ if not is_connecte():
     from utils.stripe_billing import gerer_retour_stripe
     gerer_retour_stripe()
 
+    # Lien d'invitation des e-mails de prospection (…/?essai=1) : l'inscription (essai Pro 14 jours) s'ouvre en premier
+    if st.query_params.get("essai"):
+        st.session_state["ouvrir_inscription"] = True
     # Venant du bouton « Tester gratuitement » : l'onglet d'inscription s'ouvre en premier
     if st.session_state.get("ouvrir_inscription"):
         tab_signup, tab_login = st.tabs(["Créer un compte", "Se connecter"])
