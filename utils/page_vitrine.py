@@ -80,25 +80,25 @@ FAQ = [
 CSS = """
 <style>
 .st-key-vitrine_entete { display:flex; align-items:center; }
-.vt-marque { font-size:1.9rem; font-weight:800; color:var(--smd-marine); margin:0; line-height:1.1; }
+.vt-marque { font-size:1.9rem; font-weight:800; color:#1F2933; margin:0; line-height:1.1; }
 .st-key-vt_essai_hero button, .st-key-vt_essai_final button, .st-key-vt_essai_pro button {
-  background:#22C55E !important; border-color:#22C55E !important; color:#06240F !important; font-weight:700 !important; }
+  background:#A9592A !important; border-color:#A9592A !important; color:#FFFFFF !important; font-weight:700 !important; }
 .st-key-vt_essai_hero button:hover, .st-key-vt_essai_final button:hover, .st-key-vt_essai_pro button:hover {
-  background:#16A34A !important; border-color:#16A34A !important; }
-.vt-marque span, .vt-titre span { color:#5FB8E6; }
+  background:#8F4A22 !important; border-color:#8F4A22 !important; }
+.vt-marque span { color:#A9592A; } .vt-titre span { color:#E09A62; }
 .vt-signature { font-size:.8rem; color:var(--smd-ardoise); margin:.1rem 0 0; }
-.st-key-vitrine_hero { background:linear-gradient(135deg,#0A3681 0%,#0E1E3A 100%); border-radius:14px;
+.st-key-vitrine_hero { background:linear-gradient(135deg,#2D3A47 0%,#1F2933 100%); border-radius:14px;
   padding:3rem 3rem 2.5rem; }
-.vt-badge { display:inline-block; background:rgba(95,184,230,.18); color:#BFE3F7; border:1px solid #5FB8E6;
+.vt-badge { display:inline-block; background:rgba(224,154,98,.15); color:#F3C9A6; border:1px solid #E09A62;
   border-radius:999px; padding:.25rem .8rem; font-size:.8rem; font-weight:600; letter-spacing:.03em; }
 .vt-titre { color:#FFFFFF !important; font-size:2.9rem !important; line-height:1.08 !important;
   font-weight:800 !important; text-transform:uppercase; margin:1rem 0 1.4rem !important; }
 .vt-coches { list-style:none; padding:0; margin:0 0 1.6rem; }
 .vt-coches li { color:#E6ECF6; font-size:1.05rem; margin:.55rem 0; display:flex; gap:.6rem; align-items:flex-start; }
 .vt-coches li:before { content:"✓"; flex-shrink:0; width:1.35rem; height:1.35rem; border-radius:50%;
-  background:#FFFFFF; color:var(--smd-marine); font-weight:800; font-size:.8rem; display:flex;
+  background:#E09A62; color:#1F2933; font-weight:800; font-size:.8rem; display:flex;
   align-items:center; justify-content:center; margin-top:.15rem; }
-.vt-freins { color:#B9C8E3; font-size:.85rem; margin:.6rem 0 0; }
+.vt-freins { color:#B8C2CC; font-size:.85rem; margin:.6rem 0 0; }
 .vt-carte-hero { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.18); border-radius:12px;
   padding:1.5rem; color:#E6ECF6; }
 .vt-carte-hero h4 { color:#FFFFFF !important; margin:0 0 .8rem !important; }
@@ -106,46 +106,47 @@ CSS = """
   padding:.45rem 0; font-size:.9rem; }
 .vt-ok { color:#7EE2A8; font-weight:700; } .vt-ko { color:#F6B26B; font-weight:700; }
 .vt-section { text-align:center; margin:3.2rem 0 1.4rem; }
-.vt-section h2 { color:var(--smd-encre) !important; font-weight:800 !important; margin:0 !important; }
+.vt-section h2 { color:#1F2933 !important; font-weight:800 !important; margin:0 !important; }
 .vt-section p { color:var(--smd-ardoise); margin:.4rem 0 0; }
 .vt-carte { background:#FFFFFF; border:1px solid var(--smd-filet); border-radius:12px; padding:1.4rem; height:100%; }
-.vt-carte h4 { color:var(--smd-encre) !important; margin:.5rem 0 .4rem !important; font-size:1.05rem !important; }
+.vt-carte h4 { color:#1F2933 !important; margin:.5rem 0 .4rem !important; font-size:1.05rem !important; }
 .vt-carte p, .vt-carte li { color:var(--smd-ardoise); font-size:.9rem; margin:0; }
 .vt-carte ul { padding-left:1.1rem; margin:0; } .vt-carte li { margin:.25rem 0; }
-.vt-ico { font-family:'Material Symbols Rounded'; font-size:1.9rem; color:var(--smd-azur); line-height:1; }
+.vt-ico { font-family:'Material Symbols Rounded'; font-size:1.9rem; color:#A9592A; line-height:1; }
 .vt-prix { border:1px solid var(--smd-filet); border-radius:12px; padding:1.4rem 1.2rem; background:#FFFFFF;
   text-align:center; min-height:15.5rem; }
-.vt-prix.vt-reco { border:2px solid var(--smd-azur); box-shadow:0 6px 18px rgba(10,132,198,.15); }
-.vt-prix .vt-etiquette { display:inline-block; background:var(--smd-azur); color:#FFFFFF; border-radius:999px;
+.vt-prix.vt-reco { border:2px solid #A9592A; box-shadow:0 6px 18px rgba(169,89,42,.15); }
+.vt-prix .vt-etiquette { display:inline-block; background:#A9592A; color:#FFFFFF; border-radius:999px;
   font-size:.72rem; font-weight:700; padding:.15rem .7rem; margin-bottom:.5rem; }
-.vt-prix h4 { color:var(--smd-encre) !important; margin:.2rem 0 !important; }
-.vt-prix .vt-montant { font-size:2rem; font-weight:800; color:var(--smd-marine); margin:.4rem 0 0; }
+.vt-prix h4 { color:#1F2933 !important; margin:.2rem 0 !important; }
+.vt-prix .vt-montant { font-size:2rem; font-weight:800; color:#1F2933; margin:.4rem 0 0; }
 .vt-prix .vt-unite { font-size:.8rem; color:var(--smd-ardoise); }
 .vt-prix .vt-detail { font-size:.88rem; color:var(--smd-ardoise); margin:.8rem 0 0; }
-.vt-fondateur { background:#FFF7E6; border:1px solid #F2B544; border-radius:12px; padding:1.1rem 1.4rem;
-  margin:1.2rem 0 0; color:#2B1D00; }
-.vt-fondateur b { color:#7A4B00; }
-.st-key-vitrine_final { background:var(--smd-brume); border-radius:14px; padding:2.2rem; text-align:center; }
+.vt-fondateur { background:#FBF3EC; border:1px solid #E09A62; border-radius:12px; padding:1.1rem 1.4rem;
+  margin:1.2rem 0 0; color:#2B1A10; }
+.vt-fondateur b { color:#8F4A22; }
+.st-key-vitrine_final a { color:#A9592A !important; }
+.st-key-vitrine_final { background:#F6F1EC; border-radius:14px; padding:2.2rem; text-align:center; }
 /* En-tête façon bandeau sombre */
 .block-container { padding-top:1.2rem !important; }
-.vt-nav { background:#0A1640; border-radius:12px; overflow:hidden; margin:0 0 1.2rem; }
+.vt-nav { background:#1F2933; border-radius:12px; overflow:hidden; margin:0 0 1.2rem; }
 .vt-nav a { text-decoration:none !important; }
-.vt-nav-haut { display:flex; justify-content:space-between; align-items:center; background:#081033;
+.vt-nav-haut { display:flex; justify-content:space-between; align-items:center; background:#161E26;
   padding:.45rem 1.4rem; font-size:.85rem; }
 .vt-nav-haut a { color:#E6ECF6 !important; margin-right:1.4rem; display:inline-flex; align-items:center; gap:.35rem; }
 .vt-nav-outils a { margin:0 0 0 1.6rem; }
 .vt-nav-haut a:hover { color:#FFFFFF !important; }
 .vt-i { font-family:'Material Symbols Rounded'; font-size:1.15rem; line-height:1; }
-.vt-nav-bas { display:flex; align-items:center; gap:2rem; background:linear-gradient(90deg,#0A1A5C,#102A7A);
+.vt-nav-bas { display:flex; align-items:center; gap:2rem; background:#1F2933;
   padding:.8rem 1.4rem; }
 .vt-logo { font-size:1.75rem; font-weight:800; color:#FFFFFF !important; letter-spacing:-.01em; }
-.vt-logo span { color:#5FB8E6; }
+.vt-logo span { color:#E09A62; }
 .vt-menu { display:flex; gap:.4rem; flex:1; }
 .vt-menu a { color:#FFFFFF !important; font-weight:600; padding:.5rem .9rem; border-radius:10px; font-size:.98rem; }
 .vt-menu a:hover { background:rgba(255,255,255,.1); }
-.vt-cta { background:#22C55E; color:#06240F !important; font-weight:700; padding:.65rem 1.4rem; border-radius:999px;
+.vt-cta { background:#A9592A; color:#FFFFFF !important; font-weight:700; padding:.65rem 1.4rem; border-radius:999px;
   white-space:nowrap; }
-.vt-cta:hover { background:#16A34A; }
+.vt-cta:hover { background:#8F4A22; }
 @media (max-width: 760px) {
   .vt-nav-public, .vt-menu, .vt-nav-outils a:first-child { display:none; }
   .vt-nav-haut { justify-content:flex-end; }
@@ -235,7 +236,7 @@ def page_vitrine():
                 "<div class='vt-ligne'><span>Charges créditrices (classe 6)</span><span class='vt-ko'>À vérifier</span></div>"
                 "<div class='vt-ligne'><span>Produits débiteurs (classe 7)</span><span class='vt-ko'>À vérifier</span></div>"
                 "<div class='vt-ligne' style='border:0'><span>Rapport d'audit</span><span class='vt-ok'>Prêt</span></div>"
-                "<p style='font-size:.75rem;color:#B9C8E3;margin:.8rem 0 0'>Illustration : les contrôles affichés "
+                "<p style='font-size:.75rem;color:#B8C2CC;margin:.8rem 0 0'>Illustration : les contrôles affichés "
                 "dépendent du fichier déposé.</p></div>", unsafe_allow_html=True)
 
     # ── Trois piliers ──────────────────────────────────────────────────────────
