@@ -82,8 +82,15 @@ if _jeton_reset:
 
 if not is_connecte():
     # Retour Stripe éventuel (upgrade depuis login)
+    _retour_stripe = st.query_params.get("stripe")
     from utils.stripe_billing import gerer_retour_stripe
     gerer_retour_stripe()
+
+    # Page publique de présentation, sauf lien d'essai (?essai=1), retour Stripe ou visiteur qui l'a déjà quittée
+    if not (st.query_params.get("essai") or _retour_stripe or st.session_state.get("vitrine_vue")):
+        from utils.page_vitrine import page_vitrine
+        page_vitrine()
+        st.stop()
 
     # Lien d'invitation des e-mails de prospection (…/?essai=1) : l'inscription (essai Pro 14 jours) s'ouvre en premier
     if st.query_params.get("essai"):
@@ -144,6 +151,8 @@ if not is_connecte():
 
         st.caption("SMD Global Consulting LLC © 2026 · [CGU](?doc=cgu) · "
                    "[Politique de confidentialité](?doc=confidentialite)")
+        st.button("Découvrir KontrolIA", key="btn_vitrine", icon=":material/arrow_back:",
+                  on_click=lambda: st.session_state.update(vitrine_vue=False))
 
     with tab_signup:
         from utils.page_inscription import page_inscription

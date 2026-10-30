@@ -126,7 +126,11 @@ def page_inscription(app_name: str = "pcg") -> None:
                                f"({places} place{'s' if places > 1 else ''} sur 25)")
                     items = list(plan_options.items())
                     plan_options = dict(items[:1] + [(libelle, "fondateur")] + items[1:])
+            # Plan choisi sur la page de présentation (bouton « Choisir … ») : présélectionné s'il est proposé
+            codes = list(plan_options.values())
+            prefere = st.session_state.get("plan_vitrine")
             plan_label  = st.selectbox("Plan", list(plan_options.keys()),
+                                       index=codes.index(prefere) if prefere in codes else 0,
                                        label_visibility="collapsed")
             plan_choisi = plan_options[plan_label]
 
