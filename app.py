@@ -86,6 +86,13 @@ if not is_connecte():
     from utils.stripe_billing import gerer_retour_stripe
     gerer_retour_stripe()
 
+    # Liens de l'en-tête de la page de présentation : ?acces=connexion / ?acces=inscription
+    _acces = st.query_params.get("acces")
+    if _acces in ("connexion", "inscription"):
+        st.session_state.update(vitrine_vue=True, ouvrir_inscription=(_acces == "inscription"))
+        st.session_state.pop("plan_vitrine", None)
+        del st.query_params["acces"]
+
     # Page publique de présentation, sauf lien d'essai (?essai=1), retour Stripe ou visiteur qui l'a déjà quittée
     if not (st.query_params.get("essai") or _retour_stripe or st.session_state.get("vitrine_vue")):
         from utils.page_vitrine import page_vitrine

@@ -126,7 +126,31 @@ CSS = """
   margin:1.2rem 0 0; color:#2B1D00; }
 .vt-fondateur b { color:#7A4B00; }
 .st-key-vitrine_final { background:var(--smd-brume); border-radius:14px; padding:2.2rem; text-align:center; }
+/* En-tête façon bandeau sombre */
+.block-container { padding-top:1.2rem !important; }
+.vt-nav { background:#0A1640; border-radius:12px; overflow:hidden; margin:0 0 1.2rem; }
+.vt-nav a { text-decoration:none !important; }
+.vt-nav-haut { display:flex; justify-content:space-between; align-items:center; background:#081033;
+  padding:.45rem 1.4rem; font-size:.85rem; }
+.vt-nav-haut a { color:#E6ECF6 !important; margin-right:1.4rem; display:inline-flex; align-items:center; gap:.35rem; }
+.vt-nav-outils a { margin:0 0 0 1.6rem; }
+.vt-nav-haut a:hover { color:#FFFFFF !important; }
+.vt-i { font-family:'Material Symbols Rounded'; font-size:1.15rem; line-height:1; }
+.vt-nav-bas { display:flex; align-items:center; gap:2rem; background:linear-gradient(90deg,#0A1A5C,#102A7A);
+  padding:.8rem 1.4rem; }
+.vt-logo { font-size:1.75rem; font-weight:800; color:#FFFFFF !important; letter-spacing:-.01em; }
+.vt-logo span { color:#5FB8E6; }
+.vt-menu { display:flex; gap:.4rem; flex:1; }
+.vt-menu a { color:#FFFFFF !important; font-weight:600; padding:.5rem .9rem; border-radius:10px; font-size:.98rem; }
+.vt-menu a:hover { background:rgba(255,255,255,.1); }
+.vt-cta { background:#22C55E; color:#06240F !important; font-weight:700; padding:.65rem 1.4rem; border-radius:999px;
+  white-space:nowrap; }
+.vt-cta:hover { background:#16A34A; }
 @media (max-width: 760px) {
+  .vt-nav-public, .vt-menu, .vt-nav-outils a:first-child { display:none; }
+  .vt-nav-haut { justify-content:flex-end; }
+  .vt-nav-bas { justify-content:space-between; gap:.8rem; padding:.7rem 1rem; }
+  .vt-logo { font-size:1.4rem; } .vt-cta { padding:.5rem .9rem; font-size:.85rem; }
   .st-key-vitrine_hero { padding:1.6rem 1.2rem; }
   .vt-titre { font-size:1.9rem !important; }
 }
@@ -166,17 +190,25 @@ def _places_fondateur() -> int:
 def page_vitrine():
     st.markdown(CSS, unsafe_allow_html=True)
 
-    # ── En-tête ────────────────────────────────────────────────────────────────
-    c_marque, _, c_cnx, c_ins = st.columns([5, 3, 1.4, 2])
-    with c_marque:
-        st.markdown("<div class='vt-marque'>Kontrol<span>IA</span></div>"
-                    "<div class='vt-signature'>une solution SMD Global Consulting LLC</div>", unsafe_allow_html=True)
-    with c_cnx:
-        st.button("Me connecter", key="vt_cnx", on_click=_ouvrir, args=(False,), icon=":material/login:",
-                  width="stretch")
-    with c_ins:
-        st.button("S'inscrire gratuitement", key="vt_ins_haut", type="primary", on_click=_ouvrir, args=(True,),
-                  width="stretch")
+    # ── En-tête (deux bandeaux, liens internes ; connexion / inscription via ?acces=…) ──
+    st.markdown(
+        "<div class='vt-nav'>"
+        "<div class='vt-nav-haut'><div class='vt-nav-public'>"
+        "<a href='#pour-qui' target='_self'>Cabinets</a><a href='#pour-qui' target='_self'>Entreprises</a></div>"
+        "<div class='vt-nav-outils'>"
+        f"<a href='mailto:{CONTACT}'><span class='vt-i'>mail</span>{CONTACT}</a>"
+        "<a href='#faq' target='_self'><span class='vt-i'>help</span>Aide</a>"
+        "<a href='?acces=connexion' target='_self'><span class='vt-i'>account_circle</span>Me connecter</a>"
+        "</div></div>"
+        "<div class='vt-nav-bas'>"
+        "<a class='vt-logo' href='#haut' target='_self'>Kontrol<span>IA</span></a>"
+        "<nav class='vt-menu'>"
+        "<a href='#fonctionnalites' target='_self'>Fonctionnalités</a>"
+        "<a href='#pour-qui' target='_self'>Pour qui</a>"
+        "<a href='#tarifs' target='_self'>Tarifs</a>"
+        "<a href='#faq' target='_self'>FAQ</a></nav>"
+        "<a class='vt-cta' href='?acces=inscription' target='_self'>S'inscrire gratuitement</a>"
+        "</div></div><div id='haut'></div>", unsafe_allow_html=True)
 
     # ── Bandeau d'accueil ──────────────────────────────────────────────────────
     with st.container(key="vitrine_hero"):
@@ -215,7 +247,7 @@ def page_vitrine():
                         unsafe_allow_html=True)
 
     # ── Modules ────────────────────────────────────────────────────────────────
-    st.markdown("<div class='vt-section'><h2>Une seule appli pour tout le dossier</h2>"
+    st.markdown("<div id='fonctionnalites' class='vt-section'><h2>Une seule appli pour tout le dossier</h2>"
                 "<p>Tous les modules sont inclus dans l'essai.</p></div>", unsafe_allow_html=True)
     for col, (ico, titre, items) in zip(st.columns(4), MODULES):
         with col:
@@ -224,7 +256,7 @@ def page_vitrine():
                         unsafe_allow_html=True)
 
     # ── Pour qui ───────────────────────────────────────────────────────────────
-    st.markdown("<div class='vt-section'><h2>Pour qui ?</h2></div>", unsafe_allow_html=True)
+    st.markdown("<div id='pour-qui' class='vt-section'><h2>Pour qui ?</h2></div>", unsafe_allow_html=True)
     for col, (ico, titre, texte) in zip(st.columns(3), POUR_QUI):
         with col:
             st.markdown(f"<div class='vt-carte'><span class='vt-ico'>{ico}</span><h4>{titre}</h4><p>{texte}</p></div>",
@@ -271,7 +303,7 @@ def page_vitrine():
                   args=(True, FONDATEUR["plan"]), icon=":material/workspace_premium:")
 
     # ── FAQ ────────────────────────────────────────────────────────────────────
-    st.markdown("<div class='vt-section'><h2>Questions fréquentes</h2></div>", unsafe_allow_html=True)
+    st.markdown("<div id='faq' class='vt-section'><h2>Questions fréquentes</h2></div>", unsafe_allow_html=True)
     _, centre, _ = st.columns([1, 6, 1])
     with centre:
         for q, r in FAQ:
