@@ -53,6 +53,7 @@ def test_checkout_pro_classique_et_places_epuisees(monkeypatch):
     vu = _checkout(monkeypatch)
     sb.creer_checkout_session("a@b.fr", "pro")
     assert vu["allow_promotion_codes"] is True and "discounts" not in vu
+    assert vu["payment_method_types"] == ["card"]                         # carte seule
     _checkout(monkeypatch, places=0)
     with pytest.raises(ValueError):
         sb.creer_checkout_session("a@b.fr", "fondateur")

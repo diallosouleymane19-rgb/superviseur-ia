@@ -306,6 +306,7 @@ def creer_checkout_session(
         tax_id_collection = {"enabled": True},
         customer_update   = {"name": "auto", "address": "auto"},
         mode              = "subscription",
+        payment_method_types = ["card"],   # carte seule (pas de Klarna, Satispay, Amazon Pay…) : décision du 31/10/2026
         line_items        = [{"price": price_id, "quantity": 1}],
         success_url       = f"{app_url}/?stripe=success&plan={plan}&app={app}",
         cancel_url        = f"{app_url}/?stripe=cancel",
