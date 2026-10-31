@@ -68,6 +68,8 @@ h1, h2, h3, h4 { color: var(--smd-encre); letter-spacing: -0.005em; font-weight:
 .smd-jauge-ok { background: #3FB37F; } .smd-jauge-moyen { background: #E0A43A; } .smd-jauge-haut { background: #E5534B; }
 .st-key-smd_barre { border-bottom: 1px solid var(--smd-filet); padding-bottom: .6rem; margin: -2.2rem 0 1.2rem; }
 .st-key-smd_barre [data-testid="stPopover"] button { border-radius: 999px; }
+.st-key-smd_barre [data-testid="stPopover"] button > div { min-width: 0; }
+.st-key-smd_barre [data-testid="stPopover"] button p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Familles repliables et entrées */
 .st-key-smd_menu { gap: .1rem !important; }

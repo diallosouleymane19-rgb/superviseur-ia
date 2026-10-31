@@ -262,7 +262,7 @@ with st.sidebar.container(key="smd_raccourcis"):
 
 # ── Barre du haut : client en cours + menu du compte ──────────────────────────
 with st.container(key="smd_barre"):
-    _b_vide, _b_client, _b_nouveau, _b_compte = st.columns([3.6, 3, 1.9, 2.3], vertical_alignment="center")
+    _b_vide, _b_client, _b_nouveau, _b_compte = st.columns([1.4, 3, 1.8, 3.2], vertical_alignment="center")
 
 # Dossier client en cours : les sauvegardes y sont rangées (hors mode démonstration)
 if st.session_state.get("role") != "demo":
@@ -294,7 +294,7 @@ if st.session_state.get("role") != "demo":
         else:
             st.session_state["menu_client_msg"] = "Création impossible (base de données indisponible). Réessayez."
 
-    with _b_nouveau.popover("Nouveau client", icon=":material/add:", width="stretch"):
+    with _b_nouveau.popover("Client", icon=":material/add:", width="stretch", help="Nouveau client"):
         st.text_input("Nom du client", key="menu_nouveau_client", placeholder="ex. SARL Martin")
         st.button("Créer le dossier", type="primary", width="stretch", on_click=_nouveau_client_menu,
                   key="menu_btn_client")
